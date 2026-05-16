@@ -20,7 +20,7 @@ const server = http.createServer(app);
 
 // Middleware
 app.use(cors({
-  origin: config.clientUrl,
+  origin: config.corsOrigins,
   credentials: true,
 }));
 app.use(express.json());
@@ -47,7 +47,7 @@ app.get('/api/health', (req, res) => {
 // ========================
 const io = new Server(server, {
   cors: {
-    origin: config.clientUrl,
+    origin: config.corsOrigins,
     methods: ['GET', 'POST'],
     credentials: true,
   },
@@ -81,9 +81,10 @@ async function startServer() {
   // Kết nối MongoDB
   await dbObserver.connect(config.mongoUri);
 
-  // Start Express server
-  server.listen(config.port, () => {
-    console.log(`
+  // Chỉ listen cổng nếu KHÔNG deploy trên Vercel Serverless
+  if (!process.env.VERCEL) {
+    server.listen(config.port, () => {
+      console.log(`
   ╔══════════════════════════════════════════╗
   ║     🎓 StudyRandom Backend              ║
   ║     Port: ${config.port}                         ║
@@ -91,12 +92,14 @@ async function startServer() {
   ║     Client: ${config.clientUrl}       ║
   ║     MongoDB: ${config.mongoUri}  ║
   ╚══════════════════════════════════════════╝
-    `);
-  });
+      `);
+    });
+  }
 }
 
 startServer().catch((err) => {
   console.error('[Server] Failed to start:', err);
 });
 
-module.exports = { app, server, io };
+// Phải export app cho Vercel serverless function
+module.exports = app;
