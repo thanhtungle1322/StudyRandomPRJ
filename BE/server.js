@@ -81,10 +81,9 @@ async function startServer() {
   // Kết nối MongoDB
   await dbObserver.connect(config.mongoUri);
 
-  // Chỉ listen cổng nếu KHÔNG deploy trên Vercel Serverless
-  if (!process.env.VERCEL) {
-    server.listen(config.port, () => {
-      console.log(`
+  // Start Express server
+  server.listen(config.port, '0.0.0.0', () => {
+    console.log(`
   ╔══════════════════════════════════════════╗
   ║     🎓 StudyRandom Backend              ║
   ║     Port: ${config.port}                         ║
@@ -92,14 +91,12 @@ async function startServer() {
   ║     Client: ${config.clientUrl}       ║
   ║     MongoDB: ${config.mongoUri}  ║
   ╚══════════════════════════════════════════╝
-      `);
-    });
-  }
+    `);
+  });
 }
 
 startServer().catch((err) => {
   console.error('[Server] Failed to start:', err);
 });
 
-// Phải export app cho Vercel serverless function
-module.exports = app;
+module.exports = { app, server, io };
