@@ -1,0 +1,382 @@
+/* ===========================
+   Static Pages Shared Styles
+   =========================== */
+
+.static-page {
+  padding-top: 100px;
+  padding-bottom: 60px;
+  min-height: 100vh;
+}
+
+.static-header {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.static-icon {
+  font-size: 56px;
+  display: block;
+  margin-bottom: 16px;
+  animation: float 3s ease-in-out infinite;
+}
+
+.static-header h1 {
+  font-size: 36px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.static-subtitle {
+  font-size: 16px;
+  color: var(--text-secondary);
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+.static-content {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.static-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 24px;
+  margin-top: 40px;
+}
+
+.static-notice span {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.static-notice p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.static-cta {
+  text-align: center;
+  margin-top: 32px;
+}
+
+/* Feature List */
+.feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 24px;
+}
+
+.feature-emoji {
+  font-size: 32px;
+  flex-shrink: 0;
+}
+
+.feature-item h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.feature-item p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ===========================
+   Whiteboard Page
+   =========================== */
+
+.whiteboard-demo {
+  overflow: hidden;
+}
+
+.whiteboard-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--border-color);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tool-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-color);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all var(--transition-fast);
+}
+
+.tool-btn:hover,
+.tool-btn.active {
+  background: var(--primary-600);
+  border-color: var(--primary-500);
+}
+
+.color-picker {
+  display: flex;
+  gap: 6px;
+}
+
+.color-dot {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.color-dot:hover,
+.color-dot.active {
+  border-color: white;
+  transform: scale(1.2);
+}
+
+.whiteboard-canvas {
+  position: relative;
+  min-height: 300px;
+  background: #1a1f2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.canvas-placeholder {
+  text-align: center;
+  color: var(--text-muted);
+  position: absolute;
+  z-index: 1;
+}
+
+.canvas-icon {
+  font-size: 48px;
+  display: block;
+  margin-bottom: 12px;
+}
+
+.canvas-hint {
+  font-size: 12px;
+  margin-top: 4px;
+  color: var(--text-muted);
+}
+
+.demo-drawing {
+  width: 100%;
+  height: 300px;
+  opacity: 0.6;
+}
+
+/* ===========================
+   Friends Page
+   =========================== */
+
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.friend-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+}
+
+.friend-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.friend-avatar-emoji {
+  font-size: 36px;
+}
+
+.friend-details h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.friend-subject {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.friend-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.friend-status {
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+}
+
+.friend-status.online {
+  color: var(--success);
+  background: rgba(81, 207, 102, 0.1);
+}
+
+.friend-status.offline {
+  color: var(--text-muted);
+  background: var(--bg-glass);
+}
+
+.friend-status.studying {
+  color: var(--primary-300);
+  background: rgba(76, 110, 245, 0.1);
+}
+
+/* ===========================
+   Report Page
+   =========================== */
+
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.report-types h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.report-type-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.report-type-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 16px 20px;
+  cursor: pointer;
+  text-align: left;
+  border: 2px solid transparent;
+  font-family: var(--font-family);
+  color: var(--text-primary);
+  transition: all var(--transition-normal);
+}
+
+.report-type-card:hover {
+  border-color: var(--border-color-hover);
+}
+
+.report-type-card.selected {
+  border-color: var(--danger);
+  background: rgba(255, 107, 107, 0.05);
+}
+
+.report-type-label {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.report-type-desc {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.report-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.report-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.report-success {
+  text-align: center;
+  padding: 60px 40px;
+}
+
+.success-icon {
+  font-size: 64px;
+  display: block;
+  margin-bottom: 20px;
+}
+
+.report-success h2 {
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 12px;
+}
+
+.report-success p {
+  font-size: 15px;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+  max-width: 400px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.success-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+@media (max-width: 768px) {
+  .static-header h1 {
+    font-size: 28px;
+  }
+
+  .friend-card {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .friend-actions {
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .report-type-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-actions {
+    flex-direction: column;
+  }
+}
