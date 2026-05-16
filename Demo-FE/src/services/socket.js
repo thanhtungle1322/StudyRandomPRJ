@@ -56,8 +56,8 @@ export function getSocket() {
       // Timeouts
       timeout: 10000,                  // Connection timeout 10s
 
-      // Transport
-      transports: ['websocket', 'polling'], // Ưu tiên websocket, fallback polling
+      // Transport (Ưu tiên polling trước trên Vercel do Vercel Serverless không hỗ trợ native websocket)
+      transports: ['polling', 'websocket'],
     });
 
     // ========================
