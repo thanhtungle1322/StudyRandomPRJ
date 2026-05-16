@@ -1,6 +1,6 @@
 # 🎓 StudyRandom - Tìm Bạn Học Ngẫu Nhiên
 
-Ứng dụng web ghép ngẫu nhiên bạn học (1-1), tương tự Azar nhưng dành cho học tập.
+Ứng dụng web ghép ngẫu nhiên bạn học (1-1) dành cho học tập.
 
 ## 🚀 Tech Stack
 
