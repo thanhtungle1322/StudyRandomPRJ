@@ -24,6 +24,8 @@ export default function StudyRoom() {
   const [isVideoOff, setIsVideoOff] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [partnerHasVideo, setPartnerHasVideo] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [showPermissionPopup, setShowPermissionPopup] = useState(false);
 
   const localVideoRef = useRef(null);
   const partnerVideoRef = useRef(null);
@@ -122,6 +124,7 @@ export default function StudyRoom() {
   const VideoOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z"/><line x1="2" x2="22" y1="2" y2="22"/></svg>;
   const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" x2="2" y1="2" y2="22"/></svg>;
   const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>;
+  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>;
 
   const subjectNames = {
     math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
@@ -148,31 +151,40 @@ export default function StudyRoom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Xin quyền media
+  const requestMedia = useCallback(async () => {
+    try {
+      console.log('[Media] Requesting camera & mic...');
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      
+      // Bắt đầu với trạng thái tắt
+      stream.getAudioTracks().forEach(track => track.enabled = false);
+      stream.getVideoTracks().forEach(track => track.enabled = false);
+      
+      streamRef.current = stream;
+      setPermissionDenied(false);
+      setShowPermissionPopup(false);
+      
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+      console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
+    } catch (err) {
+      console.error('[Media] Không thể truy cập thiết bị:', err);
+      const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+      setPermissionDenied(true);
+      if (isDenied) {
+        setShowPermissionPopup(true);
+      }
+      addSystemMessage('Không thể truy cập Camera/Mic. Hãy cấp quyền trong trình duyệt.');
+    }
+  }, [addSystemMessage]);
+
   // ========================
-  // Effect 1: Chỉ xin quyền media (không WebRTC!)
+  // Effect 1: Xin quyền media lần đầu (không WebRTC!)
   // ========================
   useEffect(() => {
-    const initMedia = async () => {
-      try {
-        console.log('[Media] Requesting camera & mic...');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        
-        // Bắt đầu với trạng thái tắt
-        stream.getAudioTracks().forEach(track => track.enabled = false);
-        stream.getVideoTracks().forEach(track => track.enabled = false);
-        
-        streamRef.current = stream;
-        
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
-      } catch (err) {
-        console.error('[Media] Không thể truy cập thiết bị:', err);
-        addSystemMessage('Không thể truy cập Camera/Mic. Hãy cấp quyền trong trình duyệt.');
-      }
-    };
-    initMedia();
+    requestMedia();
 
     return () => {
       // Cleanup: dừng stream và đóng PeerConnection
@@ -186,7 +198,7 @@ export default function StudyRoom() {
       }
       webrtcStartedRef.current = false;
     };
-  }, [addSystemMessage]);
+  }, [requestMedia]);
 
   // ========================
   // Observer: Subscribe to socket lifecycle events
@@ -441,6 +453,41 @@ export default function StudyRoom() {
         </div>
       )}
 
+      {/* Permission Denied Popup — Google Meet style */}
+      {showPermissionPopup && (
+        <div className="permission-overlay">
+          <div className="permission-popup glass-card">
+            <div className="permission-popup-icon">⚠️</div>
+            <h3>Camera và Micro bị chặn</h3>
+            <p className="permission-popup-desc">
+              StudyRandom cần quyền truy cập Camera và Micro để bạn có thể gọi video với bạn học.
+            </p>
+            <div className="permission-steps">
+              <div className="permission-step">
+                <span className="step-num">1</span>
+                <span>Nhấn vào biểu tượng <strong>🔒 ổ khóa</strong> hoặc <strong>📷 camera</strong> trên thanh địa chỉ trình duyệt</span>
+              </div>
+              <div className="permission-step">
+                <span className="step-num">2</span>
+                <span>Chọn <strong>"Cho phép"</strong> (Allow) cho Camera và Micro</span>
+              </div>
+              <div className="permission-step">
+                <span className="step-num">3</span>
+                <span>Nhấn nút bên dưới để thử lại</span>
+              </div>
+            </div>
+            <div className="permission-actions">
+              <button className="btn btn-primary" onClick={requestMedia}>
+                🔄 Thử lại cấp quyền
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowPermissionPopup(false)}>
+                Bỏ qua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Room Body */}
       <div className="room-body">
         
@@ -515,28 +562,38 @@ export default function StudyRoom() {
           {/* Control Bar */}
           <div className="control-bar">
             <button 
-              className={`control-btn ${isMuted ? 'danger' : 'active'}`}
+              className={`control-btn ${permissionDenied ? 'warning' : isMuted ? 'danger' : 'active'}`}
               onClick={() => {
+                if (permissionDenied) {
+                  setShowPermissionPopup(true);
+                  return;
+                }
                 if (streamRef.current) {
                   streamRef.current.getAudioTracks().forEach(track => track.enabled = isMuted);
                 }
                 setIsMuted(!isMuted);
               }}
-              title={isMuted ? "Bật Mic" : "Tắt Mic"}
+              title={permissionDenied ? "Micro bị chặn — nhấn để cấp quyền" : isMuted ? "Bật Mic" : "Tắt Mic"}
             >
               {isMuted ? <MicOffIcon /> : <MicIcon />}
+              {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
             <button 
-              className={`control-btn ${isVideoOff ? 'danger' : 'active'}`}
+              className={`control-btn ${permissionDenied ? 'warning' : isVideoOff ? 'danger' : 'active'}`}
               onClick={() => {
+                if (permissionDenied) {
+                  setShowPermissionPopup(true);
+                  return;
+                }
                 if (streamRef.current) {
                   streamRef.current.getVideoTracks().forEach(track => track.enabled = isVideoOff);
                 }
                 setIsVideoOff(!isVideoOff);
               }}
-              title={isVideoOff ? "Bật Camera" : "Tắt Camera"}
+              title={permissionDenied ? "Camera bị chặn — nhấn để cấp quyền" : isVideoOff ? "Bật Camera" : "Tắt Camera"}
             >
               {isVideoOff ? <VideoOffIcon /> : <VideoIcon />}
+              {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
             <button 
               className="control-btn end-call-btn"
