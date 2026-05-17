@@ -2,7 +2,19 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema(
   {
-    username: {
+    email: {
+      type: String,
+      lowercase: true,
+      trim: true,
+    },
+    password: {
+      type: String,
+      select: false,
+    },
+    googleId: {
+      type: String,
+    },
+    displayName: {
       type: String,
       required: true,
       trim: true,
@@ -25,14 +37,29 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    authProvider: {
+      type: String,
+      enum: ['local', 'google'],
+      required: true,
+    },
+    plan: {
+      type: String,
+      enum: ['free', 'premium'],
+      default: 'free',
+    },
+    planExpiry: {
+      type: Date,
+      default: null,
+    },
   },
   {
-    timestamps: true, // createdAt, updatedAt
+    timestamps: true,
   }
 );
 
-// Index cho tìm kiếm username nhanh
-userSchema.index({ username: 1 });
+userSchema.index({ email: 1 }, { unique: true, sparse: true });
+userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
+userSchema.index({ displayName: 1 });
 
 const User = mongoose.model('User', userSchema);
 

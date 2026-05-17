@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { FaGraduationCap, FaGoogle } from 'react-icons/fa';
-import { FiAlertTriangle, FiLock } from 'react-icons/fi';
+import { FaGraduationCap } from 'react-icons/fa';
+import { FiAlertTriangle, FiArrowRight } from 'react-icons/fi';
 import './LoginPage.css';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-
-export default function LoginPage() {
+export default function RegisterPage() {
+  const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -19,12 +18,16 @@ export default function LoginPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!email.trim() || !email.includes('@')) {
-      setError('Vui lòng nhập email hợp lệ');
+    if (!displayName.trim() || displayName.trim().length < 2) {
+      setError('Tên hiển thị phải có ít nhất 2 ký tự');
       return;
     }
-    if (!password) {
-      setError('Vui lòng nhập mật khẩu');
+    if (!email.trim() || !email.includes('@')) {
+      setError('Email không hợp lệ');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự');
       return;
     }
 
@@ -32,7 +35,8 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const { data } = await api.post('/auth/login', {
+      const { data } = await api.post('/auth/register', {
+        displayName: displayName.trim(),
         email: email.trim(),
         password,
       });
@@ -47,11 +51,6 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleLogin = () => {
-    const baseUrl = API_URL.replace('/api', '');
-    window.location.href = `${baseUrl}/api/auth/google`;
-  };
-
   return (
     <div className="login-page">
       <div className="login-bg">
@@ -63,11 +62,24 @@ export default function LoginPage() {
         <div className="login-card glass-card">
           <div className="login-header">
             <div className="login-icon"><FaGraduationCap style={{ color: '#845ef7' }} /></div>
-            <h1>Đăng Nhập StudyRandom</h1>
-            <p>Đăng nhập để tiếp tục tìm bạn học</p>
+            <h1>Đăng Ký StudyRandom</h1>
+            <p>Tạo tài khoản để bắt đầu tìm bạn học</p>
           </div>
 
           <form onSubmit={handleSubmit} className="login-form">
+            <div className="input-group">
+              <label htmlFor="displayName">Tên hiển thị</label>
+              <input
+                id="displayName"
+                type="text"
+                className="input-field"
+                placeholder="Tên hiển thị khi vào phòng học..."
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                maxLength={30}
+              />
+            </div>
+
             <div className="input-group">
               <label htmlFor="email">Email</label>
               <input
@@ -77,7 +89,6 @@ export default function LoginPage() {
                 placeholder="your@email.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                autoFocus
               />
             </div>
 
@@ -87,7 +98,7 @@ export default function LoginPage() {
                 id="password"
                 type="password"
                 className="input-field"
-                placeholder="Nhập mật khẩu"
+                placeholder="Ít nhất 6 ký tự"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -102,38 +113,25 @@ export default function LoginPage() {
             <button
               type="submit"
               className="btn btn-primary btn-lg login-btn"
-              disabled={loading || !email.trim() || !password}
+              disabled={loading || !displayName.trim() || !email.trim() || !password}
             >
               {loading ? (
                 <>
                   <span className="spinner"></span>
-                  Đang đăng nhập...
+                  Đang đăng ký...
                 </>
               ) : (
                 <>
-                  <span><FiLock style={{ color: '#fcc419' }} /></span>
-                  Đăng Nhập
+                  <span><FiArrowRight style={{ color: '#fcc419' }} /></span>
+                  Đăng Ký
                 </>
               )}
-            </button>
-
-            <div className="login-divider">
-              <span>hoặc</span>
-            </div>
-
-            <button
-              type="button"
-              className="btn btn-google btn-lg"
-              onClick={handleGoogleLogin}
-            >
-              <span className="google-icon"><FaGoogle style={{ color: '#4285F4' }} /></span>
-              Đăng nhập với Google
             </button>
           </form>
 
           <div className="login-footer">
             <p>
-              Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
+              Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
             </p>
           </div>
         </div>

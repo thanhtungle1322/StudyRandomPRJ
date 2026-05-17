@@ -3,7 +3,24 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { connectSocket, getSocket } from '../services/socket';
 import api from '../services/api';
+import { FiSearch, FiBook, FiCrosshair, FiEdit3, FiUsers, FiAlertOctagon, FiX, FiSmile, FiZap, FiDatabase, FiGlobe, FiCpu, FiCode, FiHash } from 'react-icons/fi';
+import { FaCalculator, FaNodeJs, FaReact, FaPython } from 'react-icons/fa';
 import './LobbyPage.css';
+
+// Icon mapping cho từng môn học (có màu riêng)
+const subjectIcons = {
+  math: <FaCalculator style={{ color: '#ff6b6b' }} />,
+  nodejs: <FaNodeJs style={{ color: '#68a063' }} />,
+  english: <FiGlobe style={{ color: '#339af0' }} />,
+  python: <FaPython style={{ color: '#ffd43b' }} />,
+  react: <FaReact style={{ color: '#61dafb' }} />,
+  database: <FiDatabase style={{ color: '#845ef7' }} />,
+  algorithm: <FiCpu style={{ color: '#ff922b' }} />,
+  physics: <FiZap style={{ color: '#fcc419' }} />,
+  triet: <FiBook style={{ color: '#20c997' }} />,
+  lichsu: <FiBook style={{ color: '#e67700' }} />,
+  diali: <FiGlobe style={{ color: '#51cf66' }} />,
+};
 
 export default function LobbyPage() {
   const { user } = useAuth();
@@ -26,14 +43,14 @@ export default function LobbyPage() {
         console.error('Failed to fetch subjects:', err);
         // Fallback subjects
         setSubjects([
-          { id: 'math', name: 'Toán học', icon: '📐', queueCount: 0 },
-          { id: 'nodejs', name: 'Lập trình NodeJS', icon: '💚', queueCount: 0 },
-          { id: 'english', name: 'Tiếng Anh', icon: '🇬🇧', queueCount: 0 },
-          { id: 'python', name: 'Lập trình Python', icon: '🐍', queueCount: 0 },
-          { id: 'react', name: 'React / Frontend', icon: '⚛️', queueCount: 0 },
-          { id: 'database', name: 'Cơ sở dữ liệu', icon: '🗄️', queueCount: 0 },
-          { id: 'algorithm', name: 'Thuật toán', icon: '🧮', queueCount: 0 },
-          { id: 'physics', name: 'Vật lý', icon: '⚡', queueCount: 0 },
+          { id: 'math', name: 'Toán học', queueCount: 0 },
+          { id: 'nodejs', name: 'Lập trình NodeJS', queueCount: 0 },
+          { id: 'english', name: 'Tiếng Anh', queueCount: 0 },
+          { id: 'python', name: 'Lập trình Python', queueCount: 0 },
+          { id: 'react', name: 'React / Frontend', queueCount: 0 },
+          { id: 'database', name: 'Cơ sở dữ liệu', queueCount: 0 },
+          { id: 'algorithm', name: 'Thuật toán', queueCount: 0 },
+          { id: 'physics', name: 'Vật lý', queueCount: 0 },
         ]);
       }
     };
@@ -111,13 +128,8 @@ export default function LobbyPage() {
 
     socket.emit('join_queue', {
       subjectId: selectedSubject,
-      user: {
-        id: user.id,
-        username: user.username,
-        avatar: user.avatar,
-      },
     });
-  }, [selectedSubject, user]);
+  }, [selectedSubject]);
 
   const handleCancelSearch = useCallback(() => {
     const socket = getSocket();
@@ -142,7 +154,7 @@ export default function LobbyPage() {
       <div className="container">
         {/* Header */}
         <div className="lobby-header animate-fade-in">
-          <h1>Chào, <span className="gradient-text">{user?.username}</span>! 👋</h1>
+          <h1>Chào, <span className="gradient-text">{user?.displayName}</span>! <FiSmile style={{ verticalAlign: 'middle' }} /></h1>
           <p>Chọn môn học bạn muốn ôn tập và tìm bạn học ngay</p>
         </div>
 
@@ -155,7 +167,7 @@ export default function LobbyPage() {
                   <div className="ripple-ring ripple-ring-1"></div>
                   <div className="ripple-ring ripple-ring-2"></div>
                   <div className="ripple-ring ripple-ring-3"></div>
-                  <div className="search-icon-center">🔍</div>
+                  <div className="search-icon-center"><FiSearch style={{ color: '#339af0' }} /></div>
                 </div>
               </div>
               
@@ -167,7 +179,7 @@ export default function LobbyPage() {
               <p className="search-hint">Hệ thống đang tìm người cùng môn học với bạn</p>
               
               <button onClick={handleCancelSearch} className="btn btn-danger">
-                ✕ Hủy tìm kiếm
+                <FiX /> Hủy tìm kiếm
               </button>
             </div>
           </div>
@@ -175,7 +187,7 @@ export default function LobbyPage() {
 
         {/* Subjects Grid */}
         <div className="subjects-section">
-          <h2 className="subjects-title">📚 Chọn Môn Học</h2>
+          <h2 className="subjects-title"><FiBook style={{ verticalAlign: 'middle', color: '#845ef7' }} /> Chọn Môn Học</h2>
           <div className="subjects-grid stagger-children">
             {subjects.map((subject) => (
               <button
@@ -184,7 +196,7 @@ export default function LobbyPage() {
                 onClick={() => setSelectedSubject(subject.id)}
                 disabled={searching}
               >
-                <span className="subject-icon">{subject.icon}</span>
+                <span className="subject-icon">{subjectIcons[subject.id] || subject.icon || <FiBook />}</span>
                 <span className="subject-name">{subject.name}</span>
                 <span className="subject-queue">
                   {(queueStats[subject.id] || subject.queueCount || 0) > 0 && (
@@ -205,7 +217,7 @@ export default function LobbyPage() {
             className="btn btn-primary btn-lg search-btn"
             disabled={!selectedSubject || searching}
           >
-            <span>🎯</span>
+            <span><FiCrosshair style={{ color: '#fcc419' }} /></span>
             Tìm Bạn Học
           </button>
           {selectedSubject && (
@@ -218,21 +230,21 @@ export default function LobbyPage() {
         {/* Quick Actions */}
         <div className="quick-actions">
           <div className="quick-card glass-card" onClick={() => navigate('/whiteboard')}>
-            <span className="quick-icon">📝</span>
+            <span className="quick-icon"><FiEdit3 style={{ color: '#845ef7' }} /></span>
             <div>
               <h3>Bảng Trắng</h3>
               <p>Giải bài tập cùng nhau</p>
             </div>
           </div>
           <div className="quick-card glass-card" onClick={() => navigate('/friends')}>
-            <span className="quick-icon">👥</span>
+            <span className="quick-icon"><FiUsers style={{ color: '#20c997' }} /></span>
             <div>
               <h3>Bạn Bè</h3>
               <p>Xem danh sách bạn bè</p>
             </div>
           </div>
           <div className="quick-card glass-card" onClick={() => navigate('/report')}>
-            <span className="quick-icon">🚨</span>
+            <span className="quick-icon"><FiAlertOctagon style={{ color: '#ff6b6b' }} /></span>
             <div>
               <h3>Báo Cáo</h3>
               <p>Report hành vi xấu</p>

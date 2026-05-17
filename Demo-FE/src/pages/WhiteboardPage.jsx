@@ -1,4 +1,7 @@
 import { Link } from 'react-router-dom';
+import { FiEdit3, FiEdit2, FiTrash2, FiRefreshCw, FiTriangle, FiAlertCircle, FiArrowLeft, FiType, FiMinus } from 'react-icons/fi';
+import { FaPaintBrush, FaPalette, FaEraser } from 'react-icons/fa';
+import { BiUndo, BiRedo, BiRectangle, BiCircle } from 'react-icons/bi';
 import './StaticPages.css';
 
 export default function WhiteboardPage() {
@@ -6,7 +9,7 @@ export default function WhiteboardPage() {
     <div className="static-page">
       <div className="container">
         <div className="static-header animate-fade-in">
-          <span className="static-icon">📝</span>
+          <span className="static-icon"><FiEdit3 style={{ color: '#845ef7' }} /></span>
           <h1>Bảng Trắng Tương Tác</h1>
           <p className="static-subtitle">
             Giải bài tập và minh hoạ ý tưởng cùng bạn học trên bảng trắng thời gian thực
@@ -18,12 +21,12 @@ export default function WhiteboardPage() {
           <div className="whiteboard-demo glass-card">
             <div className="whiteboard-toolbar">
               <div className="toolbar-group">
-                <button className="tool-btn active" title="Bút vẽ">✏️</button>
-                <button className="tool-btn" title="Hình chữ nhật">▭</button>
-                <button className="tool-btn" title="Hình tròn">○</button>
-                <button className="tool-btn" title="Đường thẳng">╱</button>
-                <button className="tool-btn" title="Văn bản">T</button>
-                <button className="tool-btn" title="Tẩy">🧹</button>
+                <button className="tool-btn active" title="Bút vẽ"><FiEdit2 /></button>
+                <button className="tool-btn" title="Hình chữ nhật"><BiRectangle /></button>
+                <button className="tool-btn" title="Hình tròn"><BiCircle /></button>
+                <button className="tool-btn" title="Đường thẳng"><FiMinus /></button>
+                <button className="tool-btn" title="Văn bản"><FiType /></button>
+                <button className="tool-btn" title="Tẩy"><FaEraser /></button>
               </div>
               <div className="toolbar-group">
                 <div className="color-picker">
@@ -35,15 +38,15 @@ export default function WhiteboardPage() {
                 </div>
               </div>
               <div className="toolbar-group">
-                <button className="tool-btn" title="Hoàn tác">↶</button>
-                <button className="tool-btn" title="Làm lại">↷</button>
-                <button className="tool-btn" title="Xoá tất cả">🗑️</button>
+                <button className="tool-btn" title="Hoàn tác"><BiUndo /></button>
+                <button className="tool-btn" title="Làm lại"><BiRedo /></button>
+                <button className="tool-btn" title="Xoá tất cả"><FiTrash2 /></button>
               </div>
             </div>
 
             <div className="whiteboard-canvas">
               <div className="canvas-placeholder">
-                <span className="canvas-icon">🎨</span>
+                <span className="canvas-icon"><FaPalette /></span>
                 <p>Khu vực vẽ sẽ được hiển thị ở đây</p>
                 <p className="canvas-hint">
                   Cả hai người có thể vẽ cùng lúc trên bảng trắng này
@@ -65,21 +68,21 @@ export default function WhiteboardPage() {
           {/* Feature Description */}
           <div className="feature-list">
             <div className="feature-item glass-card">
-              <span className="feature-emoji">✏️</span>
+              <span className="feature-emoji"><FaPaintBrush style={{ color: '#339af0' }} /></span>
               <div>
                 <h3>Vẽ tự do</h3>
                 <p>Sử dụng bút vẽ để giải thích bài toán, vẽ hình minh hoạ</p>
               </div>
             </div>
             <div className="feature-item glass-card">
-              <span className="feature-emoji">🔄</span>
+              <span className="feature-emoji"><FiRefreshCw style={{ color: '#51cf66' }} /></span>
               <div>
                 <h3>Realtime Sync</h3>
                 <p>Tất cả thay đổi được đồng bộ ngay lập tức giữa 2 người</p>
               </div>
             </div>
             <div className="feature-item glass-card">
-              <span className="feature-emoji">📐</span>
+              <span className="feature-emoji"><FiTriangle style={{ color: '#ff922b' }} /></span>
               <div>
                 <h3>Công cụ hình học</h3>
                 <p>Vẽ hình chữ nhật, tròn, đường thẳng chính xác</p>
@@ -88,7 +91,7 @@ export default function WhiteboardPage() {
           </div>
 
           <div className="static-notice glass-card">
-            <span>🚧</span>
+            <span><FiAlertCircle style={{ color: '#ff922b' }} /></span>
             <p>
               <strong>Tính năng đang phát triển.</strong> Bảng trắng tương tác sẽ 
               được tích hợp vào phòng học trong phiên bản tiếp theo.
@@ -97,7 +100,7 @@ export default function WhiteboardPage() {
 
           <div className="static-cta">
             <Link to="/lobby" className="btn btn-primary btn-lg">
-              ← Quay lại Sảnh chờ
+              <FiArrowLeft /> Quay lại Sảnh chờ
             </Link>
           </div>
         </div>

@@ -1,5 +1,7 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { FaGraduationCap } from 'react-icons/fa';
+import { FiArrowRight, FiSearch, FiZap, FiMessageSquare, FiVideo, FiEdit3, FiUsers, FiHeart } from 'react-icons/fi';
 import './HomePage.css';
 
 export default function HomePage() {
@@ -21,7 +23,7 @@ export default function HomePage() {
           <div className="hero-content animate-fade-in">
             <div className="hero-badge">
               <span className="badge-dot"></span>
-              <span>Miễn phí 100% • Không cần đăng ký phức tạp</span>
+              <span>Miễn phí 100% • Đăng ký bằng email hoặc Google</span>
             </div>
             
             <h1 className="hero-title">
@@ -38,7 +40,7 @@ export default function HomePage() {
             
             <div className="hero-actions">
               <Link to={isLoggedIn ? '/lobby' : '/login'} className="btn btn-primary btn-lg">
-                <span>🚀</span>
+                <span><FiArrowRight style={{ color: '#fcc419' }} /></span>
                 {isLoggedIn ? 'Vào Sảnh Chờ' : 'Bắt Đầu Ngay'}
               </Link>
               <a href="#features" className="btn btn-secondary btn-lg">
@@ -79,7 +81,7 @@ export default function HomePage() {
           <div className="features-grid stagger-children">
             <div className="feature-card glass-card">
               <div className="feature-icon-wrap">
-                <span className="feature-icon">🔍</span>
+                <span className="feature-icon"><FiSearch style={{ color: '#339af0' }} /></span>
               </div>
               <h3>Bộ Lọc Thông Minh</h3>
               <p>Chọn môn học bạn muốn ôn tập — Toán, Lập trình, Tiếng Anh và nhiều hơn nữa.</p>
@@ -87,7 +89,7 @@ export default function HomePage() {
 
             <div className="feature-card glass-card">
               <div className="feature-icon-wrap">
-                <span className="feature-icon">⚡</span>
+                <span className="feature-icon"><FiZap style={{ color: '#fcc419' }} /></span>
               </div>
               <h3>Ghép Đôi Tức Thì</h3>
               <p>Hệ thống realtime tự động tìm và kết nối bạn với người cùng môn học trong vài giây.</p>
@@ -95,7 +97,7 @@ export default function HomePage() {
 
             <div className="feature-card glass-card">
               <div className="feature-icon-wrap">
-                <span className="feature-icon">💬</span>
+                <span className="feature-icon"><FiMessageSquare style={{ color: '#51cf66' }} /></span>
               </div>
               <h3>Chat Trực Tuyến</h3>
               <p>Nhắn tin trao đổi bài vở, chia sẻ kiến thức ngay trong phòng học chung.</p>
@@ -103,7 +105,7 @@ export default function HomePage() {
 
             <div className="feature-card glass-card">
               <div className="feature-icon-wrap">
-                <span className="feature-icon">🎥</span>
+                <span className="feature-icon"><FiVideo style={{ color: '#ff6b6b' }} /></span>
               </div>
               <h3>Video & Voice Call</h3>
               <p>Gọi video/voice qua WebRTC — nhìn thấy và nghe thấy bạn học như ngồi cùng bàn.</p>
@@ -111,7 +113,7 @@ export default function HomePage() {
 
             <div className="feature-card glass-card">
               <div className="feature-icon-wrap">
-                <span className="feature-icon">📝</span>
+                <span className="feature-icon"><FiEdit3 style={{ color: '#845ef7' }} /></span>
               </div>
               <h3>Bảng Trắng</h3>
               <p>Giải bài tập cùng nhau trên bảng trắng tương tác — vẽ, viết, minh hoạ dễ dàng.</p>
@@ -119,7 +121,7 @@ export default function HomePage() {
 
             <div className="feature-card glass-card">
               <div className="feature-icon-wrap">
-                <span className="feature-icon">👥</span>
+                <span className="feature-icon"><FiUsers style={{ color: '#20c997' }} /></span>
               </div>
               <h3>Kết Bạn & Report</h3>
               <p>Thêm bạn học yêu thích vào danh sách, báo cáo hành vi không phù hợp.</p>
@@ -140,8 +142,8 @@ export default function HomePage() {
             <div className="howto-step">
               <div className="step-number">01</div>
               <div className="step-content">
-                <h3>Nhập tên & Đăng nhập</h3>
-                <p>Không cần email, không cần mật khẩu. Chỉ cần nhập tên là xong!</p>
+                <h3>Đăng ký tài khoản</h3>
+                <p>Đăng ký nhanh bằng email hoặc Google. Đặt tên hiển thị để bạn học nhận ra bạn.</p>
               </div>
             </div>
             <div className="step-connector"></div>
@@ -172,7 +174,7 @@ export default function HomePage() {
             <h2>Sẵn sàng tìm bạn học?</h2>
             <p>Tham gia cộng đồng StudyRandom ngay hôm nay — hoàn toàn miễn phí!</p>
             <Link to={isLoggedIn ? '/lobby' : '/login'} className="btn btn-primary btn-lg">
-              <span>🎓</span>
+              <span><FaGraduationCap /></span>
               {isLoggedIn ? 'Tìm Bạn Học Ngay' : 'Bắt Đầu Miễn Phí'}
             </Link>
           </div>
@@ -184,10 +186,10 @@ export default function HomePage() {
         <div className="container">
           <div className="footer-inner">
             <div className="footer-brand">
-              <span>🎓</span> StudyRandom
+              <span><FaGraduationCap /></span> StudyRandom
             </div>
             <p className="footer-text">
-              © 2026 StudyRandom. Made with ❤️ for students everywhere.
+              © 2026 StudyRandom. Made with <FiHeart style={{ verticalAlign: 'middle', color: '#ff6b6b' }} /> for students everywhere.
             </p>
           </div>
         </div>

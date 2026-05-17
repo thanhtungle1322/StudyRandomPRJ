@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
+import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft } from 'react-icons/fi';
+import { FaCircle } from 'react-icons/fa';
 import './StudyRoom.css';
 
 export default function StudyRoom() {
@@ -27,10 +29,10 @@ export default function StudyRoom() {
   const subjectNames = {
     math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
     python: 'Lập trình Python', react: 'React / Frontend', database: 'Cơ sở dữ liệu',
-    algorithm: 'Thuật toán', physics: 'Vật lý',
+    algorithm: 'Thuật toán', physics: 'Vật lý', triet: 'Triết học',
+    lichsu: 'Lịch sử', diali: 'Địa lí',
   };
 
-  // Thêm system message helper
   const addSystemMessage = useCallback((text) => {
     setMessages((prev) => [
       ...prev,
@@ -44,14 +46,10 @@ export default function StudyRoom() {
     ]);
   }, []);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ========================
-  // Observer: Subscribe to socket lifecycle events
-  // ========================
   useEffect(() => {
     const unsub1 = onSocketEvent('disconnected', ({ reason }) => {
       setConnected(false);
@@ -64,9 +62,8 @@ export default function StudyRoom() {
       setReconnecting(false);
       addSystemMessage('Đã kết nối lại thành công!');
 
-      // Rejoin room sau reconnect
       const socket = getSocket();
-      socket.emit('join_room', { roomId, user });
+      socket.emit('join_room', { roomId });
     });
 
     const unsub3 = onSocketEvent('reconnect_failed', () => {
@@ -79,16 +76,12 @@ export default function StudyRoom() {
       unsub2();
       unsub3();
     };
-  }, [roomId, user, addSystemMessage]);
+  }, [roomId, addSystemMessage]);
 
-  // ========================
-  // Socket events cho room
-  // ========================
   useEffect(() => {
     const socket = connectSocket();
 
-    // Join room (gửi user info cho reconnect support)
-    socket.emit('join_room', { roomId, user });
+    socket.emit('join_room', { roomId });
 
     socket.on('new_message', (msg) => {
       setMessages((prev) => [...prev, msg]);
@@ -110,13 +103,10 @@ export default function StudyRoom() {
       addSystemMessage(data.message || 'Bạn học đã kết nối lại!');
     });
 
-    // === AUTO-DISCONNECT EVENTS ===
-
     socket.on('auto_disconnect_warning', (data) => {
       setAutoDisconnectWarning(data.message);
       setCountdown(data.countdown / 1000);
 
-      // Bắt đầu đếm ngược
       if (countdownRef.current) clearInterval(countdownRef.current);
       let remaining = data.countdown / 1000;
       countdownRef.current = setInterval(() => {
@@ -146,7 +136,6 @@ export default function StudyRoom() {
         countdownRef.current = null;
       }
       addSystemMessage(data.message || 'Phòng đã tự động đóng');
-      // Redirect sau 2s
       setTimeout(() => navigate('/lobby'), 2000);
     });
 
@@ -159,16 +148,6 @@ export default function StudyRoom() {
       navigate('/lobby');
     });
 
-    socket.on('disconnect', () => {
-      setConnected(false);
-    });
-
-    socket.on('connect', () => {
-      setConnected(true);
-      setReconnecting(false);
-      socket.emit('join_room', { roomId, user });
-    });
-
     return () => {
       socket.off('new_message');
       socket.off('partner_left');
@@ -178,14 +157,12 @@ export default function StudyRoom() {
       socket.off('room_auto_closed');
       socket.off('room_data');
       socket.off('room_error');
-      socket.off('disconnect');
-      socket.off('connect');
 
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
       }
     };
-  }, [roomId, navigate, user, addSystemMessage]);
+  }, [roomId, navigate, addSystemMessage]);
 
   const sendMessage = (e) => {
     e.preventDefault();
@@ -195,11 +172,6 @@ export default function StudyRoom() {
     socket.emit('send_message', {
       roomId,
       message: newMessage.trim(),
-      user: {
-        id: user.id,
-        username: user.username,
-        avatar: user.avatar,
-      },
     });
 
     setNewMessage('');
@@ -217,41 +189,45 @@ export default function StudyRoom() {
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const isOwnMessage = (msg) => {
+    if (msg.isSystem) return false;
+    if (msg.userId && user?.id) return msg.userId === user.id;
+    return msg.user?.id === user?.id;
+  };
+
   return (
     <div className="study-room">
-      {/* Room Header */}
       <div className="room-header">
         <div className="room-header-left">
           <button onClick={handleLeaveRoom} className="btn btn-sm btn-secondary room-back-btn">
-            ← Rời phòng
+            <FiArrowLeft /> Rời phòng
           </button>
           <div className="room-info">
             <h2>Phòng Học</h2>
             <span className="room-subject-badge">
-              📚 {subjectNames[subject] || subject}
+              <FiBook style={{ color: '#845ef7' }} /> {subjectNames[subject] || subject}
             </span>
           </div>
         </div>
         <div className="room-header-right">
           {reconnecting && (
-            <span className="connection-status reconnecting">🔄 Đang kết nối lại...</span>
+            <span className="connection-status reconnecting"><FiRefreshCw style={{ color: '#fcc419' }} /> Đang kết nối lại...</span>
           )}
           {!connected && !reconnecting && (
-            <span className="connection-status disconnected">⚠️ Mất kết nối</span>
+            <span className="connection-status disconnected"><FiAlertTriangle style={{ color: '#ff6b6b' }} /> Mất kết nối</span>
           )}
           {connected && !partnerLeft && (
-            <span className="connection-status connected">🟢 Đang kết nối</span>
+            <span className="connection-status connected"><FaCircle style={{ fontSize: 8, color: '#51cf66' }} /> Đang kết nối</span>
           )}
           {connected && partnerLeft && (
-            <span className="connection-status disconnected">🟡 Partner rời phòng</span>
+            <span className="connection-status disconnected"><FaCircle style={{ fontSize: 8, color: '#fcc419' }} /> Partner rời phòng</span>
           )}
         </div>
       </div>
 
-      {/* Auto-Disconnect Warning Banner */}
       {autoDisconnectWarning && (
         <div className="auto-disconnect-banner animate-fade-in">
-          <span className="banner-icon">⏱️</span>
+          <span className="banner-icon"><FiClock style={{ color: '#ff922b' }} /></span>
           <span className="banner-text">
             {autoDisconnectWarning}
           </span>
@@ -259,11 +235,8 @@ export default function StudyRoom() {
         </div>
       )}
 
-      {/* Room Body */}
       <div className="room-body">
-        {/* Partner Info / Video Area */}
         <div className="room-sidebar">
-          {/* Partner Card */}
           <div className="partner-card glass-card">
             <h3>Bạn Học Của Bạn</h3>
             {partner ? (
@@ -272,6 +245,7 @@ export default function StudyRoom() {
                   src={partner.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner.username}`}
                   alt={partner.username}
                   className="partner-avatar"
+                  onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(partner?.username || '')}`; }}
                 />
                 <span className="partner-name">{partner.username}</span>
                 {partnerLeft ? (
@@ -285,45 +259,43 @@ export default function StudyRoom() {
             )}
           </div>
 
-          {/* Video Placeholder */}
           <div className="video-placeholder glass-card">
             <div className="video-coming-soon">
-              <span className="video-icon">🎥</span>
+              <span className="video-icon"><FiVideo style={{ color: '#339af0' }} /></span>
               <h4>Video Call</h4>
               <p>Tính năng đang phát triển</p>
               <button className="btn btn-sm btn-secondary" disabled>
-                📹 Bật Camera (Coming Soon)
+                <FiVideoOff /> Bật Camera (Coming Soon)
               </button>
             </div>
           </div>
 
-          {/* Your Info */}
           <div className="self-card glass-card">
             <div className="self-info">
               <img
-                src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}
+                src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName}`}
                 alt="You"
                 className="self-avatar"
+                onError={(e) => { e.target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.displayName || '')}`; }}
               />
               <div>
-                <span className="self-name">{user?.username}</span>
+                <span className="self-name">{user?.displayName}</span>
                 <span className="self-label">Bạn</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Chat Area */}
         <div className="chat-area glass-card">
           <div className="chat-header">
-            <h3>💬 Chat</h3>
+            <h3><FiMessageSquare style={{ color: '#51cf66' }} /> Chat</h3>
             <span className="message-count">{messages.length} tin nhắn</span>
           </div>
 
           <div className="chat-messages">
             {messages.length === 0 && (
               <div className="chat-empty">
-                <span className="chat-empty-icon">👋</span>
+                <span className="chat-empty-icon"><FiSmile style={{ color: '#fcc419' }} /></span>
                 <p>Hãy gửi lời chào đến bạn học!</p>
               </div>
             )}
@@ -334,18 +306,18 @@ export default function StudyRoom() {
                 className={`message ${
                   msg.isSystem
                     ? 'message-system'
-                    : msg.user?.id === user?.id
+                    : isOwnMessage(msg)
                     ? 'message-self'
                     : 'message-other'
                 }`}
               >
                 {msg.isSystem ? (
                   <div className="system-message">
-                    <span>ℹ️</span> {msg.text}
+                    <span><FiInfo style={{ color: '#339af0' }} /></span> {msg.text}
                   </div>
                 ) : (
                   <>
-                    {msg.user?.id !== user?.id && (
+                    {!isOwnMessage(msg) && (
                       <span className="message-author">{msg.user?.username}</span>
                     )}
                     <div className="message-bubble">
@@ -375,7 +347,7 @@ export default function StudyRoom() {
               className="btn btn-primary send-btn"
               disabled={!newMessage.trim() || partnerLeft}
             >
-              Gửi ➤
+              Gửi <FiSend style={{ color: '#fcc419' }} />
             </button>
           </form>
         </div>
