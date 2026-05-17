@@ -32,6 +32,8 @@ export default function StudyRoom() {
   const streamRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const webrtcStartedRef = useRef(false);
+  const startWebRTCRef = useRef(null);
+  const createPCRef = useRef(null);
 
   // Tạo PeerConnection — gọi nhiều lần an toàn (idempotent)
   const createPeerConnection = useCallback(() => {
@@ -113,6 +115,10 @@ export default function StudyRoom() {
     }
   }, [createPeerConnection, partner, roomId, user.id]);
 
+  // Cập nhật refs để socket handlers dùng (tránh stale closures)
+  useEffect(() => { startWebRTCRef.current = startWebRTC; }, [startWebRTC]);
+  useEffect(() => { createPCRef.current = createPeerConnection; }, [createPeerConnection]);
+
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
   const countdownRef = useRef(null);
@@ -166,6 +172,14 @@ export default function StudyRoom() {
         localVideoRef.current.srcObject = stream;
       }
       console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
+
+      // FIX: Nếu PC đã tạo nhưng chưa có track → thêm track ngay
+      if (peerConnectionRef.current && peerConnectionRef.current.getSenders().length === 0) {
+        stream.getTracks().forEach(track => {
+          peerConnectionRef.current.addTrack(track, stream);
+        });
+        console.log('[WebRTC] Late-added tracks to existing PeerConnection');
+      }
     };
 
     // Thử lần lượt: video+audio → audio only → video only
@@ -337,7 +351,7 @@ export default function StudyRoom() {
       // Delay đảm bảo cả 2 bên đã join room và setup listeners
       console.log('[WebRTC] Room joined, will start WebRTC in 2s...');
       setTimeout(() => {
-        startWebRTC();
+        startWebRTCRef.current?.();
       }, 2000);
     });
 
@@ -359,7 +373,8 @@ export default function StudyRoom() {
     socket.on('webrtc_offer', async ({ offer }) => {
       try {
         console.log('[WebRTC] Received offer, creating answer...');
-        const pc = peerConnectionRef.current || createPeerConnection();
+        const pc = peerConnectionRef.current || createPCRef.current?.();
+        if (!pc) return;
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -410,7 +425,7 @@ export default function StudyRoom() {
         clearInterval(countdownRef.current);
       }
     };
-  }, [roomId, navigate, user, addSystemMessage, startWebRTC, createPeerConnection]);
+  }, [roomId, navigate, user, addSystemMessage]);
 
   const sendMessage = (e) => {
     e.preventDefault();
