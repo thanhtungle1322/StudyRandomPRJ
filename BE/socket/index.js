@@ -175,10 +175,12 @@ module.exports = function setupSocket(io) {
     // ========================
 
     socket.on('webrtc_offer', ({ roomId, offer }) => {
+      console.log(`[WebRTC] Relaying offer in room ${roomId} from ${socket.id}`);
       socket.to(roomId).emit('webrtc_offer', { offer });
     });
 
     socket.on('webrtc_answer', ({ roomId, answer }) => {
+      console.log(`[WebRTC] Relaying answer in room ${roomId} from ${socket.id}`);
       socket.to(roomId).emit('webrtc_answer', { answer });
     });
 
