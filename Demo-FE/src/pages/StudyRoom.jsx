@@ -151,12 +151,9 @@ export default function StudyRoom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Xin quyền media
+  // Xin quyền media — thử từng thiết bị nếu không có đủ
   const requestMedia = useCallback(async () => {
-    try {
-      console.log('[Media] Requesting camera & mic...');
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      
+    const applyStream = (stream) => {
       // Bắt đầu với trạng thái tắt
       stream.getAudioTracks().forEach(track => track.enabled = false);
       stream.getVideoTracks().forEach(track => track.enabled = false);
@@ -169,15 +166,46 @@ export default function StudyRoom() {
         localVideoRef.current.srcObject = stream;
       }
       console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
-    } catch (err) {
-      console.error('[Media] Không thể truy cập thiết bị:', err);
-      const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
-      setPermissionDenied(true);
-      if (isDenied) {
-        setShowPermissionPopup(true);
+    };
+
+    // Thử lần lượt: video+audio → audio only → video only
+    const attempts = [
+      { video: true, audio: true, label: 'camera & mic' },
+      { video: false, audio: true, label: 'mic only' },
+      { video: true, audio: false, label: 'camera only' },
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        console.log(`[Media] Trying ${attempt.label}...`);
+        const stream = await navigator.mediaDevices.getUserMedia(attempt);
+        applyStream(stream);
+
+        // Thông báo nếu thiếu thiết bị
+        if (!attempt.video) {
+          addSystemMessage('Không tìm thấy Camera. Bạn chỉ có thể dùng Mic.');
+        } else if (!attempt.audio) {
+          addSystemMessage('Không tìm thấy Micro. Bạn chỉ có thể dùng Camera.');
+        }
+        return; // thành công → dừng
+      } catch (err) {
+        const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+        if (isDenied) {
+          // Quyền bị từ chối → hiện popup và dừng ngay
+          console.error('[Media] Quyền bị từ chối:', err);
+          setPermissionDenied(true);
+          setShowPermissionPopup(true);
+          addSystemMessage('Camera/Mic bị chặn. Hãy cấp quyền trong trình duyệt.');
+          return;
+        }
+        // NotFoundError hoặc lỗi khác → thử phương án tiếp theo
+        console.warn(`[Media] ${attempt.label} failed:`, err.name);
       }
-      addSystemMessage('Không thể truy cập Camera/Mic. Hãy cấp quyền trong trình duyệt.');
     }
+
+    // Không có thiết bị nào → vẫn cho vào phòng chat text
+    console.warn('[Media] Không tìm thấy thiết bị nào. Chỉ dùng chat text.');
+    addSystemMessage('Không tìm thấy Camera và Micro. Bạn vẫn có thể chat bằng tin nhắn.');
   }, [addSystemMessage]);
 
   // ========================
