@@ -17,9 +17,8 @@
   background: rgba(10, 14, 26, 0.9);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 64px;
   z-index: 50;
+  flex-shrink: 0;
 }
 
 .room-header-left {
