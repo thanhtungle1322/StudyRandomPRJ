@@ -32,30 +32,37 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectsRoutes);
 
-// Cấp TURN Server credentials cho WebRTC (Bảo mật API Key ở Backend)
+// Cấp TURN Server credentials động cho WebRTC (Dùng Secret Key)
 app.get('/api/turn-credentials', async (req, res) => {
   try {
-    const apiKey = config.meteredApiKey;
+    const secretKey = config.meteredApiKey; // Bản chất đây là Secret Key
     const domain = config.meteredDomain;
     
-    if (!apiKey || !domain) {
-      console.warn('[WebRTC] METERED_API_KEY or METERED_DOMAIN not set. Using fallback.');
-      return res.json([
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-      ]);
+    if (!secretKey || !domain) {
+      console.warn('[WebRTC] METERED_API_KEY or METERED_DOMAIN not set. Return empty.');
+      return res.json([]);
     }
 
-    // Node 18+ hỗ trợ fetch native
-    const response = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
+    // Dùng Secret Key gọi POST để xin cấp một bộ credential động (sống tạm thời)
+    const response = await fetch(`https://${domain}.metered.live/api/v1/turn/credential?secretKey=${secretKey}`, {
+      method: 'POST'
+    });
+    
     if (!response.ok) {
       throw new Error(`Metered API returned ${response.status}`);
     }
-    const iceServers = await response.json();
+    const data = await response.json();
+    
+    // Tự format lại thành chuẩn iceServers của WebRTC trả về cho Frontend
+    const iceServers = [
+      { urls: `turn:${domain}.metered.live:80`, username: data.username, credential: data.password },
+      { urls: `turn:${domain}.metered.live:443?transport=tcp`, username: data.username, credential: data.password }
+    ];
+    
     res.json(iceServers);
   } catch (error) {
-    console.error('[WebRTC] Error fetching TURN credentials:', error);
-    res.status(500).json({ error: 'Failed to fetch TURN credentials' });
+    console.error('[WebRTC] Error generating TURN credentials:', error);
+    res.status(500).json({ error: 'Failed to generate TURN credentials' });
   }
 });
 

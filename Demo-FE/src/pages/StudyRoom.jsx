@@ -37,29 +37,27 @@ export default function StudyRoom() {
   const iceCandidateQueueRef = useRef([]);
   const iceServersCacheRef = useRef(null);
 
-  // Lấy danh sách ICE Servers từ Metered API bằng biến môi trường cá nhân
+  // Lấy danh sách ICE Servers động từ Backend (Kiến trúc Flex/Enterprise)
   const getIceServers = useCallback(async () => {
     if (iceServersCacheRef.current) return iceServersCacheRef.current;
     
     let turnServers = [];
+    
     try {
-      const domain = import.meta.env.VITE_METERED_DOMAIN;
-      const apiKey = import.meta.env.VITE_METERED_API_KEY;
+      console.log('[WebRTC] Đang xin cấp TURN Server Token từ Backend...');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/turn-credentials`);
       
-      if (domain && apiKey) {
-        console.log('[WebRTC] Fetching TURN credentials từ tài khoản Metered cá nhân...');
-        const response = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
-        if (response.ok) {
-          turnServers = await response.json();
-          console.log('[WebRTC] Đã lấy thành công TURN Server cá nhân!');
+      if (response.ok) {
+        turnServers = await response.json();
+        if (turnServers.length > 0) {
+          console.log('[WebRTC] Đã được Backend cấp TURN Token thành công (Thời hạn 1h) 😎');
         } else {
-          console.error('[WebRTC] Lỗi API Metered:', response.statusText);
+          console.warn('[WebRTC] Backend trả về rỗng. Chưa cấu hình METERED_API_KEY ở Backend?');
         }
-      } else {
-        console.warn('[WebRTC] Chưa cấu hình VITE_METERED_DOMAIN và VITE_METERED_API_KEY trong .env');
       }
-    } catch (err) {
-      console.error('[WebRTC] Lỗi kết nối đến Metered API:', err);
+    } catch (error) {
+      console.error('[WebRTC] Không thể kết nối tới Backend để lấy Token:', error);
     }
 
     // Gộp STUN của Google và TURN server
@@ -171,13 +169,13 @@ export default function StudyRoom() {
   const countdownRef = useRef(null);
 
   // SVG Icons
-  const MicIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>;
-  const MicOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>;
-  const VideoIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>;
-  const VideoOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z"/><line x1="2" x2="22" y1="2" y2="22"/></svg>;
-  const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" x2="2" y1="2" y2="22"/></svg>;
-  const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>;
-  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>;
+  const MicIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>;
+  const MicOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="2" x2="22" y1="2" y2="22" /><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2" /><path d="M5 10v2a7 7 0 0 0 12 5" /><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12" /><line x1="12" x2="12" y1="19" y2="22" /></svg>;
+  const VideoIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z" /><rect width="14" height="12" x="2" y="6" rx="2" ry="2" /></svg>;
+  const VideoOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8" /><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z" /><line x1="2" x2="22" y1="2" y2="22" /></svg>;
+  const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" /><line x1="22" x2="2" y1="2" y2="22" /></svg>;
+  const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z" /></svg>;
+  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" /></svg>;
 
   const subjectNames = {
     math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
@@ -210,11 +208,11 @@ export default function StudyRoom() {
       // Bắt đầu với trạng thái tắt
       stream.getAudioTracks().forEach(track => track.enabled = false);
       stream.getVideoTracks().forEach(track => track.enabled = false);
-      
+
       streamRef.current = stream;
       setPermissionDenied(false);
       setShowPermissionPopup(false);
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
@@ -625,18 +623,18 @@ export default function StudyRoom() {
 
       {/* Room Body */}
       <div className="room-body">
-        
+
         {/* Main Video Area */}
         <div className={`main-video-area ${showChat ? 'with-chat' : 'full-width'}`}>
           <div className="video-grid">
-            
+
             {/* Partner Video Card */}
             <div className="video-card partner-video">
               {/* Thẻ video ẩn đi nếu chưa có luồng, nhưng luôn render để gắn ref */}
-              <video 
-                ref={partnerVideoRef} 
-                autoPlay 
-                playsInline 
+              <video
+                ref={partnerVideoRef}
+                autoPlay
+                playsInline
                 className={`video-element ${!partnerHasVideo ? 'hidden' : ''}`}
               />
 
@@ -672,11 +670,11 @@ export default function StudyRoom() {
 
             {/* Self Video Card */}
             <div className="video-card self-video">
-              <video 
-                ref={localVideoRef} 
-                autoPlay 
-                playsInline 
-                muted 
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
                 className={`video-element ${isVideoOff ? 'hidden' : ''}`}
               />
               {isVideoOff && (
@@ -696,7 +694,7 @@ export default function StudyRoom() {
 
           {/* Control Bar */}
           <div className="control-bar">
-            <button 
+            <button
               className={`control-btn ${permissionDenied ? 'warning' : isMuted ? 'danger' : 'active'}`}
               onClick={() => {
                 if (permissionDenied) {
@@ -713,7 +711,7 @@ export default function StudyRoom() {
               {isMuted ? <MicOffIcon /> : <MicIcon />}
               {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
-            <button 
+            <button
               className={`control-btn ${permissionDenied ? 'warning' : isVideoOff ? 'danger' : 'active'}`}
               onClick={() => {
                 if (permissionDenied) {
@@ -730,14 +728,14 @@ export default function StudyRoom() {
               {isVideoOff ? <VideoOffIcon /> : <VideoIcon />}
               {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
-            <button 
+            <button
               className="control-btn end-call-btn"
               onClick={handleLeaveRoom}
               title="Rời phòng"
             >
               <PhoneOffIcon />
             </button>
-            <button 
+            <button
               className={`control-btn ${showChat ? 'active' : ''}`}
               onClick={() => setShowChat(!showChat)}
               title="Mở Chat"
@@ -766,13 +764,12 @@ export default function StudyRoom() {
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`message ${
-                    msg.isSystem
-                      ? 'message-system'
-                      : msg.user?.id === user?.id
+                  className={`message ${msg.isSystem
+                    ? 'message-system'
+                    : msg.user?.id === user?.id
                       ? 'message-self'
                       : 'message-other'
-                  }`}
+                    }`}
                 >
                   {msg.isSystem ? (
                     <div className="system-message">
