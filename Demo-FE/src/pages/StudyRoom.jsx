@@ -34,6 +34,7 @@ export default function StudyRoom() {
   const webrtcStartedRef = useRef(false);
   const startWebRTCRef = useRef(null);
   const createPCRef = useRef(null);
+  const iceCandidateQueueRef = useRef([]);
 
   // Tạo PeerConnection — gọi nhiều lần an toàn (idempotent)
   const createPeerConnection = useCallback(() => {
@@ -111,7 +112,7 @@ export default function StudyRoom() {
     const pc = createPeerConnection();
 
     // Chỉ 1 bên tạo Offer (bên có id nhỏ hơn)
-    if (partner && user.id < partner.id) {
+    if (partner && String(user.id) < String(partner.id)) {
       try {
         // Nếu chưa có local stream, chờ một lát rồi retry
         if (!streamRef.current) {
@@ -262,6 +263,7 @@ export default function StudyRoom() {
         peerConnectionRef.current = null;
       }
       webrtcStartedRef.current = false;
+      iceCandidateQueueRef.current = [];
     };
   }, [requestMedia]);
 
@@ -290,6 +292,7 @@ export default function StudyRoom() {
         peerConnectionRef.current = null;
       }
       webrtcStartedRef.current = false;
+      iceCandidateQueueRef.current = [];
       setTimeout(() => {
         startWebRTCRef.current?.();
       }, 1000);
@@ -413,6 +416,16 @@ export default function StudyRoom() {
         await pc.setLocalDescription(answer);
         socket.emit('webrtc_answer', { roomId, answer: pc.localDescription });
         console.log('[WebRTC] Answer sent!');
+
+        // Process queued ICE candidates
+        while (iceCandidateQueueRef.current.length > 0) {
+          const candidate = iceCandidateQueueRef.current.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('[WebRTC] Error adding queued ICE candidate', e);
+          }
+        }
       } catch (err) {
         console.error('[WebRTC] Error handling offer:', err);
       }
@@ -422,7 +435,18 @@ export default function StudyRoom() {
       try {
         console.log('[WebRTC] Received answer');
         if (peerConnectionRef.current) {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+          const pc = peerConnectionRef.current;
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+          // Process queued ICE candidates
+          while (iceCandidateQueueRef.current.length > 0) {
+            const candidate = iceCandidateQueueRef.current.shift();
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+              console.error('[WebRTC] Error adding queued ICE candidate', e);
+            }
+          }
         }
       } catch (err) {
         console.error('[WebRTC] Error handling answer:', err);
@@ -431,8 +455,12 @@ export default function StudyRoom() {
 
     socket.on('webrtc_ice_candidate', async ({ candidate }) => {
       try {
-        if (peerConnectionRef.current) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        const pc = peerConnectionRef.current;
+        if (pc && pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          console.log('[WebRTC] Queuing ICE candidate (no remoteDescription yet)');
+          iceCandidateQueueRef.current.push(candidate);
         }
       } catch (err) {
         console.error('[WebRTC] Error adding ICE candidate:', err);
