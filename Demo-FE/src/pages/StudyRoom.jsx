@@ -37,30 +37,29 @@ export default function StudyRoom() {
   const iceCandidateQueueRef = useRef([]);
   const iceServersCacheRef = useRef(null);
 
-  // Lấy danh sách ICE Servers từ Backend hoặc OpenRelay
+  // Lấy danh sách ICE Servers từ Metered API bằng biến môi trường cá nhân
   const getIceServers = useCallback(async () => {
     if (iceServersCacheRef.current) return iceServersCacheRef.current;
     
     let turnServers = [];
     try {
-      // 1. Thử gọi lên Backend của bạn (Nơi chứa Key cá nhân nếu bạn có)
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiUrl}/turn-credentials`);
-      if (response.ok) {
-        turnServers = await response.json();
+      const domain = import.meta.env.VITE_METERED_DOMAIN;
+      const apiKey = import.meta.env.VITE_METERED_API_KEY;
+      
+      if (domain && apiKey) {
+        console.log('[WebRTC] Fetching TURN credentials từ tài khoản Metered cá nhân...');
+        const response = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
+        if (response.ok) {
+          turnServers = await response.json();
+          console.log('[WebRTC] Đã lấy thành công TURN Server cá nhân!');
+        } else {
+          console.error('[WebRTC] Lỗi API Metered:', response.statusText);
+        }
+      } else {
+        console.warn('[WebRTC] Chưa cấu hình VITE_METERED_DOMAIN và VITE_METERED_API_KEY trong .env');
       }
     } catch (err) {
-      console.log('[WebRTC] Backend chưa cấu hình TURN, chuyển sang OpenRelay Public API...');
-    }
-
-    // 2. Nếu Backend trả về mảng rỗng (chưa có key cá nhân) hoặc lỗi, dùng OpenRelay công khai
-    if (turnServers.length === 0 || (turnServers.length > 0 && turnServers[0].username === 'openrelayproject')) {
-      try {
-        const publicRes = await fetch("https://openrelay.metered.ca/api/v1/turn/credentials?apiKey=openrelayproject");
-        turnServers = await publicRes.json();
-      } catch (err) {
-        console.error('[WebRTC] Lỗi lấy OpenRelay:', err);
-      }
+      console.error('[WebRTC] Lỗi kết nối đến Metered API:', err);
     }
 
     // Gộp STUN của Google và TURN server
