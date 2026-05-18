@@ -43,21 +43,22 @@ app.get('/api/turn-credentials', async (req, res) => {
       return res.json([]);
     }
 
-    // Dùng Secret Key gọi POST để xin cấp một bộ credential động (sống tạm thời)
-    const response = await fetch(`https://${domain}.metered.live/api/v1/turn/credential?secretKey=${secretKey}`, {
+    // 1. Dùng Secret Key gọi POST để xin cấp apiKey tạm thời
+    const postResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credential?secretKey=${secretKey}`, {
       method: 'POST'
     });
     
-    if (!response.ok) {
-      throw new Error(`Metered API returned ${response.status}`);
+    if (!postResponse.ok) {
+      throw new Error(`Metered POST API returned ${postResponse.status}`);
     }
-    const data = await response.json();
+    const data = await postResponse.json();
     
-    // Tự format lại thành chuẩn iceServers của WebRTC trả về cho Frontend
-    const iceServers = [
-      { urls: `turn:${domain}.metered.live:80`, username: data.username, credential: data.password },
-      { urls: `turn:${domain}.metered.live:443?transport=tcp`, username: data.username, credential: data.password }
-    ];
+    // 2. Dùng apiKey tạm thời đó để GET danh sách toàn bộ ICE Servers chuẩn của hệ thống Metered
+    const getResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${data.apiKey}`);
+    if (!getResponse.ok) {
+      throw new Error(`Metered GET API returned ${getResponse.status}`);
+    }
+    const iceServers = await getResponse.json();
     
     res.json(iceServers);
   } catch (error) {
