@@ -8,6 +8,7 @@ const dbObserver = require('./config/db');
 // Import routes
 const authRoutes = require('./routes/auth');
 const subjectsRoutes = require('./routes/subjects');
+const usersRoutes = require('./routes/users');
 
 // Import socket handler
 const setupSocket = require('./socket');
@@ -31,6 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 // ========================
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectsRoutes);
+app.use('/api/users', usersRoutes);
 
 // Cấp TURN Server credentials động cho WebRTC (Dùng Secret Key)
 app.get('/api/turn-credentials', async (req, res) => {

@@ -36,6 +36,10 @@ export default function Navbar() {
                 <span className="nav-icon">👥</span>
                 Bạn bè
               </Link>
+              <Link to="/leaderboard" className="nav-link">
+                <span className="nav-icon">🏆</span>
+                Xếp hạng
+              </Link>
               <div className="navbar-user">
                 <img
                   src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}

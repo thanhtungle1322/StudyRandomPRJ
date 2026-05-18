@@ -27,6 +27,17 @@ export default function StudyRoom() {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
 
+  // Pomodoro
+  const [pomodoroMode, setPomodoroMode] = useState('focus');
+  const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
+  const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
+
+  // Review & Stats
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [sessionStartTime] = useState(Date.now());
+
   const localVideoRef = useRef(null);
   const partnerVideoRef = useRef(null);
   const streamRef = useRef(null);
@@ -201,6 +212,45 @@ export default function StudyRoom() {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Pomodoro Timer Effect
+  useEffect(() => {
+    let interval = null;
+    if (isPomodoroRunning && pomodoroTime > 0) {
+      interval = setInterval(() => {
+        setPomodoroTime((prev) => prev - 1);
+      }, 1000);
+    } else if (pomodoroTime === 0) {
+      setIsPomodoroRunning(false);
+      // Switch mode
+      if (pomodoroMode === 'focus') {
+        addSystemMessage('Hết thời gian tập trung! Nghỉ giải lao 5 phút nào.');
+        setPomodoroMode('break');
+        setPomodoroTime(5 * 60);
+      } else {
+        addSystemMessage('Hết giờ giải lao! Quay lại tập trung 25 phút nào.');
+        setPomodoroMode('focus');
+        setPomodoroTime(25 * 60);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [isPomodoroRunning, pomodoroTime, pomodoroMode, addSystemMessage]);
+
+  const togglePomodoro = () => {
+    setIsPomodoroRunning(!isPomodoroRunning);
+  };
+  
+  const resetPomodoro = () => {
+    setIsPomodoroRunning(false);
+    setPomodoroMode('focus');
+    setPomodoroTime(25 * 60);
+  };
+
+  const formatPomodoro = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   // Xin quyền media — thử từng thiết bị nếu không có đủ
   const requestMedia = useCallback(async () => {
@@ -536,10 +586,56 @@ export default function StudyRoom() {
     chatInputRef.current?.focus();
   };
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoomClick = () => {
+    if (partner && !partnerLeft) {
+      // Show review modal if partner is still here or we just studied with them
+      setShowReviewModal(true);
+    } else {
+      handleFinalLeave();
+    }
+  };
+
+  const handleFinalLeave = async () => {
+    try {
+      // Tính toán thời gian học
+      const studyMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
+      if (studyMinutes > 0 && user) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        await fetch(`${apiUrl}/users/study-time`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id || user.dbId, minutes: studyMinutes })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to submit study time', e);
+    }
+
     const socket = getSocket();
     socket.emit('leave_room', { roomId });
     navigate('/lobby');
+  };
+
+  const submitReview = async () => {
+    try {
+      if (partner) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        await fetch(`${apiUrl}/users/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            reviewerId: user.id || user.dbId,
+            revieweeId: partner.id || partner._id,
+            sessionId: roomId, // Using roomId as sessionId for MVP simplicity
+            rating: reviewRating,
+            comment: reviewComment
+          })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to submit review', e);
+    }
+    handleFinalLeave();
   };
 
   const formatTime = (timestamp) => {
@@ -560,6 +656,22 @@ export default function StudyRoom() {
           </div>
         </div>
         <div className="room-header-right">
+          {/* Pomodoro Timer UI */}
+          <div className={`pomodoro-container ${pomodoroMode === 'break' ? 'break-mode' : ''}`}>
+            <span className="pomodoro-icon">
+              {pomodoroMode === 'focus' ? '🍅' : '☕'}
+            </span>
+            <span className="pomodoro-time">
+              {formatPomodoro(pomodoroTime)}
+            </span>
+            <button className="pomodoro-btn" onClick={togglePomodoro}>
+              {isPomodoroRunning ? '⏸' : '▶'}
+            </button>
+            <button className="pomodoro-btn" onClick={resetPomodoro}>
+              ↺
+            </button>
+          </div>
+
           {reconnecting && (
             <span className="connection-status reconnecting">🔄 Đang kết nối lại...</span>
           )}
@@ -730,7 +842,7 @@ export default function StudyRoom() {
             </button>
             <button
               className="control-btn end-call-btn"
-              onClick={handleLeaveRoom}
+              onClick={handleLeaveRoomClick}
               title="Rời phòng"
             >
               <PhoneOffIcon />
@@ -813,6 +925,48 @@ export default function StudyRoom() {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="permission-overlay animate-fade-in">
+          <div className="permission-popup glass-card review-modal">
+            <h2 style={{ marginBottom: '16px' }}>Đánh giá buổi học</h2>
+            <p style={{ marginBottom: '24px', opacity: 0.8 }}>
+              Hãy đánh giá thái độ học tập của <strong>{partner?.username}</strong> nhé!
+            </p>
+            
+            <div className="rating-stars" style={{ display: 'flex', justifyContent: 'center', gap: '10px', fontSize: '32px', marginBottom: '20px' }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span 
+                  key={star} 
+                  style={{ cursor: 'pointer', color: star <= reviewRating ? '#fadb14' : '#e8e8e8' }}
+                  onClick={() => setReviewRating(star)}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+
+            <textarea 
+              className="input-field" 
+              placeholder="Nhận xét (không bắt buộc)..." 
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              rows={3}
+              style={{ width: '100%', marginBottom: '20px', resize: 'none' }}
+            />
+
+            <div className="permission-actions">
+              <button className="btn btn-primary" onClick={submitReview}>
+                Gửi đánh giá & Rời phòng
+              </button>
+              <button className="btn btn-secondary" onClick={handleFinalLeave}>
+                Bỏ qua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

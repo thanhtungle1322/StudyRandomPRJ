@@ -8,6 +8,7 @@ import StudyRoom from './pages/StudyRoom';
 import WhiteboardPage from './pages/WhiteboardPage';
 import FriendsPage from './pages/FriendsPage';
 import ReportPage from './pages/ReportPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 
 // Protected Route wrapper
 function ProtectedRoute({ children }) {
@@ -68,6 +69,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ReportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <LeaderboardPage />
               </ProtectedRoute>
             }
           />

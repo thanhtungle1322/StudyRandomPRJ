@@ -26,9 +26,30 @@ router.post('/login', async (req, res) => {
     });
 
     if (user) {
+      // Check streak
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      if (user.lastStudyDate) {
+        const lastStudy = new Date(user.lastStudyDate);
+        const lastStudyDay = new Date(lastStudy.getFullYear(), lastStudy.getMonth(), lastStudy.getDate());
+        
+        const diffTime = Math.abs(today - lastStudyDay);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+        
+        if (diffDays === 1) {
+          // Studied yesterday, increment streak
+          // Streak will be actually incremented after study session, but let's just keep it here if they log in. 
+          // Actually better to increment streak when they complete a session. Let's just update lastSeen.
+        } else if (diffDays > 1) {
+          // Missed a day, reset streak
+          user.streak = 0;
+        }
+      }
+
       // Cập nhật trạng thái online
       user.isOnline = true;
-      user.lastSeen = new Date();
+      user.lastSeen = now;
       user.totalSessions += 1;
       await user.save();
     } else {
@@ -50,6 +71,11 @@ router.post('/login', async (req, res) => {
         avatar: user.avatar,
         totalSessions: user.totalSessions,
         createdAt: user.createdAt,
+        reputation: user.reputation,
+        ratingCount: user.ratingCount,
+        totalStudyMinutes: user.totalStudyMinutes,
+        streak: user.streak,
+        badges: user.badges,
       },
       message: `Chào mừng ${user.username}!`,
     });
@@ -84,6 +110,11 @@ router.get('/user/:id', async (req, res) => {
         isOnline: user.isOnline,
         totalSessions: user.totalSessions,
         createdAt: user.createdAt,
+        reputation: user.reputation,
+        ratingCount: user.ratingCount,
+        totalStudyMinutes: user.totalStudyMinutes,
+        streak: user.streak,
+        badges: user.badges,
       },
     });
   } catch (error) {

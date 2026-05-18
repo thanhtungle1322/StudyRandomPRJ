@@ -636,3 +636,51 @@
 .control-btn.warning:hover {
   background: rgba(252, 196, 25, 0.25);
 }
+
+/* Pomodoro Timer */
+.pomodoro-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+  margin-right: 16px;
+  transition: all 0.3s ease;
+}
+
+.pomodoro-container.break-mode {
+  background: rgba(81, 207, 102, 0.2);
+}
+
+.pomodoro-icon {
+  font-size: 16px;
+}
+
+.pomodoro-time {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: center;
+}
+
+.pomodoro-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.pomodoro-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.review-modal {
+  max-width: 500px;
+}
