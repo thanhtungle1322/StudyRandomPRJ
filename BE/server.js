@@ -32,6 +32,33 @@ app.use(express.urlencoded({ extended: true }));
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectsRoutes);
 
+// Cấp TURN Server credentials cho WebRTC (Bảo mật API Key ở Backend)
+app.get('/api/turn-credentials', async (req, res) => {
+  try {
+    const apiKey = config.meteredApiKey;
+    const domain = config.meteredDomain;
+    
+    if (!apiKey || !domain) {
+      console.warn('[WebRTC] METERED_API_KEY or METERED_DOMAIN not set. Using fallback.');
+      return res.json([
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+      ]);
+    }
+
+    // Node 18+ hỗ trợ fetch native
+    const response = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`);
+    if (!response.ok) {
+      throw new Error(`Metered API returned ${response.status}`);
+    }
+    const iceServers = await response.json();
+    res.json(iceServers);
+  } catch (error) {
+    console.error('[WebRTC] Error fetching TURN credentials:', error);
+    res.status(500).json({ error: 'Failed to fetch TURN credentials' });
+  }
+});
+
 // Health check (bao gồm DB status)
 app.get('/api/health', (req, res) => {
   res.json({

@@ -10,6 +10,10 @@ module.exports = {
   // VD: "https://study-random-prj.vercel.app,http://localhost:5173"
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
 
+  // TURN Server API Key
+  meteredDomain: process.env.METERED_DOMAIN || '', // VD: "my-app"
+  meteredApiKey: process.env.METERED_API_KEY || '',
+
   // Parse ra array cho CORS
   get corsOrigins() {
     const urls = this.clientUrl.split(',').map((u) => u.trim());

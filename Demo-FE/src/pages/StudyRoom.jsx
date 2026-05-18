@@ -35,22 +35,51 @@ export default function StudyRoom() {
   const startWebRTCRef = useRef(null);
   const createPCRef = useRef(null);
   const iceCandidateQueueRef = useRef([]);
+  const iceServersCacheRef = useRef(null);
+
+  // Lấy danh sách ICE Servers từ Backend hoặc OpenRelay
+  const getIceServers = useCallback(async () => {
+    if (iceServersCacheRef.current) return iceServersCacheRef.current;
+    
+    let turnServers = [];
+    try {
+      // 1. Thử gọi lên Backend của bạn (Nơi chứa Key cá nhân nếu bạn có)
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/turn-credentials`);
+      if (response.ok) {
+        turnServers = await response.json();
+      }
+    } catch (err) {
+      console.log('[WebRTC] Backend chưa cấu hình TURN, chuyển sang OpenRelay Public API...');
+    }
+
+    // 2. Nếu Backend trả về mảng rỗng (chưa có key cá nhân) hoặc lỗi, dùng OpenRelay công khai
+    if (turnServers.length === 0 || (turnServers.length > 0 && turnServers[0].username === 'openrelayproject')) {
+      try {
+        const publicRes = await fetch("https://openrelay.metered.ca/api/v1/turn/credentials?apiKey=openrelayproject");
+        turnServers = await publicRes.json();
+      } catch (err) {
+        console.error('[WebRTC] Lỗi lấy OpenRelay:', err);
+      }
+    }
+
+    // Gộp STUN của Google và TURN server
+    iceServersCacheRef.current = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      ...turnServers
+    ];
+    
+    return iceServersCacheRef.current;
+  }, []);
 
   // Tạo PeerConnection — gọi nhiều lần an toàn (idempotent)
-  const createPeerConnection = useCallback(() => {
+  const createPeerConnection = useCallback(async () => {
     if (peerConnectionRef.current) return peerConnectionRef.current;
 
     console.log('[WebRTC] Creating PeerConnection...');
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-      ]
-    });
+    const iceServers = await getIceServers();
+    const pc = new RTCPeerConnection({ iceServers });
 
     peerConnectionRef.current = pc;
 
@@ -109,7 +138,7 @@ export default function StudyRoom() {
 
     // Luôn tạo PeerConnection để có thể nhận media từ partner
     // dù chưa có local stream (fix: user không có cam/mic vẫn nghe được)
-    const pc = createPeerConnection();
+    const pc = await createPeerConnection();
 
     // Chỉ 1 bên tạo Offer (bên có id nhỏ hơn)
     if (partner && String(user.id) < String(partner.id)) {
@@ -409,7 +438,10 @@ export default function StudyRoom() {
     socket.on('webrtc_offer', async ({ offer }) => {
       try {
         console.log('[WebRTC] Received offer, creating answer...');
-        const pc = peerConnectionRef.current || createPCRef.current?.();
+        let pc = peerConnectionRef.current;
+        if (!pc && createPCRef.current) {
+          pc = await createPCRef.current();
+        }
         if (!pc) return;
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
