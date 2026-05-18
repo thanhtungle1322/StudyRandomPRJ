@@ -45,6 +45,9 @@ export default function StudyRoom() {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
       ]
     });
 
@@ -78,8 +81,20 @@ export default function StudyRoom() {
     // Theo dõi trạng thái kết nối ICE
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setPartnerHasVideo(true);
+      } else if (pc.iceConnectionState === 'disconnected') {
         setPartnerHasVideo(false);
+      } else if (pc.iceConnectionState === 'failed') {
+        setPartnerHasVideo(false);
+        console.log('[WebRTC] ICE failed, attempting ICE restart...');
+        pc.createOffer({ iceRestart: true })
+          .then(offer => pc.setLocalDescription(offer))
+          .then(() => {
+            const socket = getSocket();
+            socket.emit('webrtc_offer', { roomId, offer: pc.localDescription });
+          })
+          .catch(err => console.error('[WebRTC] ICE restart failed:', err));
       }
     };
 
@@ -89,17 +104,20 @@ export default function StudyRoom() {
   // Bắt đầu handshake WebRTC — chỉ bên "caller" tạo offer
   const startWebRTC = useCallback(async () => {
     if (webrtcStartedRef.current) return;
-    if (!streamRef.current) {
-      console.log('[WebRTC] No local stream yet, skipping...');
-      return;
-    }
     webrtcStartedRef.current = true;
 
+    // Luôn tạo PeerConnection để có thể nhận media từ partner
+    // dù chưa có local stream (fix: user không có cam/mic vẫn nghe được)
     const pc = createPeerConnection();
 
     // Chỉ 1 bên tạo Offer (bên có id nhỏ hơn)
     if (partner && user.id < partner.id) {
       try {
+        // Nếu chưa có local stream, chờ một lát rồi retry
+        if (!streamRef.current) {
+          console.log('[WebRTC] No local stream yet, waiting 3s for media...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
         console.log('[WebRTC] I am the caller, creating offer...');
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -204,16 +222,21 @@ export default function StudyRoom() {
         return; // thành công → dừng
       } catch (err) {
         const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
-        if (isDenied) {
-          // Quyền bị từ chối → hiện popup và dừng ngay
+        const isDeviceBusy = err.name === 'NotReadableError';
+        const isSecurityBlock = err.name === 'SecurityError';
+        if (isDenied || isSecurityBlock) {
           console.error('[Media] Quyền bị từ chối:', err);
           setPermissionDenied(true);
           setShowPermissionPopup(true);
           addSystemMessage('Camera/Mic bị chặn. Hãy cấp quyền trong trình duyệt.');
           return;
         }
-        // NotFoundError hoặc lỗi khác → thử phương án tiếp theo
-        console.warn(`[Media] ${attempt.label} failed:`, err.name);
+        if (isDeviceBusy) {
+          console.warn(`[Media] ${attempt.label} bị thiết bị khác chiếm:`, err.message);
+          addSystemMessage('Camera/Mic đang được sử dụng bởi ứng dụng khác (Zoom, Meet...). Hãy đóng ứng dụng đó lại.');
+          return;
+        }
+        console.warn(`[Media] ${attempt.label} failed:`, err.name, err.message);
       }
     }
 
@@ -260,6 +283,16 @@ export default function StudyRoom() {
       // Rejoin room sau reconnect
       const socket = getSocket();
       socket.emit('join_room', { roomId, user });
+
+      // Reset WebRTC và khởi động lại để tạo PeerConnection mới
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      webrtcStartedRef.current = false;
+      setTimeout(() => {
+        startWebRTCRef.current?.();
+      }, 1000);
     });
 
     const unsub3 = onSocketEvent('reconnect_failed', () => {
