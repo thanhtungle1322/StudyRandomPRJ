@@ -504,3 +504,135 @@
     border-top: 1px solid var(--border-color);
   }
 }
+
+/* ======================== */
+/* Permission Popup         */
+/* ======================== */
+.permission-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  animation: fadeIn 0.25s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.permission-popup {
+  max-width: 440px;
+  width: 90%;
+  padding: 32px;
+  border-radius: 20px;
+  text-align: center;
+  animation: popIn 0.3s ease;
+}
+
+@keyframes popIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.permission-popup-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.permission-popup h3 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--warning, #fcc419);
+}
+
+.permission-popup-desc {
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.permission-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+  text-align: left;
+}
+
+.permission-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--text-secondary, #b0b0b0);
+  line-height: 1.5;
+}
+
+.step-num {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary-500, #6366f1);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.permission-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.permission-actions .btn {
+  width: 100%;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: 12px;
+}
+
+/* ======================== */
+/* Control Button Badge     */
+/* ======================== */
+.control-btn {
+  position: relative;
+}
+
+.control-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--warning, #fcc419);
+  color: #1a1a2e;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
+  box-shadow: 0 0 8px rgba(252, 196, 25, 0.5);
+}
+
+.control-btn.warning {
+  background: rgba(252, 196, 25, 0.15);
+  color: var(--warning, #fcc419);
+  border: 1px solid rgba(252, 196, 25, 0.3);
+}
+
+.control-btn.warning:hover {
+  background: rgba(252, 196, 25, 0.25);
+}

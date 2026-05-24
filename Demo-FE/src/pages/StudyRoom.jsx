@@ -26,12 +26,16 @@ export default function StudyRoom() {
   const [isVideoOff, setIsVideoOff] = useState(true);
   const [showChat, setShowChat] = useState(true);
   const [partnerHasVideo, setPartnerHasVideo] = useState(false);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [showPermissionPopup, setShowPermissionPopup] = useState(false);
 
   const localVideoRef = useRef(null);
   const partnerVideoRef = useRef(null);
   const streamRef = useRef(null);
   const peerConnectionRef = useRef(null);
   const webrtcStartedRef = useRef(false);
+  const startWebRTCRef = useRef(null);
+  const createPCRef = useRef(null);
 
   // Tạo PeerConnection — gọi nhiều lần an toàn (idempotent)
   const createPeerConnection = useCallback(() => {
@@ -43,6 +47,9 @@ export default function StudyRoom() {
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
         { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
       ]
     });
 
@@ -76,8 +83,20 @@ export default function StudyRoom() {
     // Theo dõi trạng thái kết nối ICE
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setPartnerHasVideo(true);
+      } else if (pc.iceConnectionState === 'disconnected') {
         setPartnerHasVideo(false);
+      } else if (pc.iceConnectionState === 'failed') {
+        setPartnerHasVideo(false);
+        console.log('[WebRTC] ICE failed, attempting ICE restart...');
+        pc.createOffer({ iceRestart: true })
+          .then(offer => pc.setLocalDescription(offer))
+          .then(() => {
+            const socket = getSocket();
+            socket.emit('webrtc_offer', { roomId, offer: pc.localDescription });
+          })
+          .catch(err => console.error('[WebRTC] ICE restart failed:', err));
       }
     };
 
@@ -87,17 +106,20 @@ export default function StudyRoom() {
   // Bắt đầu handshake WebRTC — chỉ bên "caller" tạo offer
   const startWebRTC = useCallback(async () => {
     if (webrtcStartedRef.current) return;
-    if (!streamRef.current) {
-      console.log('[WebRTC] No local stream yet, skipping...');
-      return;
-    }
     webrtcStartedRef.current = true;
 
+    // Luôn tạo PeerConnection để có thể nhận media từ partner
+    // dù chưa có local stream (fix: user không có cam/mic vẫn nghe được)
     const pc = createPeerConnection();
 
     // Chỉ 1 bên tạo Offer (bên có id nhỏ hơn)
     if (partner && user.id < partner.id) {
       try {
+        // Nếu chưa có local stream, chờ một lát rồi retry
+        if (!streamRef.current) {
+          console.log('[WebRTC] No local stream yet, waiting 3s for media...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
         console.log('[WebRTC] I am the caller, creating offer...');
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -113,6 +135,10 @@ export default function StudyRoom() {
     }
   }, [createPeerConnection, partner, roomId, user.id]);
 
+  // Cập nhật refs để socket handlers dùng (tránh stale closures)
+  useEffect(() => { startWebRTCRef.current = startWebRTC; }, [startWebRTC]);
+  useEffect(() => { createPCRef.current = createPeerConnection; }, [createPeerConnection]);
+
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
   const countdownRef = useRef(null);
@@ -124,6 +150,7 @@ export default function StudyRoom() {
   const VideoOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8" /><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z" /><line x1="2" x2="22" y1="2" y2="22" /></svg>;
   const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" /><line x1="22" x2="2" y1="2" y2="22" /></svg>;
   const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z" /></svg>;
+  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>;
 
   const subjectNames = {
     math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
@@ -149,31 +176,81 @@ export default function StudyRoom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // ========================
-  // Effect 1: Chỉ xin quyền media (không WebRTC!)
-  // ========================
-  useEffect(() => {
-    const initMedia = async () => {
-      try {
-        console.log('[Media] Requesting camera & mic...');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+  // Xin quyền media — thử từng thiết bị nếu không có đủ
+  const requestMedia = useCallback(async () => {
+    const applyStream = (stream) => {
+      // Bắt đầu với trạng thái tắt
+      stream.getAudioTracks().forEach(track => track.enabled = false);
+      stream.getVideoTracks().forEach(track => track.enabled = false);
+      
+      streamRef.current = stream;
+      setPermissionDenied(false);
+      setShowPermissionPopup(false);
+      
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+      }
+      console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
 
-        // Bắt đầu với trạng thái tắt
-        stream.getAudioTracks().forEach(track => track.enabled = false);
-        stream.getVideoTracks().forEach(track => track.enabled = false);
-
-        streamRef.current = stream;
-
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
-      } catch (err) {
-        console.error('[Media] Không thể truy cập thiết bị:', err);
-        addSystemMessage('Không thể truy cập Camera/Mic. Hãy cấp quyền trong trình duyệt.');
+      // FIX: Nếu PC đã tạo nhưng chưa có track → thêm track ngay
+      if (peerConnectionRef.current && peerConnectionRef.current.getSenders().length === 0) {
+        stream.getTracks().forEach(track => {
+          peerConnectionRef.current.addTrack(track, stream);
+        });
+        console.log('[WebRTC] Late-added tracks to existing PeerConnection');
       }
     };
-    initMedia();
+
+    // Thử lần lượt: video+audio → audio only → video only
+    const attempts = [
+      { video: true, audio: true, label: 'camera & mic' },
+      { video: false, audio: true, label: 'mic only' },
+      { video: true, audio: false, label: 'camera only' },
+    ];
+
+    for (const attempt of attempts) {
+      try {
+        console.log(`[Media] Trying ${attempt.label}...`);
+        const stream = await navigator.mediaDevices.getUserMedia(attempt);
+        applyStream(stream);
+
+        // Thông báo nếu thiếu thiết bị
+        if (!attempt.video) {
+          addSystemMessage('Không tìm thấy Camera. Bạn chỉ có thể dùng Mic.');
+        } else if (!attempt.audio) {
+          addSystemMessage('Không tìm thấy Micro. Bạn chỉ có thể dùng Camera.');
+        }
+        return; // thành công → dừng
+      } catch (err) {
+        const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
+        const isDeviceBusy = err.name === 'NotReadableError';
+        const isSecurityBlock = err.name === 'SecurityError';
+        if (isDenied || isSecurityBlock) {
+          console.error('[Media] Quyền bị từ chối:', err);
+          setPermissionDenied(true);
+          setShowPermissionPopup(true);
+          addSystemMessage('Camera/Mic bị chặn. Hãy cấp quyền trong trình duyệt.');
+          return;
+        }
+        if (isDeviceBusy) {
+          console.warn(`[Media] ${attempt.label} bị thiết bị khác chiếm:`, err.message);
+          addSystemMessage('Camera/Mic đang được sử dụng bởi ứng dụng khác (Zoom, Meet...). Hãy đóng ứng dụng đó lại.');
+          return;
+        }
+        console.warn(`[Media] ${attempt.label} failed:`, err.name, err.message);
+      }
+    }
+
+    // Không có thiết bị nào → vẫn cho vào phòng chat text
+    console.warn('[Media] Không tìm thấy thiết bị nào. Chỉ dùng chat text.');
+    addSystemMessage('Không tìm thấy Camera và Micro. Bạn vẫn có thể chat bằng tin nhắn.');
+  }, [addSystemMessage]);
+
+  // ========================
+  // Effect 1: Xin quyền media lần đầu (không WebRTC!)
+  // ========================
+  useEffect(() => {
+    requestMedia();
 
     return () => {
       // Cleanup: dừng stream và đóng PeerConnection
@@ -187,47 +264,7 @@ export default function StudyRoom() {
       }
       webrtcStartedRef.current = false;
     };
-  }, [addSystemMessage]);
-
-  // ========================
-  // Effect 1: Chỉ xin quyền media (không WebRTC!)
-  // ========================
-  useEffect(() => {
-    const initMedia = async () => {
-      try {
-        console.log('[Media] Requesting camera & mic...');
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-
-        // Bắt đầu với trạng thái tắt
-        stream.getAudioTracks().forEach(track => track.enabled = false);
-        stream.getVideoTracks().forEach(track => track.enabled = false);
-
-        streamRef.current = stream;
-
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-        console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
-      } catch (err) {
-        console.error('[Media] Không thể truy cập thiết bị:', err);
-        addSystemMessage('Không thể truy cập Camera/Mic. Hãy cấp quyền trong trình duyệt.');
-      }
-    };
-    initMedia();
-
-    return () => {
-      // Cleanup: dừng stream và đóng PeerConnection
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
-      }
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
-      webrtcStartedRef.current = false;
-    };
-  }, [addSystemMessage]);
+  }, [requestMedia]);
 
   useEffect(() => {
     const unsub1 = onSocketEvent('disconnected', ({ reason }) => {
@@ -242,7 +279,17 @@ export default function StudyRoom() {
       addSystemMessage('Đã kết nối lại thành công!');
 
       const socket = getSocket();
-      socket.emit('join_room', { roomId });
+      socket.emit('join_room', { roomId, user });
+
+      // Reset WebRTC và khởi động lại để tạo PeerConnection mới
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      webrtcStartedRef.current = false;
+      setTimeout(() => {
+        startWebRTCRef.current?.();
+      }, 1000);
     });
 
     const unsub3 = onSocketEvent('reconnect_failed', () => {
@@ -326,7 +373,7 @@ export default function StudyRoom() {
       // Delay đảm bảo cả 2 bên đã join room và setup listeners
       console.log('[WebRTC] Room joined, will start WebRTC in 2s...');
       setTimeout(() => {
-        startWebRTC();
+        startWebRTCRef.current?.();
       }, 2000);
     });
 
@@ -348,7 +395,8 @@ export default function StudyRoom() {
     socket.on('webrtc_offer', async ({ offer }) => {
       try {
         console.log('[WebRTC] Received offer, creating answer...');
-        const pc = peerConnectionRef.current || createPeerConnection();
+        const pc = peerConnectionRef.current || createPCRef.current?.();
+        if (!pc) return;
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -399,7 +447,7 @@ export default function StudyRoom() {
         clearInterval(countdownRef.current);
       }
     };
-  }, [roomId, navigate, user, addSystemMessage, startWebRTC, createPeerConnection]);
+  }, [roomId, navigate, user, addSystemMessage]);
 
   const sendMessage = (e) => {
     e.preventDefault();
@@ -469,6 +517,42 @@ export default function StudyRoom() {
         </div>
       )}
 
+      {/* Permission Denied Popup — Google Meet style */}
+      {showPermissionPopup && (
+        <div className="permission-overlay">
+          <div className="permission-popup glass-card">
+            <div className="permission-popup-icon">⚠️</div>
+            <h3>Camera và Micro bị chặn</h3>
+            <p className="permission-popup-desc">
+              StudyRandom cần quyền truy cập Camera và Micro để bạn có thể gọi video với bạn học.
+            </p>
+            <div className="permission-steps">
+              <div className="permission-step">
+                <span className="step-num">1</span>
+                <span>Nhấn vào biểu tượng <strong>🔒 ổ khóa</strong> hoặc <strong>📷 camera</strong> trên thanh địa chỉ trình duyệt</span>
+              </div>
+              <div className="permission-step">
+                <span className="step-num">2</span>
+                <span>Chọn <strong>"Cho phép"</strong> (Allow) cho Camera và Micro</span>
+              </div>
+              <div className="permission-step">
+                <span className="step-num">3</span>
+                <span>Nhấn nút bên dưới để thử lại</span>
+              </div>
+            </div>
+            <div className="permission-actions">
+              <button className="btn btn-primary" onClick={requestMedia}>
+                🔄 Thử lại cấp quyền
+              </button>
+              <button className="btn btn-secondary" onClick={() => setShowPermissionPopup(false)}>
+                Bỏ qua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Room Body */}
       <div className="room-body">
 
         {/* Main Video Area */}
@@ -542,28 +626,38 @@ export default function StudyRoom() {
           {/* Control Bar */}
           <div className="control-bar">
             <button
-              className={`control-btn ${isMuted ? 'danger' : 'active'}`}
+              className={`control-btn ${permissionDenied ? 'warning' : isMuted ? 'danger' : 'active'}`}
               onClick={() => {
+                if (permissionDenied) {
+                  setShowPermissionPopup(true);
+                  return;
+                }
                 if (streamRef.current) {
                   streamRef.current.getAudioTracks().forEach(track => track.enabled = isMuted);
                 }
                 setIsMuted(!isMuted);
               }}
-              title={isMuted ? "Bật Mic" : "Tắt Mic"}
+              title={permissionDenied ? "Micro bị chặn — nhấn để cấp quyền" : isMuted ? "Bật Mic" : "Tắt Mic"}
             >
               {isMuted ? <MicOffIcon /> : <MicIcon />}
+              {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
             <button
-              className={`control-btn ${isVideoOff ? 'danger' : 'active'}`}
+              className={`control-btn ${permissionDenied ? 'warning' : isVideoOff ? 'danger' : 'active'}`}
               onClick={() => {
+                if (permissionDenied) {
+                  setShowPermissionPopup(true);
+                  return;
+                }
                 if (streamRef.current) {
                   streamRef.current.getVideoTracks().forEach(track => track.enabled = isVideoOff);
                 }
                 setIsVideoOff(!isVideoOff);
               }}
-              title={isVideoOff ? "Bật Camera" : "Tắt Camera"}
+              title={permissionDenied ? "Camera bị chặn — nhấn để cấp quyền" : isVideoOff ? "Bật Camera" : "Tắt Camera"}
             >
               {isVideoOff ? <VideoOffIcon /> : <VideoIcon />}
+              {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
             <button
               className="control-btn end-call-btn"
