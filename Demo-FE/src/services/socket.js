@@ -44,6 +44,10 @@ export function getSocket() {
     socket = io(SOCKET_URL, {
       autoConnect: false,
 
+      auth: (cb) => {
+        cb({ token: localStorage.getItem('studyrandom_token_v2') || localStorage.getItem('studyrandom_token') });
+      },
+
       // ========================
       // AUTO-RECONNECT CONFIG
       // ========================

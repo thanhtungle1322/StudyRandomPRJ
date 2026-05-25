@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
+import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft } from 'react-icons/fi';
+import { FaCircle } from 'react-icons/fa';
 import './StudyRoom.css';
 
 export default function StudyRoom() {
@@ -191,10 +193,10 @@ export default function StudyRoom() {
   const subjectNames = {
     math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
     python: 'Lập trình Python', react: 'React / Frontend', database: 'Cơ sở dữ liệu',
-    algorithm: 'Thuật toán', physics: 'Vật lý',
+    algorithm: 'Thuật toán', physics: 'Vật lý', triet: 'Triết học',
+    lichsu: 'Lịch sử', diali: 'Địa lí',
   };
 
-  // Thêm system message helper
   const addSystemMessage = useCallback((text) => {
     setMessages((prev) => [
       ...prev,
@@ -208,7 +210,6 @@ export default function StudyRoom() {
     ]);
   }, []);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -343,9 +344,6 @@ export default function StudyRoom() {
     };
   }, [requestMedia]);
 
-  // ========================
-  // Observer: Subscribe to socket lifecycle events
-  // ========================
   useEffect(() => {
     const unsub1 = onSocketEvent('disconnected', ({ reason }) => {
       setConnected(false);
@@ -358,7 +356,6 @@ export default function StudyRoom() {
       setReconnecting(false);
       addSystemMessage('Đã kết nối lại thành công!');
 
-      // Rejoin room sau reconnect
       const socket = getSocket();
       socket.emit('join_room', { roomId, user });
 
@@ -384,16 +381,12 @@ export default function StudyRoom() {
       unsub2();
       unsub3();
     };
-  }, [roomId, user, addSystemMessage]);
+  }, [roomId, addSystemMessage]);
 
-  // ========================
-  // Socket events cho room
-  // ========================
   useEffect(() => {
     const socket = connectSocket();
 
-    // Join room (gửi user info cho reconnect support)
-    socket.emit('join_room', { roomId, user });
+    socket.emit('join_room', { roomId });
 
     socket.on('new_message', (msg) => {
       setMessages((prev) => [...prev, msg]);
@@ -415,13 +408,10 @@ export default function StudyRoom() {
       addSystemMessage(data.message || 'Bạn học đã kết nối lại!');
     });
 
-    // === AUTO-DISCONNECT EVENTS ===
-
     socket.on('auto_disconnect_warning', (data) => {
       setAutoDisconnectWarning(data.message);
       setCountdown(data.countdown / 1000);
 
-      // Bắt đầu đếm ngược
       if (countdownRef.current) clearInterval(countdownRef.current);
       let remaining = data.countdown / 1000;
       countdownRef.current = setInterval(() => {
@@ -451,7 +441,6 @@ export default function StudyRoom() {
         countdownRef.current = null;
       }
       addSystemMessage(data.message || 'Phòng đã tự động đóng');
-      // Redirect sau 2s
       setTimeout(() => navigate('/lobby'), 2000);
     });
 
@@ -575,11 +564,6 @@ export default function StudyRoom() {
     socket.emit('send_message', {
       roomId,
       message: newMessage.trim(),
-      user: {
-        id: user.id,
-        username: user.username,
-        avatar: user.avatar,
-      },
     });
 
     setNewMessage('');
@@ -643,15 +627,20 @@ export default function StudyRoom() {
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const isOwnMessage = (msg) => {
+    if (msg.isSystem) return false;
+    if (msg.userId && user?.id) return msg.userId === user.id;
+    return msg.user?.id === user?.id;
+  };
+
   return (
     <div className="study-room">
-      {/* Room Header */}
       <div className="room-header">
         <div className="room-header-left">
           <div className="room-info">
             <h2>Phòng Học</h2>
             <span className="room-subject-badge">
-              📚 {subjectNames[subject] || subject}
+              <FiBook style={{ color: '#845ef7' }} /> {subjectNames[subject] || subject}
             </span>
           </div>
         </div>
@@ -673,24 +662,23 @@ export default function StudyRoom() {
           </div>
 
           {reconnecting && (
-            <span className="connection-status reconnecting">🔄 Đang kết nối lại...</span>
+            <span className="connection-status reconnecting"><FiRefreshCw style={{ color: '#fcc419' }} /> Đang kết nối lại...</span>
           )}
           {!connected && !reconnecting && (
-            <span className="connection-status disconnected">⚠️ Mất kết nối</span>
+            <span className="connection-status disconnected"><FiAlertTriangle style={{ color: '#ff6b6b' }} /> Mất kết nối</span>
           )}
           {connected && !partnerLeft && (
-            <span className="connection-status connected">🟢 Đang kết nối</span>
+            <span className="connection-status connected"><FaCircle style={{ fontSize: 8, color: '#51cf66' }} /> Đang kết nối</span>
           )}
           {connected && partnerLeft && (
-            <span className="connection-status disconnected">🟡 Partner rời phòng</span>
+            <span className="connection-status disconnected"><FaCircle style={{ fontSize: 8, color: '#fcc419' }} /> Partner rời phòng</span>
           )}
         </div>
       </div>
 
-      {/* Auto-Disconnect Warning Banner */}
       {autoDisconnectWarning && (
         <div className="auto-disconnect-banner animate-fade-in">
-          <span className="banner-icon">⏱️</span>
+          <span className="banner-icon"><FiClock style={{ color: '#ff922b' }} /></span>
           <span className="banner-text">
             {autoDisconnectWarning}
           </span>

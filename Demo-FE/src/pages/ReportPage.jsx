@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { FiAlertOctagon, FiCheckCircle, FiAlertCircle, FiTrash2, FiHelpCircle, FiEdit3, FiSlash, FiArrowLeft, FiFrown } from 'react-icons/fi';
 import './StaticPages.css';
 
 export default function ReportPage() {
@@ -8,11 +9,11 @@ export default function ReportPage() {
   const [submitted, setSubmitted] = useState(false);
 
   const reportTypes = [
-    { id: 'spam', label: '🗑️ Spam / Quảng cáo', desc: 'Người dùng gửi tin nhắn rác' },
-    { id: 'harassment', label: '😤 Quấy rối', desc: 'Ngôn ngữ xúc phạm, đe doạ' },
-    { id: 'inappropriate', label: '🚫 Nội dung không phù hợp', desc: 'Nội dung vi phạm quy tắc' },
-    { id: 'cheating', label: '📝 Gian lận', desc: 'Không học tập nghiêm túc' },
-    { id: 'other', label: '❓ Khác', desc: 'Vấn đề khác' },
+    { id: 'spam', icon: <FiTrash2 />, label: 'Spam / Quảng cáo', desc: 'Người dùng gửi tin nhắn rác' },
+    { id: 'harassment', icon: <FiFrown />, label: 'Quấy rối', desc: 'Ngôn ngữ xúc phạm, đe doạ' },
+    { id: 'inappropriate', icon: <FiSlash />, label: 'Nội dung không phù hợp', desc: 'Nội dung vi phạm quy tắc' },
+    { id: 'cheating', icon: <FiEdit3 />, label: 'Gian lận', desc: 'Không học tập nghiêm túc' },
+    { id: 'other', icon: <FiHelpCircle />, label: 'Khác', desc: 'Vấn đề khác' },
   ];
 
   const handleSubmit = (e) => {
@@ -24,7 +25,7 @@ export default function ReportPage() {
     <div className="static-page">
       <div className="container">
         <div className="static-header animate-fade-in">
-          <span className="static-icon">🚨</span>
+          <span className="static-icon"><FiAlertOctagon style={{ color: '#ff6b6b' }} /></span>
           <h1>Báo Cáo Vấn Đề</h1>
           <p className="static-subtitle">
             Giúp chúng tôi giữ môi trường học tập an toàn và lành mạnh
@@ -34,7 +35,7 @@ export default function ReportPage() {
         <div className="static-content animate-fade-in-up">
           {submitted ? (
             <div className="report-success glass-card">
-              <span className="success-icon">✅</span>
+              <span className="success-icon"><FiCheckCircle style={{ color: '#51cf66' }} /></span>
               <h2>Cảm ơn bạn đã báo cáo!</h2>
               <p>
                 Đội ngũ quản trị sẽ xem xét báo cáo của bạn trong thời gian sớm nhất.
@@ -42,7 +43,7 @@ export default function ReportPage() {
               </p>
               <div className="success-actions">
                 <Link to="/lobby" className="btn btn-primary">
-                  ← Quay lại Sảnh chờ
+                  <FiArrowLeft /> Quay lại Sảnh chờ
                 </Link>
                 <button
                   className="btn btn-secondary"
@@ -70,7 +71,7 @@ export default function ReportPage() {
                       }`}
                       onClick={() => setReportType(type.id)}
                     >
-                      <span className="report-type-label">{type.label}</span>
+                      <span className="report-type-label">{type.icon} {type.label}</span>
                       <span className="report-type-desc">{type.desc}</span>
                     </button>
                   ))}
@@ -95,7 +96,7 @@ export default function ReportPage() {
                   className="btn btn-danger btn-lg"
                   disabled={!reportType}
                 >
-                  🚨 Gửi Báo Cáo
+                  <FiAlertOctagon /> Gửi Báo Cáo
                 </button>
                 <Link to="/lobby" className="btn btn-secondary btn-lg">
                   Huỷ
@@ -105,7 +106,7 @@ export default function ReportPage() {
           )}
 
           <div className="static-notice glass-card" style={{ marginTop: 32 }}>
-            <span>🚧</span>
+            <span><FiAlertCircle style={{ color: '#ff922b' }} /></span>
             <p>
               <strong>Tính năng đang phát triển.</strong> Hệ thống báo cáo sẽ được 
               kết nối với hệ thống quản trị trong phiên bản tiếp theo.
