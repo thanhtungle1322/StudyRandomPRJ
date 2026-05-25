@@ -29,6 +29,17 @@ export default function StudyRoom() {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
 
+  // Pomodoro
+  const [pomodoroMode, setPomodoroMode] = useState('focus');
+  const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
+  const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
+
+  // Review & Stats
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [sessionStartTime] = useState(Date.now());
+
   const localVideoRef = useRef(null);
   const partnerVideoRef = useRef(null);
   const streamRef = useRef(null);
@@ -36,22 +47,49 @@ export default function StudyRoom() {
   const webrtcStartedRef = useRef(false);
   const startWebRTCRef = useRef(null);
   const createPCRef = useRef(null);
+  const iceCandidateQueueRef = useRef([]);
+  const iceServersCacheRef = useRef(null);
+
+  // Lấy danh sách ICE Servers động từ Backend (Kiến trúc Flex/Enterprise)
+  const getIceServers = useCallback(async () => {
+    if (iceServersCacheRef.current) return iceServersCacheRef.current;
+    
+    let turnServers = [];
+    
+    try {
+      console.log('[WebRTC] Đang xin cấp TURN Server Token từ Backend...');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/turn-credentials`);
+      
+      if (response.ok) {
+        turnServers = await response.json();
+        if (turnServers.length > 0) {
+          console.log('[WebRTC] Đã được Backend cấp TURN Token thành công (Thời hạn 1h) 😎');
+        } else {
+          console.warn('[WebRTC] Backend trả về rỗng. Chưa cấu hình METERED_API_KEY ở Backend?');
+        }
+      }
+    } catch (error) {
+      console.error('[WebRTC] Không thể kết nối tới Backend để lấy Token:', error);
+    }
+
+    // Gộp STUN của Google và TURN server
+    iceServersCacheRef.current = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      ...turnServers
+    ];
+    
+    return iceServersCacheRef.current;
+  }, []);
 
   // Tạo PeerConnection — gọi nhiều lần an toàn (idempotent)
-  const createPeerConnection = useCallback(() => {
+  const createPeerConnection = useCallback(async () => {
     if (peerConnectionRef.current) return peerConnectionRef.current;
 
     console.log('[WebRTC] Creating PeerConnection...');
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
-      ]
-    });
+    const iceServers = await getIceServers();
+    const pc = new RTCPeerConnection({ iceServers });
 
     peerConnectionRef.current = pc;
 
@@ -110,10 +148,10 @@ export default function StudyRoom() {
 
     // Luôn tạo PeerConnection để có thể nhận media từ partner
     // dù chưa có local stream (fix: user không có cam/mic vẫn nghe được)
-    const pc = createPeerConnection();
+    const pc = await createPeerConnection();
 
     // Chỉ 1 bên tạo Offer (bên có id nhỏ hơn)
-    if (partner && user.id < partner.id) {
+    if (partner && String(user.id) < String(partner.id)) {
       try {
         // Nếu chưa có local stream, chờ một lát rồi retry
         if (!streamRef.current) {
@@ -150,7 +188,7 @@ export default function StudyRoom() {
   const VideoOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8" /><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z" /><line x1="2" x2="22" y1="2" y2="22" /></svg>;
   const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" /><line x1="22" x2="2" y1="2" y2="22" /></svg>;
   const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z" /></svg>;
-  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>;
+  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" /></svg>;
 
   const subjectNames = {
     math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
@@ -176,17 +214,56 @@ export default function StudyRoom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Pomodoro Timer Effect
+  useEffect(() => {
+    let interval = null;
+    if (isPomodoroRunning && pomodoroTime > 0) {
+      interval = setInterval(() => {
+        setPomodoroTime((prev) => prev - 1);
+      }, 1000);
+    } else if (pomodoroTime === 0) {
+      setIsPomodoroRunning(false);
+      // Switch mode
+      if (pomodoroMode === 'focus') {
+        addSystemMessage('Hết thời gian tập trung! Nghỉ giải lao 5 phút nào.');
+        setPomodoroMode('break');
+        setPomodoroTime(5 * 60);
+      } else {
+        addSystemMessage('Hết giờ giải lao! Quay lại tập trung 25 phút nào.');
+        setPomodoroMode('focus');
+        setPomodoroTime(25 * 60);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [isPomodoroRunning, pomodoroTime, pomodoroMode, addSystemMessage]);
+
+  const togglePomodoro = () => {
+    setIsPomodoroRunning(!isPomodoroRunning);
+  };
+  
+  const resetPomodoro = () => {
+    setIsPomodoroRunning(false);
+    setPomodoroMode('focus');
+    setPomodoroTime(25 * 60);
+  };
+
+  const formatPomodoro = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
+
   // Xin quyền media — thử từng thiết bị nếu không có đủ
   const requestMedia = useCallback(async () => {
     const applyStream = (stream) => {
       // Bắt đầu với trạng thái tắt
       stream.getAudioTracks().forEach(track => track.enabled = false);
       stream.getVideoTracks().forEach(track => track.enabled = false);
-      
+
       streamRef.current = stream;
       setPermissionDenied(false);
       setShowPermissionPopup(false);
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
@@ -263,6 +340,7 @@ export default function StudyRoom() {
         peerConnectionRef.current = null;
       }
       webrtcStartedRef.current = false;
+      iceCandidateQueueRef.current = [];
     };
   }, [requestMedia]);
 
@@ -287,6 +365,7 @@ export default function StudyRoom() {
         peerConnectionRef.current = null;
       }
       webrtcStartedRef.current = false;
+      iceCandidateQueueRef.current = [];
       setTimeout(() => {
         startWebRTCRef.current?.();
       }, 1000);
@@ -395,13 +474,26 @@ export default function StudyRoom() {
     socket.on('webrtc_offer', async ({ offer }) => {
       try {
         console.log('[WebRTC] Received offer, creating answer...');
-        const pc = peerConnectionRef.current || createPCRef.current?.();
+        let pc = peerConnectionRef.current;
+        if (!pc && createPCRef.current) {
+          pc = await createPCRef.current();
+        }
         if (!pc) return;
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socket.emit('webrtc_answer', { roomId, answer: pc.localDescription });
         console.log('[WebRTC] Answer sent!');
+
+        // Process queued ICE candidates
+        while (iceCandidateQueueRef.current.length > 0) {
+          const candidate = iceCandidateQueueRef.current.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('[WebRTC] Error adding queued ICE candidate', e);
+          }
+        }
       } catch (err) {
         console.error('[WebRTC] Error handling offer:', err);
       }
@@ -411,7 +503,18 @@ export default function StudyRoom() {
       try {
         console.log('[WebRTC] Received answer');
         if (peerConnectionRef.current) {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+          const pc = peerConnectionRef.current;
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+          // Process queued ICE candidates
+          while (iceCandidateQueueRef.current.length > 0) {
+            const candidate = iceCandidateQueueRef.current.shift();
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+              console.error('[WebRTC] Error adding queued ICE candidate', e);
+            }
+          }
         }
       } catch (err) {
         console.error('[WebRTC] Error handling answer:', err);
@@ -420,8 +523,12 @@ export default function StudyRoom() {
 
     socket.on('webrtc_ice_candidate', async ({ candidate }) => {
       try {
-        if (peerConnectionRef.current) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        const pc = peerConnectionRef.current;
+        if (pc && pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          console.log('[WebRTC] Queuing ICE candidate (no remoteDescription yet)');
+          iceCandidateQueueRef.current.push(candidate);
         }
       } catch (err) {
         console.error('[WebRTC] Error adding ICE candidate:', err);
@@ -463,10 +570,56 @@ export default function StudyRoom() {
     chatInputRef.current?.focus();
   };
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoomClick = () => {
+    if (partner && !partnerLeft) {
+      // Show review modal if partner is still here or we just studied with them
+      setShowReviewModal(true);
+    } else {
+      handleFinalLeave();
+    }
+  };
+
+  const handleFinalLeave = async () => {
+    try {
+      // Tính toán thời gian học
+      const studyMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
+      if (studyMinutes > 0 && user) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        await fetch(`${apiUrl}/users/study-time`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id || user.dbId, minutes: studyMinutes })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to submit study time', e);
+    }
+
     const socket = getSocket();
     socket.emit('leave_room', { roomId });
     navigate('/lobby');
+  };
+
+  const submitReview = async () => {
+    try {
+      if (partner) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        await fetch(`${apiUrl}/users/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            reviewerId: user.id || user.dbId,
+            revieweeId: partner.id || partner._id,
+            sessionId: roomId, // Using roomId as sessionId for MVP simplicity
+            rating: reviewRating,
+            comment: reviewComment
+          })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to submit review', e);
+    }
+    handleFinalLeave();
   };
 
   const formatTime = (timestamp) => {
@@ -492,6 +645,22 @@ export default function StudyRoom() {
           </div>
         </div>
         <div className="room-header-right">
+          {/* Pomodoro Timer UI */}
+          <div className={`pomodoro-container ${pomodoroMode === 'break' ? 'break-mode' : ''}`}>
+            <span className="pomodoro-icon">
+              {pomodoroMode === 'focus' ? '🍅' : '☕'}
+            </span>
+            <span className="pomodoro-time">
+              {formatPomodoro(pomodoroTime)}
+            </span>
+            <button className="pomodoro-btn" onClick={togglePomodoro}>
+              {isPomodoroRunning ? '⏸' : '▶'}
+            </button>
+            <button className="pomodoro-btn" onClick={resetPomodoro}>
+              ↺
+            </button>
+          </div>
+
           {reconnecting && (
             <span className="connection-status reconnecting"><FiRefreshCw style={{ color: '#fcc419' }} /> Đang kết nối lại...</span>
           )}
@@ -661,7 +830,7 @@ export default function StudyRoom() {
             </button>
             <button
               className="control-btn end-call-btn"
-              onClick={handleLeaveRoom}
+              onClick={handleLeaveRoomClick}
               title="Rời phòng"
             >
               <PhoneOffIcon />
@@ -744,6 +913,48 @@ export default function StudyRoom() {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="permission-overlay animate-fade-in">
+          <div className="permission-popup glass-card review-modal">
+            <h2 style={{ marginBottom: '16px' }}>Đánh giá buổi học</h2>
+            <p style={{ marginBottom: '24px', opacity: 0.8 }}>
+              Hãy đánh giá thái độ học tập của <strong>{partner?.username}</strong> nhé!
+            </p>
+            
+            <div className="rating-stars" style={{ display: 'flex', justifyContent: 'center', gap: '10px', fontSize: '32px', marginBottom: '20px' }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span 
+                  key={star} 
+                  style={{ cursor: 'pointer', color: star <= reviewRating ? '#fadb14' : '#e8e8e8' }}
+                  onClick={() => setReviewRating(star)}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+
+            <textarea 
+              className="input-field" 
+              placeholder="Nhận xét (không bắt buộc)..." 
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              rows={3}
+              style={{ width: '100%', marginBottom: '20px', resize: 'none' }}
+            />
+
+            <div className="permission-actions">
+              <button className="btn btn-primary" onClick={submitReview}>
+                Gửi đánh giá & Rời phòng
+              </button>
+              <button className="btn btn-secondary" onClick={handleFinalLeave}>
+                Bỏ qua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

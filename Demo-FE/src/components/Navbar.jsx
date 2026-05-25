@@ -53,6 +53,10 @@ export default function Navbar() {
                 <span className="nav-icon"><FiUsers style={{ color: '#20c997' }} /></span>
                 Bạn bè
               </Link>
+              <Link to="/leaderboard" className="nav-link">
+                <span className="nav-icon">🏆</span>
+                Xếp hạng
+              </Link>
               <div className="navbar-user">
                 <Link to="/profile" className="user-avatar-link" title="Hồ sơ cá nhân">
                   <img

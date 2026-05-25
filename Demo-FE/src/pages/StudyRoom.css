@@ -1,9 +1,11 @@
 .study-room {
   padding-top: 64px;
-  min-height: 100vh;
+  height: 100vh;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   background: var(--bg-primary);
+  overflow: hidden;
 }
 
 /* Room Header */
@@ -15,9 +17,8 @@
   background: rgba(10, 14, 26, 0.9);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 64px;
   z-index: 50;
+  flex-shrink: 0;
 }
 
 .room-header-left {
@@ -111,7 +112,7 @@
   gap: 16px;
   padding: 16px 24px;
   overflow: hidden;
-  height: calc(100vh - 64px - 56px);
+  min-height: 0;
 }
 
 /* Main Video Area */
@@ -135,16 +136,17 @@
 /* Video Grid */
 .video-grid {
   flex: 1;
-  display: grid;
+  display: flex;
   gap: 16px;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   background: rgba(0, 0, 0, 0.2);
   border-radius: 16px;
   padding: 16px;
   overflow: hidden;
+  min-height: 0;
 }
 
 .video-card {
+  flex: 1;
   position: relative;
   background: var(--bg-glass);
   border-radius: 12px;
@@ -153,7 +155,7 @@
   align-items: center;
   justify-content: center;
   border: 1px solid rgba(255, 255, 255, 0.05);
-  min-height: 250px;
+  height: 100%;
 }
 
 .video-card:hover {
@@ -327,6 +329,7 @@
   border-radius: 16px;
   background: var(--bg-glass);
   animation: slide-in-right 0.3s ease;
+  min-height: 0;
 }
 
 @keyframes slide-in-right {
@@ -368,6 +371,7 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-height: 0;
 }
 
 .chat-empty {
@@ -636,3 +640,52 @@
 .control-btn.warning:hover {
   background: rgba(252, 196, 25, 0.25);
 }
+
+/* Pomodoro Timer */
+.pomodoro-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+  margin-right: 16px;
+  transition: all 0.3s ease;
+}
+
+.pomodoro-container.break-mode {
+  background: rgba(81, 207, 102, 0.2);
+}
+
+.pomodoro-icon {
+  font-size: 16px;
+}
+
+.pomodoro-time {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: center;
+}
+
+.pomodoro-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.pomodoro-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.review-modal {
+  max-width: 500px;
+}
+

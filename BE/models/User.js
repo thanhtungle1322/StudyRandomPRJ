@@ -51,6 +51,32 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // ---- Reputation System ----
+    reputation: {
+      type: Number,
+      default: 5.0,
+    },
+    ratingCount: {
+      type: Number,
+      default: 0,
+    },
+    // ---- Study Statistics ----
+    totalStudyMinutes: {
+      type: Number,
+      default: 0,
+    },
+    streak: {
+      type: Number,
+      default: 0,
+    },
+    lastStudyDate: {
+      type: Date,
+    },
+    // ---- Gamification ----
+    badges: {
+      type: [String],
+      default: [],
+    },
   },
   {
     timestamps: true,

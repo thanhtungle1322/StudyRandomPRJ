@@ -206,6 +206,11 @@ router.get('/me', authenticateToken, async (req, res) => {
         authProvider: user.authProvider,
         totalSessions: user.totalSessions,
         createdAt: user.createdAt,
+        reputation: user.reputation,
+        ratingCount: user.ratingCount,
+        totalStudyMinutes: user.totalStudyMinutes,
+        streak: user.streak,
+        badges: user.badges,
       },
     });
   } catch (error) {
@@ -249,6 +254,11 @@ router.get('/user/:id', async (req, res) => {
         avatar: user.avatar,
         isOnline: user.isOnline,
         createdAt: user.createdAt,
+        reputation: user.reputation,
+        ratingCount: user.ratingCount,
+        totalStudyMinutes: user.totalStudyMinutes,
+        streak: user.streak,
+        badges: user.badges,
       },
     });
   } catch (error) {

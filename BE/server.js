@@ -11,6 +11,7 @@ const dbObserver = require('./config/db');
 const authRoutes = require('./routes/auth');
 const subjectsRoutes = require('./routes/subjects');
 const profileRoutes = require('./routes/profile');
+const usersRoutes = require('./routes/users');
 
 const setupSocket = require('./socket');
 
@@ -52,6 +53,40 @@ app.use('/api/auth/register', authLimiter);
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectsRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/users', usersRoutes);
+
+// Cấp TURN Server credentials động cho WebRTC (Dùng Secret Key)
+app.get('/api/turn-credentials', async (req, res) => {
+  try {
+    const secretKey = config.meteredApiKey;
+    const domain = config.meteredDomain;
+    
+    if (!secretKey || !domain) {
+      console.warn('[WebRTC] METERED_API_KEY or METERED_DOMAIN not set. Return empty.');
+      return res.json([]);
+    }
+
+    const postResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credential?secretKey=${secretKey}`, {
+      method: 'POST'
+    });
+    
+    if (!postResponse.ok) {
+      throw new Error(`Metered POST API returned ${postResponse.status}`);
+    }
+    const data = await postResponse.json();
+    
+    const getResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${data.apiKey}`);
+    if (!getResponse.ok) {
+      throw new Error(`Metered GET API returned ${getResponse.status}`);
+    }
+    const iceServers = await getResponse.json();
+    
+    res.json(iceServers);
+  } catch (error) {
+    console.error('[WebRTC] Error generating TURN credentials:', error);
+    res.status(500).json({ error: 'Failed to generate TURN credentials' });
+  }
+});
 
 app.get('/api/health', (req, res) => {
   res.json({
