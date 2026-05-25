@@ -24,23 +24,6 @@ cd Demo-FE
 npm install
 npm run dev
 ```
-
-### Environment Variables
-
-**Backend (`BE/.env`)**:
-```
-PORT=5000
-NODE_ENV=development
-CLIENT_URL=http://localhost:5173
-JWT_SECRET=studyrandom_secret_key_2026
-```
-
-**Frontend (`Demo-FE/.env`)**:
-```
-VITE_API_URL=http://localhost:5000/api
-VITE_SOCKET_URL=http://localhost:5000
-```
-
 ## ✨ Tính năng
 
 | Tính năng | Trạng thái |
