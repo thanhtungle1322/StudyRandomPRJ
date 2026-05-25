@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -19,6 +19,20 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+  const passwordRef = useRef(null);
+
+  // Xóa password field khi component unmount
+  // → ngăn Chrome detect 'password đã dùng' khi navigate đi
+  useEffect(() => {
+    return () => {
+      if (passwordRef.current) {
+        passwordRef.current.value = '';
+      }
+      setPassword('');
+      setEmail('');
+      setDisplayName('');
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -75,12 +89,14 @@ export default function RegisterPage() {
             <p>Tạo tài khoản để bắt đầu tìm bạn học</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="login-form">
+          <form onSubmit={handleSubmit} className="login-form" autoComplete="on">
             <div className="input-group">
-              <label htmlFor="displayName">Tên hiển thị</label>
+              <label htmlFor="reg-displayName">Tên hiển thị</label>
               <input
-                id="displayName"
+                id="reg-displayName"
                 type="text"
+                name="displayName"
+                autoComplete="nickname"
                 className="input-field"
                 placeholder="Tên hiển thị khi vào phòng học..."
                 value={displayName}
@@ -90,10 +106,12 @@ export default function RegisterPage() {
             </div>
 
             <div className="input-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="reg-email">Email</label>
               <input
-                id="email"
+                id="reg-email"
                 type="email"
+                name="email"
+                autoComplete="email"
                 className="input-field"
                 placeholder="your@email.com"
                 value={email}
@@ -102,10 +120,13 @@ export default function RegisterPage() {
             </div>
 
             <div className="input-group">
-              <label htmlFor="password">Mật khẩu</label>
+              <label htmlFor="reg-password">Mật khẩu</label>
               <input
-                id="password"
+                ref={passwordRef}
+                id="reg-password"
                 type="password"
+                name="new-password"
+                autoComplete="new-password"
                 className="input-field"
                 placeholder="Ít nhất 6 ký tự"
                 value={password}
@@ -140,7 +161,18 @@ export default function RegisterPage() {
 
           <div className="login-footer">
             <p>
-              Đã có tài khoản? <Link to="/login">Đăng nhập</Link>
+              Đã có tài khoản?{' '}
+              <Link
+                to="/login"
+                onClick={() => {
+                  if (passwordRef.current) passwordRef.current.value = '';
+                  setPassword('');
+                  setEmail('');
+                  setDisplayName('');
+                }}
+              >
+                Đăng nhập
+              </Link>
             </p>
           </div>
         </div>

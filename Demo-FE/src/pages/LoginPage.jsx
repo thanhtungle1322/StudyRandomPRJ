@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
@@ -20,6 +20,19 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const { login } = useAuth();
   const navigate = useNavigate();
+  const passwordRef = useRef(null);
+
+  // Xóa password field khi component unmount
+  // → ngăn Chrome detect 'password đã dùng' khi navigate đi
+  useEffect(() => {
+    return () => {
+      if (passwordRef.current) {
+        passwordRef.current.value = '';
+      }
+      setPassword('');
+      setEmail('');
+    };
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -76,12 +89,14 @@ export default function LoginPage() {
             <p>Đăng nhập để tiếp tục tìm bạn học</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="login-form">
+          <form onSubmit={handleSubmit} className="login-form" autoComplete="on">
             <div className="input-group">
-              <label htmlFor="email">Email</label>
+              <label htmlFor="login-email">Email</label>
               <input
-                id="email"
+                id="login-email"
                 type="email"
+                name="email"
+                autoComplete="username"
                 className="input-field"
                 placeholder="your@email.com"
                 value={email}
@@ -91,10 +106,13 @@ export default function LoginPage() {
             </div>
 
             <div className="input-group">
-              <label htmlFor="password">Mật khẩu</label>
+              <label htmlFor="login-password">Mật khẩu</label>
               <input
-                id="password"
+                ref={passwordRef}
+                id="login-password"
                 type="password"
+                name="password"
+                autoComplete="current-password"
                 className="input-field"
                 placeholder="Nhập mật khẩu"
                 value={password}
@@ -142,7 +160,18 @@ export default function LoginPage() {
 
           <div className="login-footer">
             <p>
-              Chưa có tài khoản? <Link to="/register">Đăng ký ngay</Link>
+              Chưa có tài khoản?{' '}
+              <Link
+                to="/register"
+                onClick={() => {
+                  // Xóa ngay trước khi navigate để Chrome không detect
+                  if (passwordRef.current) passwordRef.current.value = '';
+                  setPassword('');
+                  setEmail('');
+                }}
+              >
+                Đăng ký ngay
+              </Link>
             </p>
           </div>
         </div>
