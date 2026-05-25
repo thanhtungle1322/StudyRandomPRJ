@@ -3,13 +3,16 @@ import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
+import ProfilePage from './pages/ProfilePage';
 import LobbyPage from './pages/LobbyPage';
 import StudyRoom from './pages/StudyRoom';
 import WhiteboardPage from './pages/WhiteboardPage';
 import FriendsPage from './pages/FriendsPage';
 import ReportPage from './pages/ReportPage';
+import LeaderboardPage from './pages/LeaderboardPage';
 
-// Protected Route wrapper
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useAuth();
   if (!isLoggedIn) {
@@ -30,6 +33,19 @@ function App() {
           <Route
             path="/login"
             element={isLoggedIn ? <Navigate to="/lobby" replace /> : <LoginPage />}
+          />
+          <Route
+            path="/register"
+            element={isLoggedIn ? <Navigate to="/lobby" replace /> : <RegisterPage />}
+          />
+          <Route path="/auth/callback" element={<AuthCallbackPage />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
           />
           <Route
             path="/lobby"
@@ -68,6 +84,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <ReportPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/leaderboard"
+            element={
+              <ProtectedRoute>
+                <LeaderboardPage />
               </ProtectedRoute>
             }
           />

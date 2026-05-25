@@ -1,10 +1,8 @@
 require('dotenv').config();
 
-// Nếu ở production thì BẮT BUỘC phải có biến môi trường, không dùng fallback chuỗi mặc định
-const isProduction = process.env.NODE_ENV === 'production';
-const jwtSecret = process.env.JWT_SECRET;
+const jwtSecret = process.env.JWT_SECRET || 'studyrandom_secret_key_2026';
 
-if (isProduction && !jwtSecret) {
+if (process.env.NODE_ENV === 'production' && jwtSecret === 'studyrandom_secret_key_2026') {
   console.error('[Config] FATAL: JWT_SECRET environment variable is not set in production!');
   process.exit(1);
 }
@@ -12,11 +10,15 @@ if (isProduction && !jwtSecret) {
 module.exports = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
-  jwtSecret: jwtSecret || 'studyrandom_secret_key_2026', // Fallback cho dev environment
+  jwtSecret,
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/studyrandom',
   // CLIENT_URL có thể là nhiều domain (cách nhau dấu phẩy)
   // VD: "https://study-random-prj.vercel.app,http://localhost:5173"
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
+
+  // TURN Server API Key
+  meteredDomain: process.env.METERED_DOMAIN || '', // VD: "my-app"
+  meteredApiKey: process.env.METERED_API_KEY || '',
 
   // Parse ra array cho CORS
   get corsOrigins() {

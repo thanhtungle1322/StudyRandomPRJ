@@ -1,0 +1,298 @@
+/* ===========================
+   Friends Page – backgroundDashboard theme
+   =========================== */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+.friends-page {
+  min-height: 100vh;
+  padding-top: 64px;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  position: relative;
+  font-family: 'Nunito', 'Inter', sans-serif;
+}
+
+.friends-overlay {
+  display: none;
+}
+
+.friends-container {
+  position: relative;
+  z-index: 1;
+  padding-top: 48px;
+  padding-bottom: 80px;
+}
+
+/* ---- Header ---- */
+.friends-header {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.friends-header-icon {
+  display: block;
+  font-size: 52px;
+  margin-bottom: 14px;
+  animation: friendFloat 3s ease-in-out infinite;
+}
+
+@keyframes friendFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-8px); }
+}
+
+.friends-header h1 {
+  font-family: 'Nunito', sans-serif;
+  font-size: 36px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.3);
+  margin-bottom: 8px;
+}
+
+.friends-header p {
+  font-size: 15px;
+  color: rgba(255,255,255,0.80);
+  font-weight: 500;
+}
+
+/* ---- Body wrapper ---- */
+.friends-body {
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+/* ---- Friend Cards ---- */
+.friends-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.friend-card-new {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.friend-card-new:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.friend-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #f1f5f9;
+  border: 2px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.friend-details {
+  flex: 1;
+}
+
+.friend-name {
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 3px;
+}
+
+.friend-subject {
+  font-size: 13px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.friend-actions-new {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.friend-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.btn-friend-invite {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: linear-gradient(135deg, #4c6ef5, #845ef7);
+  color: #fff;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(76,110,245,0.4);
+  transition: all 0.25s ease;
+}
+
+.btn-friend-invite:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(76,110,245,0.6);
+}
+
+.btn-friend-invite:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.btn-friend-more {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  color: #64748b;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-friend-more:hover {
+  background: #e2e8f0;
+  color: #1e293b;
+}
+
+/* ---- Features ---- */
+.friends-features {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+
+.friends-feature-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.friends-feature-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.friends-feature-card h3 {
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 3px;
+}
+
+.friends-feature-card p {
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* ---- Notice ---- */
+.friends-notice {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid rgba(255, 167, 77, 0.5);
+  border-radius: 14px;
+  margin-bottom: 28px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.friends-notice p {
+  font-size: 14px;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.friends-notice strong {
+  color: #e67700;
+}
+
+/* ---- CTA ---- */
+.friends-cta {
+  text-align: center;
+}
+
+.btn-back-lobby {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 13px 36px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  color: #1e293b;
+  font-family: 'Nunito', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.btn-back-lobby:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+  color: #0f172a;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .friends-header h1 { font-size: 28px; }
+
+  .friend-card-new {
+    flex-wrap: wrap;
+  }
+
+  .friend-actions-new {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+}

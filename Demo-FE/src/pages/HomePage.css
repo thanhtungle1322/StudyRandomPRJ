@@ -1,144 +1,186 @@
 /* ===========================
-   Home Page
+   Home Page - Figma Redesign
    =========================== */
 
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
+
 .home-page {
-  padding-top: 64px;
   overflow-x: hidden;
+  font-family: 'Nunito', 'Inter', sans-serif;
 }
 
-/* Hero Background */
-.hero-bg {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-}
+/* ===========================
+   HERO SECTION
+   =========================== */
 
-.hero-orb {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(100px);
-  opacity: 0.3;
-}
-
-.hero-orb-1 {
-  width: 600px;
-  height: 600px;
-  background: var(--primary-700);
-  top: -200px;
-  right: -100px;
-  animation: float 8s ease-in-out infinite;
-}
-
-.hero-orb-2 {
-  width: 400px;
-  height: 400px;
-  background: var(--accent-600);
-  bottom: -100px;
-  left: -100px;
-  animation: float 10s ease-in-out infinite reverse;
-}
-
-.hero-orb-3 {
-  width: 300px;
-  height: 300px;
-  background: #20c997;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  animation: float 12s ease-in-out infinite;
-  opacity: 0.15;
-}
-
-.hero-grid {
-  position: absolute;
-  inset: 0;
-  background-image: 
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 60px 60px;
-}
-
-/* Hero Section */
 .hero-section {
   position: relative;
-  z-index: 1;
-  min-height: calc(100vh - 64px);
+  /* Tăng chiều cao để thấy hết background */
+  min-height: 110vh;
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
   display: flex;
+  align-items: flex-start;
+  overflow: visible;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(20, 50, 160, 0.15) 0%,
+    rgba(60, 100, 220, 0.05) 60%,
+    transparent 100%
+  );
+  z-index: 1;
+}
+
+.hero-container {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: center;
   align-items: center;
-  padding: 60px 0;
+  width: 100%;
+}
+
+
+
+@keyframes mascotFloat {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-14px); }
 }
 
 .hero-content {
-  max-width: 720px;
+  max-width: 680px;
   margin: 0 auto;
   text-align: center;
+  padding: 144px 20px 60px;
 }
 
+/* Hero Badge */
 .hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 8px 20px;
-  background: var(--bg-glass);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-full);
+  padding: 8px 22px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
   font-size: 13px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  margin-bottom: 32px;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 28px;
+  backdrop-filter: blur(8px);
 }
 
 .badge-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--success);
+  background: #51cf66;
   animation: pulse 2s ease-in-out infinite;
 }
 
+/* Hero Title */
 .hero-title {
-  font-size: 56px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 58px;
   font-weight: 900;
   line-height: 1.1;
-  letter-spacing: -2px;
-  margin-bottom: 24px;
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+  color: #ffffff;
+  text-shadow: 0 2px 16px rgba(0,0,0,0.25);
+  text-transform: uppercase;
 }
 
-.gradient-text {
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.hero-title-highlight {
+  color: #f783ac;
+  text-shadow: 0 0 30px rgba(247, 131, 172, 0.6);
 }
 
+/* Hero Description */
 .hero-description {
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.7;
-  color: var(--text-secondary);
-  margin-bottom: 40px;
-  max-width: 560px;
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 36px;
+  max-width: 520px;
   margin-left: auto;
   margin-right: auto;
 }
 
+/* Hero Actions */
 .hero-actions {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 16px;
-  margin-bottom: 60px;
+  margin-bottom: 48px;
 }
 
+.btn-hero-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 40px;
+  background: linear-gradient(135deg, #f783ac, #e64980);
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  box-shadow: 0 6px 24px rgba(247, 131, 172, 0.5);
+  transition: all 0.3s ease;
+}
+
+.btn-hero-primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 32px rgba(247, 131, 172, 0.7);
+  color: white;
+}
+
+.btn-hero-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 40px;
+  background: rgba(255, 255, 255, 0.18);
+  color: white;
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  border-radius: 999px;
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  text-decoration: none;
+  backdrop-filter: blur(8px);
+  transition: all 0.3s ease;
+}
+
+.btn-hero-secondary:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-3px);
+  color: white;
+}
+
+/* Hero Stats */
 .hero-stats {
   display: inline-flex;
   align-items: center;
-  gap: 32px;
-  padding: 20px 40px;
-  background: var(--bg-glass);
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
+  gap: 36px;
+  padding: 18px 48px;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
 }
 
 .stat-item {
@@ -149,144 +191,267 @@
 }
 
 .stat-number {
-  font-size: 28px;
-  font-weight: 800;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  font-family: 'Nunito', sans-serif;
+  font-size: 26px;
+  font-weight: 900;
+  color: #3b5bdb;
 }
 
 .stat-label {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: 500;
+  font-size: 12px;
+  color: #868e96;
+  font-weight: 600;
 }
 
 .stat-divider {
   width: 1px;
   height: 40px;
-  background: var(--border-color);
+  background: #dee2e6;
 }
 
-/* Features Section */
+/* ===========================
+   FEATURES SECTION
+   =========================== */
+
 .features-section {
   position: relative;
-  z-index: 1;
-  padding: 100px 0;
+  padding: 80px 0 90px;
+  background: linear-gradient(180deg, #ddeeff 0%, #c8dcf8 40%, #b8ccf5 100%);
+  overflow: visible;
+}
+
+/* Mascot - đặt đúng vị trí giống Figma: nằm ở hai góc, ngang với hàng card đầu */
+.features-mascot {
+  position: absolute;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.features-mascot-left {
+  /* Dịch vào trong, không sát mép - ngang với hàng card đầu */
+  left: 100px;
+  top: 100px;
+  width: 200px;
+  animation: mascotFloat 5s ease-in-out infinite;
+}
+
+.features-mascot-right {
+  /* Dịch vào trong, không sát mép */
+  right: 50px;
+  top: 10px;
+  width: 300px;
+  animation: mascotFloat 5s ease-in-out infinite 1.5s;
+}
+
+.features-mascot img {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.section-title-dark {
+  font-family: 'Nunito', sans-serif;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: #1a2a5e;
+  margin-bottom: 10px;
+}
+
+.section-subtitle-dark {
+  font-size: 16px;
+  color: #4a5568;
+  font-weight: 500;
 }
 
 .section-header {
   text-align: center;
-  margin-bottom: 60px;
-}
-
-.section-title {
-  font-size: 40px;
-  font-weight: 800;
-  letter-spacing: -1px;
-  margin-bottom: 12px;
-}
-
-.section-subtitle {
-  font-size: 17px;
-  color: var(--text-secondary);
+  margin-bottom: 50px;
 }
 
 .features-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 24px;
+  position: relative;
+  z-index: 1;
 }
 
-.feature-card {
+/* Feature Cards */
+.feature-card-new {
+  background: #ffffff;
+  border-radius: 24px;
   padding: 36px 28px;
   text-align: center;
-  cursor: default;
+  box-shadow: 0 4px 24px rgba(60, 100, 220, 0.08);
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
-.feature-icon-wrap {
-  width: 64px;
-  height: 64px;
+/* Border gradient bottom */
+.feature-card-new::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  border-radius: 0 0 24px 24px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* hàng trên: xanh-hồng */
+.feature-card-new:nth-child(1)::after { background: linear-gradient(90deg, #74c0fc, #f06595); }
+.feature-card-new:nth-child(2)::after { background: linear-gradient(90deg, #fcc419, #51cf66); }
+.feature-card-new:nth-child(3)::after { background: linear-gradient(90deg, #845ef7, #20c997); }
+/* hàng dưới */
+.feature-card-new:nth-child(4)::after { background: linear-gradient(90deg, #f06595, #339af0); }
+.feature-card-new:nth-child(5)::after { background: linear-gradient(90deg, #20c997, #4c6ef5); }
+.feature-card-new:nth-child(6)::after { background: linear-gradient(90deg, #fd7e14, #f06595); }
+
+.feature-card-new:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 40px rgba(60, 100, 220, 0.18);
+}
+
+.feature-card-new:hover::after {
+  opacity: 1;
+}
+
+.feature-icon-wrap-new {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 20px;
-  background: var(--bg-glass);
-  border-radius: var(--radius-lg);
-  font-size: 28px;
+  font-size: 30px;
 }
 
-.feature-card h3 {
+.feature-icon-blue  { background: #e7f5ff; color: #339af0; }
+.feature-icon-yellow{ background: #fff9db; color: #f59f00; }
+.feature-icon-purple{ background: #f3f0ff; color: #845ef7; }
+.feature-icon-pink  { background: #fff0f6; color: #f06595; }
+.feature-icon-teal  { background: #e6fcf5; color: #20c997; }
+.feature-icon-orange{ background: #fff4e6; color: #fd7e14; }
+
+.feature-card-title {
+  font-family: 'Nunito', sans-serif;
   font-size: 18px;
-  font-weight: 700;
+  font-weight: 800;
+  color: #1e3a8a;
   margin-bottom: 10px;
 }
 
-.feature-card p {
+.feature-card-desc {
   font-size: 14px;
   line-height: 1.6;
-  color: var(--text-secondary);
+  color: #6c757d;
 }
 
-/* How it works */
+/* ===========================
+   HOW IT WORKS SECTION
+   =========================== */
+
 .howto-section {
   position: relative;
-  z-index: 1;
-  padding: 100px 0;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  padding: 100px 0 200px;
+  overflow: hidden;
 }
 
+/* Không overlay, để ảnh hiển thị rõ hoàn toàn */
+.howto-overlay {
+  display: none;
+}
+
+.howto-container {
+  position: relative;
+  z-index: 2;
+}
+
+.howto-header {
+  text-align: center;
+  margin-bottom: 60px;
+}
+
+.howto-title {
+  font-family: 'Nunito', sans-serif;
+  font-size: 64px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 20px rgba(0,0,0,0.25);
+  margin-bottom: 16px;
+  letter-spacing: -1px;
+}
+
+.howto-subtitle-badge {
+  display: inline-block;
+  padding: 8px 28px;
+  background: rgba(255,255,255,0.15);
+  border: 1.5px solid rgba(255,255,255,0.4);
+  border-radius: 999px;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* 3 khung trắng đục tách biệt - giống Figma */
 .howto-steps {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 0;
-  max-width: 900px;
-  margin: 0 auto;
+  gap: 60px;
+  margin-top: 250px;
 }
 
-.howto-step {
+.howto-step-new {
   flex: 1;
-  text-align: center;
-  padding: 32px 24px;
+  max-width: 300px;
+  background: #ffffff;          /* Trắng đục hoàn toàn */
+  border: none;
+  border-radius: 24px;
+  padding: 28px 24px;
+  text-align: left;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  transition: transform 0.3s ease;
 }
 
-.step-number {
-  font-size: 48px;
-  font-weight: 900;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  margin-bottom: 16px;
-  opacity: 0.8;
+.howto-step-new:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.18);
 }
 
-.step-content h3 {
+.howto-step-title {
+  font-family: 'Nunito', sans-serif;
   font-size: 18px;
-  font-weight: 700;
-  margin-bottom: 8px;
+  font-weight: 800;
+  color: #f06595;               /* Hồng đậm như Figma */
+  margin-bottom: 10px;
 }
 
-.step-content p {
+.howto-step-desc {
   font-size: 14px;
-  color: var(--text-secondary);
-  line-height: 1.6;
+  color: #495057;               /* Xám tối dễ đọc */
+  line-height: 1.65;
 }
 
-.step-connector {
-  width: 60px;
-  height: 2px;
-  background: var(--gradient-primary);
-  flex-shrink: 0;
-  opacity: 0.4;
-}
+/* ===========================
+   CTA Section
+   =========================== */
 
-/* CTA Section */
 .cta-section {
   position: relative;
   z-index: 1;
   padding: 80px 0;
+  background: linear-gradient(180deg, #b8ccf5 0%, #dce9ff 100%);
 }
 
 .cta-card {
@@ -294,6 +459,8 @@
   text-align: center;
   padding: 80px 40px;
   overflow: hidden;
+  background: rgba(255, 255, 255, 0.6) !important;
+  border: 1px solid rgba(255,255,255,0.8) !important;
 }
 
 .cta-glow {
@@ -303,37 +470,39 @@
   transform: translateX(-50%);
   width: 400px;
   height: 400px;
-  background: var(--primary-700);
+  background: #4c6ef5;
   border-radius: 50%;
   filter: blur(120px);
-  opacity: 0.2;
+  opacity: 0.12;
   pointer-events: none;
 }
 
 .cta-card h2 {
+  font-family: 'Nunito', sans-serif;
   font-size: 36px;
   font-weight: 800;
   margin-bottom: 12px;
   position: relative;
+  color: #1e3a8a;
 }
 
 .cta-card p {
   font-size: 17px;
-  color: var(--text-secondary);
+  color: #4a5568;
   margin-bottom: 32px;
   position: relative;
 }
 
-.cta-card .btn {
-  position: relative;
-}
+/* ===========================
+   Footer
+   =========================== */
 
-/* Footer */
 .footer {
   position: relative;
   z-index: 1;
   padding: 40px 0;
   border-top: 1px solid var(--border-color);
+  background: var(--bg-secondary);
 }
 
 .footer-inner {
@@ -345,6 +514,7 @@
 .footer-brand {
   font-size: 18px;
   font-weight: 700;
+  color: var(--text-primary);
 }
 
 .footer-text {
@@ -352,46 +522,78 @@
   color: var(--text-muted);
 }
 
-/* Responsive */
+/* ===========================
+   Responsive
+   =========================== */
+
+@media (max-width: 1100px) {
+  .features-mascot-left,
+  .features-mascot-right {
+    width: 140px;
+    left: 10px;
+  }
+  .features-mascot-right {
+    right: 10px;
+    left: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .features-mascot {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .hero-title {
     font-size: 36px;
-    letter-spacing: -1px;
   }
-
-  .hero-description {
-    font-size: 15px;
+  .hero-mascot {
+    display: none;
   }
-
   .hero-actions {
     flex-direction: column;
   }
-
   .hero-stats {
     gap: 20px;
-    padding: 16px 24px;
+    padding: 14px 24px;
   }
-
   .stat-number {
-    font-size: 22px;
+    font-size: 20px;
   }
-
   .features-grid {
     grid-template-columns: 1fr;
   }
-
   .howto-steps {
     flex-direction: column;
+    align-items: center;
   }
-
-  .step-connector {
-    width: 2px;
-    height: 40px;
+  .howto-step-new {
+    max-width: 100%;
+    width: 100%;
   }
-
+  .howto-title {
+    font-size: 40px;
+  }
   .footer-inner {
     flex-direction: column;
     gap: 12px;
     text-align: center;
   }
+}
+
+@media (max-width: 480px) {
+  .hero-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+  .stat-divider {
+    width: 60px;
+    height: 1px;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 }

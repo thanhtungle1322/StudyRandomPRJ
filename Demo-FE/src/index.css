@@ -248,7 +248,7 @@ img {
   background: var(--bg-glass);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
+  color: #0f0a0a;
   font-family: var(--font-family);
   font-size: 15px;
   transition: all var(--transition-fast);

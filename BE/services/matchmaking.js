@@ -255,7 +255,7 @@ class MatchmakingService extends EventEmitter {
         roomId,
         subject: room.subject,
         users: room.users.map((u) => ({
-          userId: u.user.dbId || undefined,
+          userId: u.user.userId,
           username: u.user.username,
           joinedAt: room.createdAt,
         })),
@@ -275,6 +275,7 @@ class MatchmakingService extends EventEmitter {
           $push: {
             messages: {
               text: message.text,
+              userId: message.userId,
               username: message.user?.username,
               timestamp: message.timestamp,
             },
@@ -289,7 +290,7 @@ class MatchmakingService extends EventEmitter {
   async _markUserLeftInDB(roomId, leavingUser) {
     try {
       await Session.updateOne(
-        { roomId, 'users.username': leavingUser.user.username },
+        { roomId, 'users.userId': leavingUser.user.userId },
         { $set: { 'users.$.leftAt': new Date() } }
       );
     } catch (err) {

@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
+import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft } from 'react-icons/fi';
+import { FaCircle } from 'react-icons/fa';
 import './StudyRoom.css';
 
 export default function StudyRoom() {
@@ -27,6 +29,17 @@ export default function StudyRoom() {
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
 
+  // Pomodoro
+  const [pomodoroMode, setPomodoroMode] = useState('focus');
+  const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
+  const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
+
+  // Review & Stats
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [sessionStartTime] = useState(Date.now());
+
   const localVideoRef = useRef(null);
   const partnerVideoRef = useRef(null);
   const streamRef = useRef(null);
@@ -34,19 +47,49 @@ export default function StudyRoom() {
   const webrtcStartedRef = useRef(false);
   const startWebRTCRef = useRef(null);
   const createPCRef = useRef(null);
+  const iceCandidateQueueRef = useRef([]);
+  const iceServersCacheRef = useRef(null);
+
+  // Lấy danh sách ICE Servers động từ Backend (Kiến trúc Flex/Enterprise)
+  const getIceServers = useCallback(async () => {
+    if (iceServersCacheRef.current) return iceServersCacheRef.current;
+    
+    let turnServers = [];
+    
+    try {
+      console.log('[WebRTC] Đang xin cấp TURN Server Token từ Backend...');
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+      const response = await fetch(`${apiUrl}/turn-credentials`);
+      
+      if (response.ok) {
+        turnServers = await response.json();
+        if (turnServers.length > 0) {
+          console.log('[WebRTC] Đã được Backend cấp TURN Token thành công (Thời hạn 1h) 😎');
+        } else {
+          console.warn('[WebRTC] Backend trả về rỗng. Chưa cấu hình METERED_API_KEY ở Backend?');
+        }
+      }
+    } catch (error) {
+      console.error('[WebRTC] Không thể kết nối tới Backend để lấy Token:', error);
+    }
+
+    // Gộp STUN của Google và TURN server
+    iceServersCacheRef.current = [
+      { urls: 'stun:stun.l.google.com:19302' },
+      { urls: 'stun:stun1.l.google.com:19302' },
+      ...turnServers
+    ];
+    
+    return iceServersCacheRef.current;
+  }, []);
 
   // Tạo PeerConnection — gọi nhiều lần an toàn (idempotent)
-  const createPeerConnection = useCallback(() => {
+  const createPeerConnection = useCallback(async () => {
     if (peerConnectionRef.current) return peerConnectionRef.current;
 
     console.log('[WebRTC] Creating PeerConnection...');
-    const pc = new RTCPeerConnection({
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-      ]
-    });
+    const iceServers = await getIceServers();
+    const pc = new RTCPeerConnection({ iceServers });
 
     peerConnectionRef.current = pc;
 
@@ -78,8 +121,20 @@ export default function StudyRoom() {
     // Theo dõi trạng thái kết nối ICE
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'disconnected' || pc.iceConnectionState === 'failed') {
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        setPartnerHasVideo(true);
+      } else if (pc.iceConnectionState === 'disconnected') {
         setPartnerHasVideo(false);
+      } else if (pc.iceConnectionState === 'failed') {
+        setPartnerHasVideo(false);
+        console.log('[WebRTC] ICE failed, attempting ICE restart...');
+        pc.createOffer({ iceRestart: true })
+          .then(offer => pc.setLocalDescription(offer))
+          .then(() => {
+            const socket = getSocket();
+            socket.emit('webrtc_offer', { roomId, offer: pc.localDescription });
+          })
+          .catch(err => console.error('[WebRTC] ICE restart failed:', err));
       }
     };
 
@@ -89,17 +144,20 @@ export default function StudyRoom() {
   // Bắt đầu handshake WebRTC — chỉ bên "caller" tạo offer
   const startWebRTC = useCallback(async () => {
     if (webrtcStartedRef.current) return;
-    if (!streamRef.current) {
-      console.log('[WebRTC] No local stream yet, skipping...');
-      return;
-    }
     webrtcStartedRef.current = true;
 
-    const pc = createPeerConnection();
+    // Luôn tạo PeerConnection để có thể nhận media từ partner
+    // dù chưa có local stream (fix: user không có cam/mic vẫn nghe được)
+    const pc = await createPeerConnection();
 
     // Chỉ 1 bên tạo Offer (bên có id nhỏ hơn)
-    if (partner && user.id < partner.id) {
+    if (partner && String(user.id) < String(partner.id)) {
       try {
+        // Nếu chưa có local stream, chờ một lát rồi retry
+        if (!streamRef.current) {
+          console.log('[WebRTC] No local stream yet, waiting 3s for media...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
         console.log('[WebRTC] I am the caller, creating offer...');
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -124,21 +182,21 @@ export default function StudyRoom() {
   const countdownRef = useRef(null);
 
   // SVG Icons
-  const MicIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>;
-  const MicOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2"/><path d="M5 10v2a7 7 0 0 0 12 5"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" x2="12" y1="19" y2="22"/></svg>;
-  const VideoIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>;
-  const VideoOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z"/><line x1="2" x2="22" y1="2" y2="22"/></svg>;
-  const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="22" x2="2" y1="2" y2="22"/></svg>;
-  const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z"/></svg>;
-  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>;
+  const MicIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" x2="12" y1="19" y2="22" /></svg>;
+  const MicOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="2" x2="22" y1="2" y2="22" /><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12v-2" /><path d="M5 10v2a7 7 0 0 0 12 5" /><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33" /><path d="M9 9v3a3 3 0 0 0 5.12 2.12" /><line x1="12" x2="12" y1="19" y2="22" /></svg>;
+  const VideoIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m22 8-6 4 6 4V8Z" /><rect width="14" height="12" x="2" y="6" rx="2" ry="2" /></svg>;
+  const VideoOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34l1 1L22 8v8" /><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2l10 10Z" /><line x1="2" x2="22" y1="2" y2="22" /></svg>;
+  const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" /><line x1="22" x2="2" y1="2" y2="22" /></svg>;
+  const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z" /></svg>;
+  const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" /></svg>;
 
   const subjectNames = {
     math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
     python: 'Lập trình Python', react: 'React / Frontend', database: 'Cơ sở dữ liệu',
-    algorithm: 'Thuật toán', physics: 'Vật lý',
+    algorithm: 'Thuật toán', physics: 'Vật lý', triet: 'Triết học',
+    lichsu: 'Lịch sử', diali: 'Địa lí',
   };
 
-  // Thêm system message helper
   const addSystemMessage = useCallback((text) => {
     setMessages((prev) => [
       ...prev,
@@ -152,10 +210,48 @@ export default function StudyRoom() {
     ]);
   }, []);
 
-  // Scroll to bottom on new message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  // Pomodoro Timer Effect
+  useEffect(() => {
+    let interval = null;
+    if (isPomodoroRunning && pomodoroTime > 0) {
+      interval = setInterval(() => {
+        setPomodoroTime((prev) => prev - 1);
+      }, 1000);
+    } else if (pomodoroTime === 0) {
+      setIsPomodoroRunning(false);
+      // Switch mode
+      if (pomodoroMode === 'focus') {
+        addSystemMessage('Hết thời gian tập trung! Nghỉ giải lao 5 phút nào.');
+        setPomodoroMode('break');
+        setPomodoroTime(5 * 60);
+      } else {
+        addSystemMessage('Hết giờ giải lao! Quay lại tập trung 25 phút nào.');
+        setPomodoroMode('focus');
+        setPomodoroTime(25 * 60);
+      }
+    }
+    return () => clearInterval(interval);
+  }, [isPomodoroRunning, pomodoroTime, pomodoroMode, addSystemMessage]);
+
+  const togglePomodoro = () => {
+    setIsPomodoroRunning(!isPomodoroRunning);
+  };
+  
+  const resetPomodoro = () => {
+    setIsPomodoroRunning(false);
+    setPomodoroMode('focus');
+    setPomodoroTime(25 * 60);
+  };
+
+  const formatPomodoro = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+    const s = (seconds % 60).toString().padStart(2, '0');
+    return `${m}:${s}`;
+  };
 
   // Xin quyền media — thử từng thiết bị nếu không có đủ
   const requestMedia = useCallback(async () => {
@@ -163,11 +259,11 @@ export default function StudyRoom() {
       // Bắt đầu với trạng thái tắt
       stream.getAudioTracks().forEach(track => track.enabled = false);
       stream.getVideoTracks().forEach(track => track.enabled = false);
-      
+
       streamRef.current = stream;
       setPermissionDenied(false);
       setShowPermissionPopup(false);
-      
+
       if (localVideoRef.current) {
         localVideoRef.current.srcObject = stream;
       }
@@ -204,16 +300,21 @@ export default function StudyRoom() {
         return; // thành công → dừng
       } catch (err) {
         const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
-        if (isDenied) {
-          // Quyền bị từ chối → hiện popup và dừng ngay
+        const isDeviceBusy = err.name === 'NotReadableError';
+        const isSecurityBlock = err.name === 'SecurityError';
+        if (isDenied || isSecurityBlock) {
           console.error('[Media] Quyền bị từ chối:', err);
           setPermissionDenied(true);
           setShowPermissionPopup(true);
           addSystemMessage('Camera/Mic bị chặn. Hãy cấp quyền trong trình duyệt.');
           return;
         }
-        // NotFoundError hoặc lỗi khác → thử phương án tiếp theo
-        console.warn(`[Media] ${attempt.label} failed:`, err.name);
+        if (isDeviceBusy) {
+          console.warn(`[Media] ${attempt.label} bị thiết bị khác chiếm:`, err.message);
+          addSystemMessage('Camera/Mic đang được sử dụng bởi ứng dụng khác (Zoom, Meet...). Hãy đóng ứng dụng đó lại.');
+          return;
+        }
+        console.warn(`[Media] ${attempt.label} failed:`, err.name, err.message);
       }
     }
 
@@ -239,12 +340,10 @@ export default function StudyRoom() {
         peerConnectionRef.current = null;
       }
       webrtcStartedRef.current = false;
+      iceCandidateQueueRef.current = [];
     };
   }, [requestMedia]);
 
-  // ========================
-  // Observer: Subscribe to socket lifecycle events
-  // ========================
   useEffect(() => {
     const unsub1 = onSocketEvent('disconnected', ({ reason }) => {
       setConnected(false);
@@ -257,9 +356,19 @@ export default function StudyRoom() {
       setReconnecting(false);
       addSystemMessage('Đã kết nối lại thành công!');
 
-      // Rejoin room sau reconnect
       const socket = getSocket();
       socket.emit('join_room', { roomId, user });
+
+      // Reset WebRTC và khởi động lại để tạo PeerConnection mới
+      if (peerConnectionRef.current) {
+        peerConnectionRef.current.close();
+        peerConnectionRef.current = null;
+      }
+      webrtcStartedRef.current = false;
+      iceCandidateQueueRef.current = [];
+      setTimeout(() => {
+        startWebRTCRef.current?.();
+      }, 1000);
     });
 
     const unsub3 = onSocketEvent('reconnect_failed', () => {
@@ -272,16 +381,12 @@ export default function StudyRoom() {
       unsub2();
       unsub3();
     };
-  }, [roomId, user, addSystemMessage]);
+  }, [roomId, addSystemMessage]);
 
-  // ========================
-  // Socket events cho room
-  // ========================
   useEffect(() => {
     const socket = connectSocket();
 
-    // Join room (gửi user info cho reconnect support)
-    socket.emit('join_room', { roomId, user });
+    socket.emit('join_room', { roomId });
 
     socket.on('new_message', (msg) => {
       setMessages((prev) => [...prev, msg]);
@@ -303,13 +408,10 @@ export default function StudyRoom() {
       addSystemMessage(data.message || 'Bạn học đã kết nối lại!');
     });
 
-    // === AUTO-DISCONNECT EVENTS ===
-
     socket.on('auto_disconnect_warning', (data) => {
       setAutoDisconnectWarning(data.message);
       setCountdown(data.countdown / 1000);
 
-      // Bắt đầu đếm ngược
       if (countdownRef.current) clearInterval(countdownRef.current);
       let remaining = data.countdown / 1000;
       countdownRef.current = setInterval(() => {
@@ -339,7 +441,6 @@ export default function StudyRoom() {
         countdownRef.current = null;
       }
       addSystemMessage(data.message || 'Phòng đã tự động đóng');
-      // Redirect sau 2s
       setTimeout(() => navigate('/lobby'), 2000);
     });
 
@@ -373,13 +474,26 @@ export default function StudyRoom() {
     socket.on('webrtc_offer', async ({ offer }) => {
       try {
         console.log('[WebRTC] Received offer, creating answer...');
-        const pc = peerConnectionRef.current || createPCRef.current?.();
+        let pc = peerConnectionRef.current;
+        if (!pc && createPCRef.current) {
+          pc = await createPCRef.current();
+        }
         if (!pc) return;
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
         socket.emit('webrtc_answer', { roomId, answer: pc.localDescription });
         console.log('[WebRTC] Answer sent!');
+
+        // Process queued ICE candidates
+        while (iceCandidateQueueRef.current.length > 0) {
+          const candidate = iceCandidateQueueRef.current.shift();
+          try {
+            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+          } catch (e) {
+            console.error('[WebRTC] Error adding queued ICE candidate', e);
+          }
+        }
       } catch (err) {
         console.error('[WebRTC] Error handling offer:', err);
       }
@@ -389,7 +503,18 @@ export default function StudyRoom() {
       try {
         console.log('[WebRTC] Received answer');
         if (peerConnectionRef.current) {
-          await peerConnectionRef.current.setRemoteDescription(new RTCSessionDescription(answer));
+          const pc = peerConnectionRef.current;
+          await pc.setRemoteDescription(new RTCSessionDescription(answer));
+
+          // Process queued ICE candidates
+          while (iceCandidateQueueRef.current.length > 0) {
+            const candidate = iceCandidateQueueRef.current.shift();
+            try {
+              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+              console.error('[WebRTC] Error adding queued ICE candidate', e);
+            }
+          }
         }
       } catch (err) {
         console.error('[WebRTC] Error handling answer:', err);
@@ -398,8 +523,12 @@ export default function StudyRoom() {
 
     socket.on('webrtc_ice_candidate', async ({ candidate }) => {
       try {
-        if (peerConnectionRef.current) {
-          await peerConnectionRef.current.addIceCandidate(new RTCIceCandidate(candidate));
+        const pc = peerConnectionRef.current;
+        if (pc && pc.remoteDescription) {
+          await pc.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          console.log('[WebRTC] Queuing ICE candidate (no remoteDescription yet)');
+          iceCandidateQueueRef.current.push(candidate);
         }
       } catch (err) {
         console.error('[WebRTC] Error adding ICE candidate:', err);
@@ -435,21 +564,62 @@ export default function StudyRoom() {
     socket.emit('send_message', {
       roomId,
       message: newMessage.trim(),
-      user: {
-        id: user.id,
-        username: user.username,
-        avatar: user.avatar,
-      },
     });
 
     setNewMessage('');
     chatInputRef.current?.focus();
   };
 
-  const handleLeaveRoom = () => {
+  const handleLeaveRoomClick = () => {
+    if (partner && !partnerLeft) {
+      // Show review modal if partner is still here or we just studied with them
+      setShowReviewModal(true);
+    } else {
+      handleFinalLeave();
+    }
+  };
+
+  const handleFinalLeave = async () => {
+    try {
+      // Tính toán thời gian học
+      const studyMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
+      if (studyMinutes > 0 && user) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        await fetch(`${apiUrl}/users/study-time`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id || user.dbId, minutes: studyMinutes })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to submit study time', e);
+    }
+
     const socket = getSocket();
     socket.emit('leave_room', { roomId });
     navigate('/lobby');
+  };
+
+  const submitReview = async () => {
+    try {
+      if (partner) {
+        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+        await fetch(`${apiUrl}/users/review`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            reviewerId: user.id || user.dbId,
+            revieweeId: partner.id || partner._id,
+            sessionId: roomId, // Using roomId as sessionId for MVP simplicity
+            rating: reviewRating,
+            comment: reviewComment
+          })
+        });
+      }
+    } catch (e) {
+      console.error('Failed to submit review', e);
+    }
+    handleFinalLeave();
   };
 
   const formatTime = (timestamp) => {
@@ -457,38 +627,58 @@ export default function StudyRoom() {
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const isOwnMessage = (msg) => {
+    if (msg.isSystem) return false;
+    if (msg.userId && user?.id) return msg.userId === user.id;
+    return msg.user?.id === user?.id;
+  };
+
   return (
     <div className="study-room">
-      {/* Room Header */}
       <div className="room-header">
         <div className="room-header-left">
           <div className="room-info">
             <h2>Phòng Học</h2>
             <span className="room-subject-badge">
-              📚 {subjectNames[subject] || subject}
+              <FiBook style={{ color: '#845ef7' }} /> {subjectNames[subject] || subject}
             </span>
           </div>
         </div>
         <div className="room-header-right">
+          {/* Pomodoro Timer UI */}
+          <div className={`pomodoro-container ${pomodoroMode === 'break' ? 'break-mode' : ''}`}>
+            <span className="pomodoro-icon">
+              {pomodoroMode === 'focus' ? '🍅' : '☕'}
+            </span>
+            <span className="pomodoro-time">
+              {formatPomodoro(pomodoroTime)}
+            </span>
+            <button className="pomodoro-btn" onClick={togglePomodoro}>
+              {isPomodoroRunning ? '⏸' : '▶'}
+            </button>
+            <button className="pomodoro-btn" onClick={resetPomodoro}>
+              ↺
+            </button>
+          </div>
+
           {reconnecting && (
-            <span className="connection-status reconnecting">🔄 Đang kết nối lại...</span>
+            <span className="connection-status reconnecting"><FiRefreshCw style={{ color: '#fcc419' }} /> Đang kết nối lại...</span>
           )}
           {!connected && !reconnecting && (
-            <span className="connection-status disconnected">⚠️ Mất kết nối</span>
+            <span className="connection-status disconnected"><FiAlertTriangle style={{ color: '#ff6b6b' }} /> Mất kết nối</span>
           )}
           {connected && !partnerLeft && (
-            <span className="connection-status connected">🟢 Đang kết nối</span>
+            <span className="connection-status connected"><FaCircle style={{ fontSize: 8, color: '#51cf66' }} /> Đang kết nối</span>
           )}
           {connected && partnerLeft && (
-            <span className="connection-status disconnected">🟡 Partner rời phòng</span>
+            <span className="connection-status disconnected"><FaCircle style={{ fontSize: 8, color: '#fcc419' }} /> Partner rời phòng</span>
           )}
         </div>
       </div>
 
-      {/* Auto-Disconnect Warning Banner */}
       {autoDisconnectWarning && (
         <div className="auto-disconnect-banner animate-fade-in">
-          <span className="banner-icon">⏱️</span>
+          <span className="banner-icon"><FiClock style={{ color: '#ff922b' }} /></span>
           <span className="banner-text">
             {autoDisconnectWarning}
           </span>
@@ -533,18 +723,18 @@ export default function StudyRoom() {
 
       {/* Room Body */}
       <div className="room-body">
-        
+
         {/* Main Video Area */}
         <div className={`main-video-area ${showChat ? 'with-chat' : 'full-width'}`}>
           <div className="video-grid">
-            
+
             {/* Partner Video Card */}
             <div className="video-card partner-video">
               {/* Thẻ video ẩn đi nếu chưa có luồng, nhưng luôn render để gắn ref */}
-              <video 
-                ref={partnerVideoRef} 
-                autoPlay 
-                playsInline 
+              <video
+                ref={partnerVideoRef}
+                autoPlay
+                playsInline
                 className={`video-element ${!partnerHasVideo ? 'hidden' : ''}`}
               />
 
@@ -580,11 +770,11 @@ export default function StudyRoom() {
 
             {/* Self Video Card */}
             <div className="video-card self-video">
-              <video 
-                ref={localVideoRef} 
-                autoPlay 
-                playsInline 
-                muted 
+              <video
+                ref={localVideoRef}
+                autoPlay
+                playsInline
+                muted
                 className={`video-element ${isVideoOff ? 'hidden' : ''}`}
               />
               {isVideoOff && (
@@ -604,7 +794,7 @@ export default function StudyRoom() {
 
           {/* Control Bar */}
           <div className="control-bar">
-            <button 
+            <button
               className={`control-btn ${permissionDenied ? 'warning' : isMuted ? 'danger' : 'active'}`}
               onClick={() => {
                 if (permissionDenied) {
@@ -621,7 +811,7 @@ export default function StudyRoom() {
               {isMuted ? <MicOffIcon /> : <MicIcon />}
               {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
-            <button 
+            <button
               className={`control-btn ${permissionDenied ? 'warning' : isVideoOff ? 'danger' : 'active'}`}
               onClick={() => {
                 if (permissionDenied) {
@@ -638,14 +828,14 @@ export default function StudyRoom() {
               {isVideoOff ? <VideoOffIcon /> : <VideoIcon />}
               {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
             </button>
-            <button 
+            <button
               className="control-btn end-call-btn"
-              onClick={handleLeaveRoom}
+              onClick={handleLeaveRoomClick}
               title="Rời phòng"
             >
               <PhoneOffIcon />
             </button>
-            <button 
+            <button
               className={`control-btn ${showChat ? 'active' : ''}`}
               onClick={() => setShowChat(!showChat)}
               title="Mở Chat"
@@ -674,13 +864,12 @@ export default function StudyRoom() {
               {messages.map((msg) => (
                 <div
                   key={msg.id}
-                  className={`message ${
-                    msg.isSystem
-                      ? 'message-system'
-                      : msg.user?.id === user?.id
+                  className={`message ${msg.isSystem
+                    ? 'message-system'
+                    : msg.user?.id === user?.id
                       ? 'message-self'
                       : 'message-other'
-                  }`}
+                    }`}
                 >
                   {msg.isSystem ? (
                     <div className="system-message">
@@ -724,6 +913,48 @@ export default function StudyRoom() {
           </div>
         )}
       </div>
+
+      {/* Review Modal */}
+      {showReviewModal && (
+        <div className="permission-overlay animate-fade-in">
+          <div className="permission-popup glass-card review-modal">
+            <h2 style={{ marginBottom: '16px' }}>Đánh giá buổi học</h2>
+            <p style={{ marginBottom: '24px', opacity: 0.8 }}>
+              Hãy đánh giá thái độ học tập của <strong>{partner?.username}</strong> nhé!
+            </p>
+            
+            <div className="rating-stars" style={{ display: 'flex', justifyContent: 'center', gap: '10px', fontSize: '32px', marginBottom: '20px' }}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <span 
+                  key={star} 
+                  style={{ cursor: 'pointer', color: star <= reviewRating ? '#fadb14' : '#e8e8e8' }}
+                  onClick={() => setReviewRating(star)}
+                >
+                  ★
+                </span>
+              ))}
+            </div>
+
+            <textarea 
+              className="input-field" 
+              placeholder="Nhận xét (không bắt buộc)..." 
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              rows={3}
+              style={{ width: '100%', marginBottom: '20px', resize: 'none' }}
+            />
+
+            <div className="permission-actions">
+              <button className="btn btn-primary" onClick={submitReview}>
+                Gửi đánh giá & Rời phòng
+              </button>
+              <button className="btn btn-secondary" onClick={handleFinalLeave}>
+                Bỏ qua
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
