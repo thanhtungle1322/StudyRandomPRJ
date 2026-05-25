@@ -150,8 +150,11 @@ export default function StudyRoom() {
     // dù chưa có local stream (fix: user không có cam/mic vẫn nghe được)
     const pc = await createPeerConnection();
 
+    const myId = String(user?.id || user?.userId || user?._id);
+    const partnerId = String(partner?.id || partner?.userId || partner?._id);
+
     // Chỉ 1 bên tạo Offer (bên có id nhỏ hơn)
-    if (partner && String(user.id) < String(partner.id)) {
+    if (partner && myId < partnerId) {
       try {
         // Nếu chưa có local stream, chờ một lát rồi retry
         if (!streamRef.current) {
