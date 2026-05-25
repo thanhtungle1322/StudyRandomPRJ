@@ -70,7 +70,7 @@ app.get('/api/turn-credentials', async (req, res) => {
     if (!getResponse.ok) {
       const errorText = await getResponse.text();
       console.error(`[WebRTC] Metered GET API failed. Status: ${getResponse.status}, Response: ${errorText}`);
-      throw new Error(`Metered GET API returned ${getResponse.status}: ${errorText}`);
+      return res.json([]); // Gracefully fallback to empty array (STUN only)
     }
     const iceServers = await getResponse.json();
     
