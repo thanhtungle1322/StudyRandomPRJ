@@ -1,11 +1,19 @@
 require('dotenv').config();
 
+// Nếu ở production thì BẮT BUỘC phải có biến môi trường, không dùng fallback chuỗi mặc định
+const isProduction = process.env.NODE_ENV === 'production';
+const jwtSecret = process.env.JWT_SECRET;
+
+if (isProduction && !jwtSecret) {
+  console.error('[Config] FATAL: JWT_SECRET environment variable is not set in production!');
+  process.exit(1);
+}
+
 module.exports = {
   port: process.env.PORT || 5000,
   nodeEnv: process.env.NODE_ENV || 'development',
-  jwtSecret: process.env.JWT_SECRET || 'studyrandom_secret_key_2026',
+  jwtSecret: jwtSecret || 'studyrandom_secret_key_2026', // Fallback cho dev environment
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/studyrandom',
-
   // CLIENT_URL có thể là nhiều domain (cách nhau dấu phẩy)
   // VD: "https://study-random-prj.vercel.app,http://localhost:5173"
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -24,6 +32,14 @@ module.exports = {
 
   // Auto-disconnect: thời gian chờ trước khi tự đóng phòng (ms)
   autoDisconnectTimeout: 5000,
+
+  // Google OAuth
+  googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || '',
+  googleCallbackURL: process.env.GOOGLE_CALLBACK_URL || 'http://localhost:5000/api/auth/google/callback',
+
+  // Session secret (cho OAuth state)
+  sessionSecret: process.env.SESSION_SECRET || 'studyrandom_session_secret_2026',
 
   // Danh sách môn học hỗ trợ
   subjects: [
