@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { disconnectSocket } from '../services/socket';
 import api from '../services/api';
 import { FaGraduationCap } from 'react-icons/fa';
-import { FiHome, FiEdit3, FiUsers } from 'react-icons/fi';
+import { FiHome, FiEdit3, FiUsers, FiBarChart2 } from 'react-icons/fi';
 import './Navbar.css';
 
 export default function Navbar() {
@@ -33,10 +33,16 @@ export default function Navbar() {
         </Link>
 
         <div className="navbar-links">
+          {/* Nút Trang chủ luôn hiển thị */}
+          <Link to="/" className="nav-link">
+            <span className="nav-icon"><FiHome style={{ color: '#f783ac' }} /></span>
+            Trang chủ
+          </Link>
+
           {isLoggedIn ? (
             <>
               <Link to="/lobby" className="nav-link">
-                <span className="nav-icon"><FiHome style={{ color: '#339af0' }} /></span>
+                <span className="nav-icon"><FiBarChart2 style={{ color: '#339af0' }} /></span>
                 Sảnh chờ
               </Link>
               <Link to="/whiteboard" className="nav-link">

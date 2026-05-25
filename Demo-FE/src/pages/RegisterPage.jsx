@@ -6,6 +6,11 @@ import { FaGraduationCap } from 'react-icons/fa';
 import { FiAlertTriangle, FiArrowRight } from 'react-icons/fi';
 import './LoginPage.css';
 
+import bgLogin from '/background/backgroundLogin.png';
+import mascot1 from '/background/mascot1.png';
+import mascot2 from '/background/mascot2.png';
+import mascot3 from '/background/mascot3.png';
+
 export default function RegisterPage() {
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
@@ -54,15 +59,19 @@ export default function RegisterPage() {
   return (
     <div className="login-page">
       <div className="login-bg">
-        <div className="login-orb login-orb-1"></div>
-        <div className="login-orb login-orb-2"></div>
+        <img src={bgLogin} alt="" className="login-bg-img" />
       </div>
 
+      <img src={mascot1} alt="" className="login-mascot login-mascot-1" />
+      <img src={mascot2} alt="" className="login-mascot login-mascot-2" />
+      <img src={mascot3} alt="" className="login-mascot login-mascot-3" />
+
       <div className="login-container animate-fade-in">
-        <div className="login-card glass-card">
+        <div className="login-card">
           <div className="login-header">
             <div className="login-icon"><FaGraduationCap style={{ color: '#845ef7' }} /></div>
-            <h1>Đăng Ký StudyRandom</h1>
+            <p className="login-welcome">Chào mừng đến</p>
+            <h1>StudyRandom</h1>
             <p>Tạo tài khoản để bắt đầu tìm bạn học</p>
           </div>
 

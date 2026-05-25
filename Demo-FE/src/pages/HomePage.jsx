@@ -2,6 +2,10 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FaGraduationCap } from 'react-icons/fa';
 import { FiArrowRight, FiSearch, FiZap, FiMessageSquare, FiVideo, FiEdit3, FiUsers, FiHeart } from 'react-icons/fi';
+import backgroundDashboard from '../../background/backgroundDashboard.png';
+import cachhoatdong from '../../background/Cachhoatdong.png';
+import mascot1 from '../../background/mascot1.png';
+import mascot2 from '../../background/mascot2.png';
 import './HomePage.css';
 
 export default function HomePage() {
@@ -9,41 +13,35 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      {/* Hero Background Effects */}
-      <div className="hero-bg">
-        <div className="hero-orb hero-orb-1"></div>
-        <div className="hero-orb hero-orb-2"></div>
-        <div className="hero-orb hero-orb-3"></div>
-        <div className="hero-grid"></div>
-      </div>
 
-      {/* Hero Section */}
-      <section className="hero-section">
-        <div className="container">
+      {/* ===================== HERO SECTION ===================== */}
+      <section className="hero-section" style={{ backgroundImage: `url(${backgroundDashboard})` }}>
+        <div className="hero-overlay"></div>
+
+        <div className="container hero-container">
           <div className="hero-content animate-fade-in">
             <div className="hero-badge">
               <span className="badge-dot"></span>
-              <span>Miễn phí 100% • Đăng ký bằng email hoặc Google</span>
+              <span>Miễn phí 100% • Không cần đăng ký phức tạp</span>
             </div>
-            
+
             <h1 className="hero-title">
-              Tìm <span className="gradient-text">Bạn Học</span>
+              TÌM <span className="hero-title-highlight">BẠN HỌC</span>
               <br />
-              Ngẫu Nhiên Trực Tuyến
+              NGẪU NHIÊN TRỰC TUYẾN
             </h1>
-            
+
             <p className="hero-description">
-              Kết nối ngay với bạn học cùng môn chỉ trong vài giây. 
-              Học tập hiệu quả hơn khi có bạn đồng hành — video call, 
-              chat và bảng trắng tương tác.
+              Kết nối ngay với bạn học cùng môn chỉ trong vài giây. Học tập
+              hiệu quả hơn khi có bạn đồng hành : video call, chat và bảng
+              trắng tương tác.
             </p>
-            
+
             <div className="hero-actions">
-              <Link to={isLoggedIn ? '/lobby' : '/login'} className="btn btn-primary btn-lg">
-                <span><FiArrowRight style={{ color: '#fcc419' }} /></span>
-                {isLoggedIn ? 'Vào Sảnh Chờ' : 'Bắt Đầu Ngay'}
+              <Link to={isLoggedIn ? '/lobby' : '/login'} className="btn-hero-primary">
+                Vào sảnh chờ
               </Link>
-              <a href="#features" className="btn btn-secondary btn-lg">
+              <a href="#features" className="btn-hero-secondary">
                 Tìm hiểu thêm
               </a>
             </div>
@@ -68,105 +66,112 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Features Section */}
+      {/* ===================== FEATURES SECTION ===================== */}
       <section className="features-section" id="features">
+        {/*
+          Mascot1 ở góc trái, ngang với hàng card đầu (Bộ lọc thông minh)
+          Mascot2 ở góc phải, ngang với hàng card đầu (Chat Trực Tuyến)
+          — KHÔNG trùng lặp với hero, chỉ dùng ở đây
+        */}
+        <div className="features-mascot features-mascot-left">
+          <img src={mascot1} alt="Mascot 1" />
+        </div>
+        <div className="features-mascot features-mascot-right">
+          <img src={mascot2} alt="Mascot 2" />
+        </div>
+
         <div className="container">
           <div className="section-header animate-fade-in-up">
-            <h2 className="section-title">Tính Năng Nổi Bật</h2>
-            <p className="section-subtitle">
+            <h2 className="section-title-dark">Tính năng nổi bật</h2>
+            <p className="section-subtitle-dark">
               Mọi thứ bạn cần để tìm bạn học và học tập hiệu quả
             </p>
           </div>
 
           <div className="features-grid stagger-children">
-            <div className="feature-card glass-card">
-              <div className="feature-icon-wrap">
-                <span className="feature-icon"><FiSearch style={{ color: '#339af0' }} /></span>
+            <div className="feature-card-new">
+              <div className="feature-icon-wrap-new feature-icon-blue">
+                <FiSearch />
               </div>
-              <h3>Bộ Lọc Thông Minh</h3>
-              <p>Chọn môn học bạn muốn ôn tập — Toán, Lập trình, Tiếng Anh và nhiều hơn nữa.</p>
+              <h3 className="feature-card-title">Bộ lọc thông minh</h3>
+              <p className="feature-card-desc">Chọn môn học bạn muốn ôn tập — Toán, Lập trình, Tiếng Anh và nhiều hơn nữa.</p>
             </div>
 
-            <div className="feature-card glass-card">
-              <div className="feature-icon-wrap">
-                <span className="feature-icon"><FiZap style={{ color: '#fcc419' }} /></span>
+            <div className="feature-card-new">
+              <div className="feature-icon-wrap-new feature-icon-yellow">
+                <FiZap />
               </div>
-              <h3>Ghép Đôi Tức Thì</h3>
-              <p>Hệ thống realtime tự động tìm và kết nối bạn với người cùng môn học trong vài giây.</p>
+              <h3 className="feature-card-title">Ghép Đôi Tức Thì</h3>
+              <p className="feature-card-desc">Hệ thống realtime tự động tìm và kết nối bạn với người cùng môn học trong vài giây</p>
             </div>
 
-            <div className="feature-card glass-card">
-              <div className="feature-icon-wrap">
-                <span className="feature-icon"><FiMessageSquare style={{ color: '#51cf66' }} /></span>
+            <div className="feature-card-new">
+              <div className="feature-icon-wrap-new feature-icon-purple">
+                <FiMessageSquare />
               </div>
-              <h3>Chat Trực Tuyến</h3>
-              <p>Nhắn tin trao đổi bài vở, chia sẻ kiến thức ngay trong phòng học chung.</p>
+              <h3 className="feature-card-title">Chat Trực Tuyến</h3>
+              <p className="feature-card-desc">Nhắn tin trao đổi bài vở, chia sẻ kiến thức ngay trong phòng học chung.</p>
             </div>
 
-            <div className="feature-card glass-card">
-              <div className="feature-icon-wrap">
-                <span className="feature-icon"><FiVideo style={{ color: '#ff6b6b' }} /></span>
+            <div className="feature-card-new">
+              <div className="feature-icon-wrap-new feature-icon-pink">
+                <FiVideo />
               </div>
-              <h3>Video & Voice Call</h3>
-              <p>Gọi video/voice qua WebRTC — nhìn thấy và nghe thấy bạn học như ngồi cùng bàn.</p>
+              <h3 className="feature-card-title">Video &amp; Voice Call</h3>
+              <p className="feature-card-desc">Gọi video/voice qua WebRTC — nhìn thấy và nghe thấy bạn học như ngồi cùng bàn.</p>
             </div>
 
-            <div className="feature-card glass-card">
-              <div className="feature-icon-wrap">
-                <span className="feature-icon"><FiEdit3 style={{ color: '#845ef7' }} /></span>
+            <div className="feature-card-new">
+              <div className="feature-icon-wrap-new feature-icon-teal">
+                <FiEdit3 />
               </div>
-              <h3>Bảng Trắng</h3>
-              <p>Giải bài tập cùng nhau trên bảng trắng tương tác — vẽ, viết, minh hoạ dễ dàng.</p>
+              <h3 className="feature-card-title">Bảng Trắng</h3>
+              <p className="feature-card-desc">Giải bài tập cùng nhau trên bảng trắng tương tác vẽ, viết, minh hoạ dễ dàng.</p>
             </div>
 
-            <div className="feature-card glass-card">
-              <div className="feature-icon-wrap">
-                <span className="feature-icon"><FiUsers style={{ color: '#20c997' }} /></span>
+            <div className="feature-card-new">
+              <div className="feature-icon-wrap-new feature-icon-orange">
+                <FiUsers />
               </div>
-              <h3>Kết Bạn & Report</h3>
-              <p>Thêm bạn học yêu thích vào danh sách, báo cáo hành vi không phù hợp.</p>
+              <h3 className="feature-card-title">Kết Bạn &amp; Report</h3>
+              <p className="feature-card-desc">Thêm bạn học yêu thích vào danh sách, báo cáo hành vi không phù hợp.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="howto-section">
-        <div className="container">
-          <div className="section-header animate-fade-in-up">
-            <h2 className="section-title">Cách Hoạt Động</h2>
-            <p className="section-subtitle">Chỉ 3 bước đơn giản để bắt đầu</p>
+      {/* ===================== HOW IT WORKS ===================== */}
+      <section className="howto-section" style={{ backgroundImage: `url(${cachhoatdong})` }}>
+        {/* Overlay màu nhẹ - KHÔNG blur */}
+        <div className="howto-overlay"></div>
+
+        <div className="container howto-container">
+          <div className="howto-header animate-fade-in-up">
+            <h2 className="howto-title">Cách hoạt động</h2>
+            <div className="howto-subtitle-badge">Chỉ 3 bước đơn giản để bắt đầu</div>
           </div>
 
+          {/* 3 khung tách biệt, không mascot, không blur */}
           <div className="howto-steps stagger-children">
-            <div className="howto-step">
-              <div className="step-number">01</div>
-              <div className="step-content">
-                <h3>Đăng ký tài khoản</h3>
-                <p>Đăng ký nhanh bằng email hoặc Google. Đặt tên hiển thị để bạn học nhận ra bạn.</p>
-              </div>
+            <div className="howto-step-new">
+              <h3 className="howto-step-title">Nhập tên &amp; Đăng nhập</h3>
+              <p className="howto-step-desc">Không cần email, không cần mật khẩu. Chỉ cần nhập tên là xong!</p>
             </div>
-            <div className="step-connector"></div>
-            <div className="howto-step">
-              <div className="step-number">02</div>
-              <div className="step-content">
-                <h3>Chọn môn học</h3>
-                <p>Chọn môn bạn muốn ôn tập và bấm "Tìm bạn học".</p>
-              </div>
+
+            <div className="howto-step-new">
+              <h3 className="howto-step-title">Chọn môn học</h3>
+              <p className="howto-step-desc">Chọn môn bạn muốn ôn tập và bấm "Tìm bạn học".</p>
             </div>
-            <div className="step-connector"></div>
-            <div className="howto-step">
-              <div className="step-number">03</div>
-              <div className="step-content">
-                <h3>Học tập cùng nhau!</h3>
-                <p>Hệ thống ghép bạn với partner cùng môn — chat, gọi video và giải bài tập.</p>
-              </div>
+
+            <div className="howto-step-new">
+              <h3 className="howto-step-title">Học tập cùng nhau!</h3>
+              <p className="howto-step-desc">Hệ thống ghép bạn với partner cùng môn - chat, gọi video và giải bài tập.</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* ===================== CTA ===================== */}
       <section className="cta-section">
         <div className="container">
           <div className="cta-card glass-card">
@@ -181,7 +186,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ===================== FOOTER ===================== */}
       <footer className="footer">
         <div className="container">
           <div className="footer-inner">
