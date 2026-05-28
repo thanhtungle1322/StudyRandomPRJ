@@ -143,7 +143,17 @@ router.post('/study-time', async (req, res) => {
     }
 
     user.badges = Array.from(newBadges);
-    await user.save();
+    await User.updateOne(
+      { _id: user._id },
+      { 
+        $set: {
+          totalStudyMinutes: user.totalStudyMinutes,
+          streak: user.streak,
+          lastStudyDate: user.lastStudyDate,
+          badges: user.badges
+        }
+      }
+    );
 
     res.json({ 
       success: true, 

@@ -68,18 +68,11 @@ app.get('/api/turn-credentials', async (req, res) => {
       return res.json([]);
     }
 
-    const postResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credential?secretKey=${secretKey}`, {
-      method: 'POST'
-    });
-    
-    if (!postResponse.ok) {
-      throw new Error(`Metered POST API returned ${postResponse.status}`);
-    }
-    const data = await postResponse.json();
-    
-    const getResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${data.apiKey}`);
+    const getResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${secretKey}`);
     if (!getResponse.ok) {
-      throw new Error(`Metered GET API returned ${getResponse.status}`);
+      const errorText = await getResponse.text();
+      console.error(`[WebRTC] Metered GET API failed. Status: ${getResponse.status}, Response: ${errorText}`);
+      return res.json([]); // Gracefully fallback to empty array (STUN only)
     }
     const iceServers = await getResponse.json();
     
