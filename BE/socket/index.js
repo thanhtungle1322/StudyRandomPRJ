@@ -3,8 +3,20 @@ const jwt = require('jsonwebtoken');
 const matchmaking = require('../services/matchmaking');
 const config = require('../config');
 const User = require('../models/User');
+const Friendship = require('../models/Friendship');
 
-const userSockets = new Map();
+const userSockets = new Map(); // socketId -> userId (existing)
+const userSocketsReverse = new Map(); // userId -> Set<socketId> (new - for targeting specific users)
+
+function emitToUser(io, userId, event, data) {
+  const socketIds = userSocketsReverse.get(userId);
+  if (socketIds) {
+    socketIds.forEach(sid => {
+      const sock = io.sockets.sockets.get(sid);
+      if (sock) sock.emit(event, data);
+    });
+  }
+}
 
 module.exports = function setupSocket(io) {
 
@@ -76,6 +88,10 @@ module.exports = function setupSocket(io) {
     console.log(`[Socket] User connected: ${username} (${socket.id})`);
 
     userSockets.set(socket.id, userId);
+    if (!userSocketsReverse.has(userId)) {
+      userSocketsReverse.set(userId, new Set());
+    }
+    userSocketsReverse.get(userId).add(socket.id);
 
     try {
       await User.findByIdAndUpdate(userId, {
@@ -219,6 +235,201 @@ module.exports = function setupSocket(io) {
     });
 
     // ========================
+    // FRIEND SYSTEM
+    // ========================
+
+    // Gửi lời mời kết bạn real-time
+    socket.on('friend:request', async ({ recipientId }) => {
+      try {
+        // Check if already friends or pending
+        const existing = await Friendship.findOne({
+          $or: [
+            { requester: userId, recipient: recipientId },
+            { requester: recipientId, recipient: userId },
+          ],
+        });
+
+        if (existing && existing.status === 'accepted') {
+          socket.emit('friend:error', { message: 'Đã là bạn bè' });
+          return;
+        }
+        if (existing && existing.status === 'pending') {
+          socket.emit('friend:error', { message: 'Đã gửi lời mời rồi' });
+          return;
+        }
+
+        // If rejected before, delete old and create new
+        if (existing && existing.status === 'rejected') {
+          await Friendship.deleteOne({ _id: existing._id });
+        }
+
+        const friendship = await Friendship.create({
+          requester: userId,
+          recipient: recipientId,
+        });
+
+        const requesterUser = await User.findById(userId).select('displayName avatar');
+
+        // Notify recipient in real-time
+        emitToUser(io, recipientId, 'friend:request_received', {
+          friendshipId: friendship._id,
+          requester: {
+            _id: userId,
+            displayName: requesterUser?.displayName || username,
+            avatar: requesterUser?.avatar || avatar,
+          },
+          createdAt: friendship.createdAt,
+        });
+
+        socket.emit('friend:request_sent', { friendshipId: friendship._id, recipientId });
+      } catch (err) {
+        console.error('[Friend] Error sending request:', err.message);
+        socket.emit('friend:error', { message: 'Lỗi gửi lời mời kết bạn' });
+      }
+    });
+
+    // Phản hồi lời mời kết bạn
+    socket.on('friend:respond', async ({ friendshipId, action }) => {
+      try {
+        const friendship = await Friendship.findById(friendshipId);
+        if (!friendship || friendship.recipient.toString() !== userId) {
+          socket.emit('friend:error', { message: 'Không hợp lệ' });
+          return;
+        }
+        if (friendship.status !== 'pending') {
+          socket.emit('friend:error', { message: 'Lời mời đã được xử lý' });
+          return;
+        }
+
+        friendship.status = action === 'accept' ? 'accepted' : 'rejected';
+        await friendship.save();
+
+        const respondUser = await User.findById(userId).select('displayName avatar');
+
+        if (action === 'accept') {
+          // Notify requester
+          emitToUser(io, friendship.requester.toString(), 'friend:request_accepted', {
+            friendshipId: friendship._id,
+            friend: {
+              _id: userId,
+              displayName: respondUser?.displayName || username,
+              avatar: respondUser?.avatar || avatar,
+            },
+          });
+        } else {
+          emitToUser(io, friendship.requester.toString(), 'friend:request_rejected', {
+            friendshipId: friendship._id,
+          });
+        }
+
+        socket.emit('friend:respond_success', { friendshipId: friendship._id, action });
+      } catch (err) {
+        console.error('[Friend] Error responding:', err.message);
+        socket.emit('friend:error', { message: 'Lỗi phản hồi lời mời' });
+      }
+    });
+
+    // Mời bạn bè vào phòng học
+    socket.on('room:invite', async ({ friendId, subject }) => {
+      try {
+        console.log(`[Room:invite] userId=${userId}, friendId=${friendId}, subject=${subject}`);
+        // Verify they are friends
+        const friendship = await Friendship.findOne({
+          $or: [
+            { requester: userId, recipient: friendId },
+            { requester: friendId, recipient: userId },
+          ],
+          status: 'accepted',
+        });
+
+        console.log(`[Room:invite] friendship found:`, friendship ? `${friendship.requester} -> ${friendship.recipient} (${friendship.status})` : 'NONE');
+
+        if (!friendship) {
+          socket.emit('room:invite_error', { message: 'Chỉ có thể mời bạn bè' });
+          return;
+        }
+
+        const inviterUser = await User.findById(userId).select('displayName avatar');
+        const invitationId = crypto.randomUUID();
+
+        // Send invitation to friend
+        emitToUser(io, friendId, 'room:invitation_received', {
+          invitationId,
+          inviter: {
+            _id: userId,
+            displayName: inviterUser?.displayName || username,
+            avatar: inviterUser?.avatar || avatar,
+          },
+          subject,
+          socketId: socket.id,
+        });
+
+        socket.emit('room:invite_sent', { invitationId, friendId, subject });
+      } catch (err) {
+        console.error('[Room] Error inviting:', err.message);
+        socket.emit('room:invite_error', { message: 'Lỗi mời vào phòng' });
+      }
+    });
+
+    // Phản hồi lời mời vào phòng
+    socket.on('room:invite_respond', async ({ invitationId, inviterSocketId, inviterId, subject, action }) => {
+      try {
+        if (action === 'accept') {
+          // Create direct room
+          const inviterSocket = io.sockets.sockets.get(inviterSocketId);
+
+          if (!inviterSocket) {
+            socket.emit('room:invite_error', { message: 'Người mời đã offline' });
+            return;
+          }
+
+          const inviterUserData = {
+            socketId: inviterSocketId,
+            user: { userId: inviterId, username: inviterSocket.username, avatar: inviterSocket.userAvatar },
+          };
+          const accepterUserData = {
+            socketId: socket.id,
+            user: { userId, username, avatar },
+          };
+
+          const { roomId } = matchmaking.createDirectRoom(subject, inviterUserData, accepterUserData);
+
+          // Both join the socket room
+          socket.join(roomId);
+          inviterSocket.join(roomId);
+
+          // Notify both users to navigate to the room
+          const inviterInfo = { userId: inviterId, username: inviterSocket.username, avatar: inviterSocket.userAvatar };
+          const accepterInfo = { userId, username, avatar };
+
+          inviterSocket.emit('room:invitation_accepted', {
+            invitationId,
+            roomId,
+            subject,
+            partner: accepterInfo,
+          });
+
+          socket.emit('room:invitation_accepted', {
+            invitationId,
+            roomId,
+            subject,
+            partner: inviterInfo,
+          });
+        } else {
+          // Rejected
+          emitToUser(io, inviterId, 'room:invitation_rejected', {
+            invitationId,
+            friendName: username,
+          });
+          socket.emit('room:invite_respond_success', { invitationId, action: 'reject' });
+        }
+      } catch (err) {
+        console.error('[Room] Error responding to invite:', err.message);
+        socket.emit('room:invite_error', { message: 'Lỗi phản hồi lời mời' });
+      }
+    });
+
+    // ========================
     // DISCONNECT
     // ========================
 
@@ -226,6 +437,13 @@ module.exports = function setupSocket(io) {
       console.log(`[Socket] User disconnected: ${username} (${socket.id}, reason: ${reason})`);
 
       userSockets.delete(socket.id);
+      const userSocketSet = userSocketsReverse.get(userId);
+      if (userSocketSet) {
+        userSocketSet.delete(socket.id);
+        if (userSocketSet.size === 0) {
+          userSocketsReverse.delete(userId);
+        }
+      }
 
       try {
         await User.findByIdAndUpdate(userId, {

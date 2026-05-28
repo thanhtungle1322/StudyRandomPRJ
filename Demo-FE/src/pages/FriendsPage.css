@@ -283,6 +283,148 @@
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
 }
 
+/* ---- Loading / Error / Empty States ---- */
+.friends-loading,
+.friends-error,
+.friends-empty {
+  text-align: center;
+  padding: 40px 20px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+}
+
+.friends-loading {
+  color: #64748b;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.friends-error {
+  color: #e03131;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.btn-retry {
+  padding: 6px 16px;
+  background: #e03131;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.friends-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.friends-empty-icon {
+  font-size: 48px;
+}
+
+.friends-empty h3 {
+  font-family: 'Nunito', sans-serif;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1e293b;
+}
+
+.friends-empty p {
+  font-size: 14px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+/* ---- Friend Avatar Image ---- */
+.friend-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/* ---- Friend Last Seen ---- */
+.friend-last-seen {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ---- Invite Sent Badge ---- */
+.btn-friend-invite-sent {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: rgba(81, 207, 102, 0.15);
+  color: #2f9e44;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  border: 1px solid rgba(81, 207, 102, 0.3);
+  border-radius: 999px;
+}
+
+/* ---- Subject Picker Inline ---- */
+.subject-picker-inline {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.subject-select {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+  min-width: 150px;
+}
+
+.subject-select:focus {
+  border-color: #845ef7;
+  box-shadow: 0 0 0 3px rgba(132, 94, 247, 0.15);
+}
+
+.btn-cancel-pick {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 50%;
+  color: #e03131;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.btn-cancel-pick:hover {
+  background: #fecaca;
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 768px) {
   .friends-header h1 { font-size: 28px; }
@@ -294,5 +436,13 @@
   .friend-actions-new {
     width: 100%;
     flex-wrap: wrap;
+  }
+
+  .subject-picker-inline {
+    width: 100%;
+  }
+
+  .subject-select {
+    flex: 1;
   }
 }

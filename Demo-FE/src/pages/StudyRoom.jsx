@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
-import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft } from 'react-icons/fi';
+import api from '../services/api';
+import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck } from 'react-icons/fi';
 import { FaCircle } from 'react-icons/fa';
 import './StudyRoom.css';
 
@@ -12,7 +13,7 @@ export default function StudyRoom() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [partner] = useState(location.state?.partner || null);
+  const [partner, setPartner] = useState(location.state?.partner || null);
   const [subject, setSubject] = useState(location.state?.subject || '');
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
@@ -39,6 +40,11 @@ export default function StudyRoom() {
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [sessionStartTime] = useState(Date.now());
+
+  // Trạng thái kết bạn với partner
+  const [friendStatus, setFriendStatus] = useState('none');
+  const [friendshipId, setFriendshipId] = useState(null);
+  const [friendLoading, setFriendLoading] = useState(false);
 
   const localVideoRef = useRef(null);
   const partnerVideoRef = useRef(null);
@@ -344,6 +350,82 @@ export default function StudyRoom() {
     };
   }, [requestMedia]);
 
+  // Kiểm tra trạng thái kết bạn với partner
+  useEffect(() => {
+    if (!partner) return;
+    const partnerId = partner.userId || partner.id || partner._id;
+    if (!partnerId) return;
+    api.get(`/friends/status/${partnerId}`)
+      .then(res => {
+        const status = res.data.status || 'none';
+        setFriendStatus(status);
+        // Lưu friendshipId từ API response
+        if (res.data.friendshipId) {
+          setFriendshipId(res.data.friendshipId);
+        }
+        // Nếu là pending_received mà chưa có friendshipId, fetch từ pending list
+        if (status === 'pending_received' && !res.data.friendshipId) {
+          api.get('/friends/pending').then(pendingRes => {
+            if (pendingRes.data.success) {
+              const req = pendingRes.data.requests.find(r => r.requester._id === partnerId);
+              if (req) setFriendshipId(req.friendshipId);
+            }
+          }).catch(() => {});
+        }
+      })
+      .catch(() => setFriendStatus('none'));
+  }, [partner]);
+
+  const handleAddFriend = async () => {
+    if (friendLoading) return;
+
+    // Nếu đối phương đã gửi lời mời → tự động accept
+    if (friendStatus === 'pending_received') {
+      setFriendLoading(true);
+      try {
+        let fid = friendshipId;
+        // Fallback: nếu chưa có friendshipId, fetch từ pending list
+        if (!fid) {
+          const partnerId = partner?.userId || partner?.id || partner?._id;
+          const pendingRes = await api.get('/friends/pending');
+          if (pendingRes.data.success) {
+            const req = pendingRes.data.requests.find(r => r.requester._id === partnerId);
+            if (req) fid = req.friendshipId;
+          }
+        }
+        if (!fid) {
+          console.error('Cannot find friendshipId to accept');
+          return;
+        }
+        const socket = getSocket();
+        socket.emit('friend:respond', { friendshipId: fid, action: 'accept' });
+        setFriendStatus('accepted');
+        setFriendshipId(fid);
+        addSystemMessage('Bạn và đối phương đã trở thành bạn bè! 🎉');
+      } catch (err) {
+        console.error('Failed to accept friend request:', err);
+      } finally {
+        setFriendLoading(false);
+      }
+      return;
+    }
+
+    // Nếu chưa có quan hệ → gửi lời mời mới
+    if (friendStatus !== 'none') return;
+    const partnerId = partner?.userId || partner?.id || partner?._id;
+    if (!partnerId) return;
+    setFriendLoading(true);
+    try {
+      const socket = getSocket();
+      socket.emit('friend:request', { recipientId: partnerId });
+      setFriendStatus('pending_sent');
+    } catch (err) {
+      console.error('Failed to send friend request:', err);
+    } finally {
+      setFriendLoading(false);
+    }
+  };
+
   useEffect(() => {
     const unsub1 = onSocketEvent('disconnected', ({ reason }) => {
       setConnected(false);
@@ -448,6 +530,14 @@ export default function StudyRoom() {
       setSubject(room.subject);
       if (room.messages) setMessages(room.messages);
 
+      // Extract partner info from room data (fallback if location.state is missing)
+      if (!partner && room.users) {
+        const partnerData = room.users.find(u => u.user.userId !== user?.id);
+        if (partnerData) {
+          setPartner(partnerData.user);
+        }
+      }
+
       // Sau khi join room thành công → chờ 2s rồi bắt đầu WebRTC
       // Delay đảm bảo cả 2 bên đã join room và setup listeners
       console.log('[WebRTC] Room joined, will start WebRTC in 2s...');
@@ -468,6 +558,24 @@ export default function StudyRoom() {
       setConnected(true);
       setReconnecting(false);
       socket.emit('join_room', { roomId, user });
+    });
+
+    // === FRIEND STATUS UPDATES ===
+    socket.on('friend:request_accepted', (data) => {
+      const partnerId = partner?.userId || partner?.id || partner?._id;
+      if (data.friend?._id === partnerId) {
+        setFriendStatus('accepted');
+        addSystemMessage('Bạn và đối phương đã trở thành bạn bè! 🎉');
+      }
+    });
+
+    socket.on('friend:request_received', (data) => {
+      const partnerId = partner?.userId || partner?.id || partner?._id;
+      if (data.requester?._id === partnerId) {
+        setFriendStatus('pending_received');
+        setFriendshipId(data.friendshipId);
+        addSystemMessage('Đối phương đã gửi lời mời kết bạn cho bạn!');
+      }
     });
 
     // === WEBRTC SIGNALING ===
@@ -549,12 +657,14 @@ export default function StudyRoom() {
       socket.off('webrtc_offer');
       socket.off('webrtc_answer');
       socket.off('webrtc_ice_candidate');
+      socket.off('friend:request_accepted');
+      socket.off('friend:request_received');
 
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
       }
     };
-  }, [roomId, navigate, user, addSystemMessage]);
+  }, [roomId, navigate, user, addSystemMessage, partner]);
 
   const sendMessage = (e) => {
     e.preventDefault();
@@ -643,6 +753,39 @@ export default function StudyRoom() {
               <FiBook style={{ color: '#845ef7' }} /> {subjectNames[subject] || subject}
             </span>
           </div>
+          {/* Add Friend Button */}
+          {partner && friendStatus !== 'accepted' && friendStatus !== 'self' && (
+            <button
+              className={`room-add-friend-btn ${friendStatus === 'pending_sent' ? 'pending' : ''} ${friendStatus === 'pending_received' ? 'received' : ''}`}
+              onClick={handleAddFriend}
+              disabled={friendLoading || friendStatus === 'pending_sent'}
+              title={
+                friendStatus === 'pending_sent' ? 'Đã gửi lời mời kết bạn' :
+                friendStatus === 'pending_received' ? 'Nhấn để chấp nhận lời mời kết bạn' :
+                'Gửi lời mời kết bạn'
+              }
+            >
+              {friendLoading ? (
+                <FiLoader className="spin-icon" />
+              ) : friendStatus === 'pending_sent' ? (
+                <FiUserCheck />
+              ) : friendStatus === 'pending_received' ? (
+                <FiCheck />
+              ) : (
+                <FiUserPlus />
+              )}
+              <span>
+                {friendStatus === 'pending_sent' ? 'Đã gửi lời mời' :
+                 friendStatus === 'pending_received' ? 'Chấp nhận kết bạn' :
+                 'Kết bạn'}
+              </span>
+            </button>
+          )}
+          {partner && friendStatus === 'accepted' && (
+            <span className="room-friend-badge">
+              <FiUserCheck /> Bạn bè
+            </span>
+          )}
         </div>
         <div className="room-header-right">
           {/* Pomodoro Timer UI */}

@@ -106,6 +106,32 @@ class MatchmakingService extends EventEmitter {
   }
 
   /**
+   * Tạo phòng trực tiếp cho 2 user (dùng cho mời bạn bè)
+   */
+  createDirectRoom(subject, user1Data, user2Data) {
+    const roomId = crypto.randomUUID();
+    const room = {
+      id: roomId,
+      users: [
+        { socketId: user1Data.socketId, user: user1Data.user },
+        { socketId: user2Data.socketId, user: user2Data.user },
+      ],
+      subject,
+      messages: [],
+      createdAt: new Date(),
+      isDirect: true,
+    };
+    this.activeRooms[roomId] = room;
+    console.log(`[Matchmaking] ✅ Direct room ${roomId} created for ${user1Data.user.username} & ${user2Data.user.username}`);
+    this.emit('room:created', { roomId, room });
+    // Save to DB async
+    this._saveSessionToDB(roomId, room).catch((err) => {
+      console.error('[Matchmaking] Failed to save direct room to DB:', err.message);
+    });
+    return { roomId, room };
+  }
+
+  /**
    * Lấy phòng theo ID
    */
   getRoom(roomId) {
