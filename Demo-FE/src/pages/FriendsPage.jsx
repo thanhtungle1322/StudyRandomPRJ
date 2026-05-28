@@ -68,16 +68,31 @@ export default function FriendsPage() {
     const handleInviteError = (data) => {
       alert(data.message || 'Lỗi khi mời bạn học');
       setInvitingId(null);
+      setInviteSuccess(null);
+    };
+
+    const handleInviteSent = (data) => {
+      setInvitingId(null);
+      setInviteSuccess(data.friendId);
+    };
+
+    const handleInvitationRejected = (data) => {
+      alert(`${data.friendName} đã từ chối lời mời học.`);
+      setInviteSuccess(null);
     };
 
     socket.on('friend:request_accepted', handleFriendAccepted);
     socket.on('room:invitation_accepted', handleInvitationAccepted);
     socket.on('room:invite_error', handleInviteError);
+    socket.on('room:invite_sent', handleInviteSent);
+    socket.on('room:invitation_rejected', handleInvitationRejected);
 
     return () => {
       socket.off('friend:request_accepted', handleFriendAccepted);
       socket.off('room:invitation_accepted', handleInvitationAccepted);
       socket.off('room:invite_error', handleInviteError);
+      socket.off('room:invite_sent', handleInviteSent);
+      socket.off('room:invitation_rejected', handleInvitationRejected);
     };
   }, [navigate, fetchFriends]);
 
@@ -87,13 +102,7 @@ export default function FriendsPage() {
     setInvitingId(friendId);
     socket.emit('room:invite', { friendId, subject });
     setShowSubjectPicker(null);
-
-    // Show success temporarily
-    setInviteSuccess(friendId);
-    setTimeout(() => {
-      setInvitingId(null);
-      setInviteSuccess(null);
-    }, 3000);
+    // Don't auto-reset — wait for room:invite_sent or room:invite_error
   };
 
   const handleRemoveFriend = async (friendshipId) => {

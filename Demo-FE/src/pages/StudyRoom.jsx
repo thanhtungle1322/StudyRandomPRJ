@@ -1007,12 +1007,16 @@ export default function StudyRoom() {
                 </div>
               )}
 
-              {messages.map((msg) => (
+              {messages.map((msg) => {
+                const isMine = msg.userId === user?.id
+                  || msg.user?.userId === user?.id
+                  || msg.user?.id === user?.id;
+                return (
                 <div
                   key={msg.id}
                   className={`message ${msg.isSystem
                     ? 'message-system'
-                    : msg.user?.id === user?.id
+                    : isMine
                       ? 'message-self'
                       : 'message-other'
                     }`}
@@ -1023,7 +1027,7 @@ export default function StudyRoom() {
                     </div>
                   ) : (
                     <>
-                      {msg.user?.id !== user?.id && (
+                      {!isMine && (
                         <span className="message-author">{msg.user?.username}</span>
                       )}
                       <div className="message-bubble">
@@ -1033,7 +1037,8 @@ export default function StudyRoom() {
                     </>
                   )}
                 </div>
-              ))}
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
 

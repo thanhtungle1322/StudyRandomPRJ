@@ -10,6 +10,7 @@ const userSocketsReverse = new Map(); // userId -> Set<socketId> (new - for targ
 
 function emitToUser(io, userId, event, data) {
   const socketIds = userSocketsReverse.get(userId);
+  console.log(`[emitToUser] userId=${userId}, event=${event}, found sockets=${socketIds ? [...socketIds].join(',') : 'NONE'}`);
   if (socketIds) {
     socketIds.forEach(sid => {
       const sock = io.sockets.sockets.get(sid);

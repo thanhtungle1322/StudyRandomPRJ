@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
+import NotificationBell from './components/NotificationBell';
+import InvitationToast from './components/InvitationToast';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
@@ -27,6 +29,7 @@ function App() {
   return (
     <>
       <Navbar />
+      <InvitationToast />
       <main style={{ flex: 1 }}>
         <Routes>
           <Route path="/" element={<HomePage />} />
