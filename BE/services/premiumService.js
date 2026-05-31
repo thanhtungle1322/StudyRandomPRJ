@@ -139,7 +139,7 @@ class PremiumService {
     if (payos) {
       try {
         console.log(`[PremiumService] Creating PayOS payment link for user ${userId}, plan ${planId}`);
-        const paymentLinkResult = await payos.createPaymentLink(paymentData);
+        const paymentLinkResult = await payos.paymentRequests.create(paymentData);
         
         await Order.create({
           orderCode,
@@ -229,7 +229,7 @@ class PremiumService {
     if (payos) {
       try {
         console.log(`[PremiumService] Calling PayOS to verify order: ${orderCode}`);
-        const paymentInfo = await payos.getPaymentLinkInformation(orderCode);
+        const paymentInfo = await payos.paymentRequests.get(orderCode);
         console.log(`[PremiumService] PayOS actual order status: ${paymentInfo.status}`);
 
         if (paymentInfo.status === 'PAID') {
@@ -289,7 +289,7 @@ class PremiumService {
     }
 
     try {
-      const verifiedData = payos.verifyPaymentWebhookData(webhookBody);
+      const verifiedData = payos.webhooks.verify(webhookBody);
       console.log('[PayOS Webhook] Verified webhook payload data:', verifiedData);
 
       const orderCode = verifiedData.orderCode;
