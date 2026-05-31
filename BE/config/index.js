@@ -46,6 +46,11 @@ module.exports = {
   // Session secret (cho OAuth state)
   sessionSecret: process.env.SESSION_SECRET || 'studyrandom_session_secret_2026',
 
+  // PayOS Credentials
+  payosClientId: process.env.PAYOS_CLIENT_ID || '',
+  payosApiKey: process.env.PAYOS_API_KEY || '',
+  payosChecksumKey: process.env.PAYOS_CHECKSUM_KEY || '',
+
   // Danh sách môn học hỗ trợ
   subjects: [
     { id: 'math', name: 'Toán học', icon: '📐' },

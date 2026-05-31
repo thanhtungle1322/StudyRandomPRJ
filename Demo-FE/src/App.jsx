@@ -14,6 +14,8 @@ import WhiteboardPage from './pages/WhiteboardPage';
 import FriendsPage from './pages/FriendsPage';
 import ReportPage from './pages/ReportPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import PricingPage from './pages/PricingPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useAuth();
@@ -95,6 +97,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <LeaderboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/pricing" element={<PricingPage />} />
+          <Route
+            path="/payment-success"
+            element={
+              <ProtectedRoute>
+                <PaymentSuccessPage />
               </ProtectedRoute>
             }
           />

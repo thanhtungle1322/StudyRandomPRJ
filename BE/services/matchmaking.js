@@ -74,14 +74,34 @@ class MatchmakingService extends EventEmitter {
       return null;
     }
 
+    // Select the first user in the queue
     const user1 = this.queues[subjectId].shift();
-    const user2 = this.queues[subjectId].shift();
+    
+    // Dynamically find a partner with the closest reputation score to user1 to ensure high compatibility
+    let bestPartnerIndex = 0;
+    let minRepDiff = Infinity;
+    const u1Rep = user1.user.reputation !== undefined ? user1.user.reputation : 5.0;
+
+    for (let i = 0; i < this.queues[subjectId].length; i++) {
+      const u2Rep = this.queues[subjectId][i].user.reputation !== undefined 
+        ? this.queues[subjectId][i].user.reputation 
+        : 5.0;
+      const diff = Math.abs(u1Rep - u2Rep);
+      if (diff < minRepDiff) {
+        minRepDiff = diff;
+        bestPartnerIndex = i;
+      }
+    }
+
+    // Extract the matched partner from the queue
+    const user2 = this.queues[subjectId].splice(bestPartnerIndex, 1)[0];
 
     const roomId = crypto.randomUUID();
 
     const room = {
       id: roomId,
       users: [user1, user2],
+      initialUsers: [user1.user.userId, user2.user.userId],
       subject: subjectId,
       messages: [],
       createdAt: new Date(),
@@ -116,6 +136,7 @@ class MatchmakingService extends EventEmitter {
         { socketId: user1Data.socketId, user: user1Data.user },
         { socketId: user2Data.socketId, user: user2Data.user },
       ],
+      initialUsers: [user1Data.user.userId, user2Data.user.userId],
       subject,
       messages: [],
       createdAt: new Date(),
@@ -179,6 +200,8 @@ class MatchmakingService extends EventEmitter {
           this.emit('room:closed', { roomId });
           this._endSessionInDB(roomId, 'both_left').catch(() => { });
 
+          this._handleRoomClosure(room).catch(() => {});
+
           return { roomId, remaining: null, leavingUser };
         }
 
@@ -202,9 +225,14 @@ class MatchmakingService extends EventEmitter {
    * Xóa phòng thủ công
    */
   removeRoom(roomId) {
-    this._clearDisconnectTimer(roomId);
-    delete this.activeRooms[roomId];
-    this.emit('room:closed', { roomId });
+    const room = this.activeRooms[roomId];
+    if (room) {
+      this._clearDisconnectTimer(roomId);
+      delete this.activeRooms[roomId];
+      this.emit('room:closed', { roomId });
+      
+      this._handleRoomClosure(room).catch(() => {});
+    }
   }
 
   // ========================
@@ -237,6 +265,8 @@ class MatchmakingService extends EventEmitter {
         delete this.disconnectTimers[roomId];
 
         this._endSessionInDB(roomId, 'auto_disconnect').catch(() => { });
+
+        this._handleRoomClosure(room).catch(() => {});
       }
     }, timeout);
   }
@@ -256,6 +286,41 @@ class MatchmakingService extends EventEmitter {
     if (this.disconnectTimers[roomId]) {
       clearTimeout(this.disconnectTimers[roomId]);
       delete this.disconnectTimers[roomId];
+    }
+  }
+
+  async _handleRoomClosure(room) {
+    if (room.isDirect) return; // Do not refund direct invite sessions
+    
+    const durationMinutes = (Date.now() - room.createdAt.getTime()) / 60000;
+    console.log(`[Matchmaking] Room ${room.id} closed. Total duration: ${durationMinutes.toFixed(2)} minutes.`);
+    
+    if (durationMinutes >= 5) {
+      console.log(`[Matchmaking] Session lasted ${durationMinutes.toFixed(2)} minutes (>= 5 mins). No refund.`);
+      return;
+    }
+    
+    console.log(`[Matchmaking] Session lasted less than 5 minutes (${durationMinutes.toFixed(2)} mins). Refunding free users...`);
+    
+    const User = require('../models/User'); // avoid circular dependencies
+    
+    for (const userId of room.initialUsers) {
+      try {
+        const dbUser = await User.findById(userId);
+        if (dbUser && dbUser.plan !== 'premium') {
+          const today = new Date().toISOString().split('T')[0];
+          if (dbUser.lastMatchDate === today && dbUser.dailyMatchCount > 0) {
+            dbUser.dailyMatchCount -= 1;
+            await dbUser.save();
+            console.log(`[Matchmaking] 💸 Refunded daily match for ${dbUser.username}. New daily count: ${dbUser.dailyMatchCount}`);
+            
+            // Emit refund event so socket layer can notify this user if they are online
+            this.emit('user:refunded', { userId: dbUser._id.toString(), dailyMatchCount: dbUser.dailyMatchCount });
+          }
+        }
+      } catch (err) {
+        console.error(`[Matchmaking] Error refunding user ${userId}:`, err.message);
+      }
     }
   }
 

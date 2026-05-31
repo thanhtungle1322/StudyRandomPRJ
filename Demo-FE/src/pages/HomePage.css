@@ -583,14 +583,33 @@
 }
 
 @media (max-width: 480px) {
+  .hero-content { padding: 100px 16px 40px; }
+  .hero-title { font-size: 28px; }
+  .hero-description { font-size: 14px; margin-bottom: 24px; }
+  .hero-badge { font-size: 11px; padding: 6px 14px; }
+  .btn-hero-primary,
+  .btn-hero-secondary { padding: 12px 28px; font-size: 14px; }
   .hero-stats {
     flex-direction: column;
     gap: 12px;
+    padding: 14px 20px;
   }
   .stat-divider {
     width: 60px;
     height: 1px;
   }
+  .stat-number { font-size: 18px; }
+  .section-title-dark { font-size: 28px; }
+  .feature-card-new { padding: 24px 18px; }
+  .feature-icon-wrap-new { width: 56px; height: 56px; font-size: 24px; }
+  .feature-card-title { font-size: 16px; }
+  .feature-card-desc { font-size: 13px; }
+  .howto-title { font-size: 32px; }
+  .howto-steps { gap: 24px; margin-top: 120px; }
+  .howto-step-new { padding: 20px 18px; }
+  .cta-card { padding: 48px 20px; }
+  .cta-card h2 { font-size: 26px; }
+  .cta-card p { font-size: 14px; }
 }
 
 @keyframes pulse {

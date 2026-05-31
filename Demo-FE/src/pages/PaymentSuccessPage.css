@@ -1,0 +1,302 @@
+.payment-success-page {
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 40px 20px;
+  overflow: hidden;
+  color: #2d3748;
+}
+
+.payment-success-container {
+  max-width: 600px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.success-card {
+  padding: 50px 40px;
+  border-radius: 24px;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(31, 38, 135, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Verification State */
+.verification-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 30px 0;
+}
+
+.verify-spinner {
+  font-size: 5rem;
+  color: #6366f1;
+  margin-bottom: 24px;
+  animation: spin 1.5s linear infinite;
+}
+
+.verification-loading h2 {
+  font-size: 1.8rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  background: linear-gradient(135deg, #4f46e5, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.verification-loading p {
+  color: #6b7280;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+/* Success State */
+.verification-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.success-badge-wrapper {
+  position: relative;
+  margin-bottom: 28px;
+}
+
+.success-icon {
+  font-size: 6rem;
+  color: #10b981;
+  position: relative;
+  z-index: 2;
+  filter: drop-shadow(0 4px 10px rgba(16, 185, 129, 0.3));
+  animation: popIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+}
+
+.success-ripple {
+  position: absolute;
+  top: 5%;
+  left: 5%;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.2);
+  z-index: 1;
+  animation: pulseRipple 2s infinite ease-in-out;
+}
+
+.success-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  margin-bottom: 14px;
+  background: linear-gradient(135deg, #b45309, #d97706, #f59e0b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 4px rgba(217, 119, 6, 0.15));
+}
+
+.success-subtitle {
+  color: #4b5563;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin-bottom: 30px;
+}
+
+.order-details-summary {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 0;
+  border-bottom: 1px dashed rgba(229, 231, 235, 0.8);
+}
+
+.summary-row:last-child {
+  border-bottom: none;
+}
+
+.summary-row span {
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.summary-row strong {
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.premium-accent {
+  background: linear-gradient(90deg, #ec4899, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800 !important;
+}
+
+.paid-badge {
+  color: #047857 !important;
+  background: rgba(209, 250, 229, 0.8);
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 0.85rem !important;
+  border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+.perk-highlight-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 35px;
+}
+
+.perk-badge {
+  background: rgba(243, 244, 246, 0.8);
+  border: 1px solid rgba(229, 231, 235, 0.5);
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #4b5563;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
+  transition: all 0.3s ease;
+}
+
+.perk-badge:hover {
+  transform: translateY(-2px);
+  background: #ffffff;
+  border-color: #e5e7eb;
+}
+
+.success-action-btn {
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #ffffff;
+  border: none;
+  padding: 16px 36px;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(99, 102, 241, 0.3);
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.success-action-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 14px 28px rgba(99, 102, 241, 0.45);
+}
+
+/* Failure State */
+.verification-failure {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+}
+
+.error-icon {
+  font-size: 6rem;
+  color: #ef4444;
+  margin-bottom: 28px;
+  animation: shake 0.5s ease;
+}
+
+.error-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #ef4444;
+  margin-bottom: 14px;
+}
+
+.error-subtitle {
+  color: #4b5563;
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin-bottom: 35px;
+}
+
+.failure-actions {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.failure-btn {
+  padding: 14px 28px;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  flex: 1;
+  min-width: 180px;
+  max-width: 240px;
+}
+
+.failure-btn.retry {
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+}
+
+.failure-btn.retry:hover {
+  transform: translateY(-2px);
+  background: #dc2626;
+  box-shadow: 0 10px 24px rgba(239, 68, 68, 0.45);
+}
+
+.failure-btn.back-lobby {
+  background: transparent;
+  color: #4b5563;
+  border: 2px solid #d1d5db;
+}
+
+.failure-btn.back-lobby:hover {
+  transform: translateY(-2px);
+  background: rgba(0, 0, 0, 0.05);
+  border-color: #9ca3af;
+}
+
+/* Animations */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes pulseRipple {
+  0% { transform: scale(0.95); opacity: 0.5; }
+  50% { transform: scale(1.2); opacity: 0.1; }
+  100% { transform: scale(0.95); opacity: 0.5; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}

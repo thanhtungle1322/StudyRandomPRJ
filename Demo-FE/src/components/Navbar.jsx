@@ -19,7 +19,22 @@ export default function Navbar() {
     navigate('/');
   };
 
-  const avatarSrc = user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName}`;
+  const getDecorClasses = (user) => {
+    if (!user || !user.badges) return { wrapper: '', overlay: '' };
+    if (user.badges.includes('PREMIUM_ULTIMATE')) {
+      return { wrapper: 'has-decor-ultimate', overlay: 'decor-ultimate' };
+    }
+    if (user.badges.includes('PREMIUM_PRO')) {
+      return { wrapper: 'has-decor-pro', overlay: 'decor-pro' };
+    }
+    if (user.badges.includes('PREMIUM_STARTER')) {
+      return { wrapper: 'has-decor-starter', overlay: 'decor-starter' };
+    }
+    return { wrapper: '', overlay: '' };
+  };
+
+  const decors = getDecorClasses(user);
+  const avatarSrc = user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.displayName || 'guest'}`;
   const displayName = user?.displayName || '';
 
   return (
@@ -57,16 +72,23 @@ export default function Navbar() {
                 <span className="nav-icon">🏆</span>
                 Xếp hạng
               </Link>
+              <Link to="/pricing" className="nav-link nav-link-premium">
+                <span className="nav-icon">⭐</span>
+                Premium
+              </Link>
               <div className="navbar-user">
-                <Link to="/profile" className="user-avatar-link" title="Hồ sơ cá nhân">
-                  <img
-                    src={avatarSrc}
-                    alt="Avatar"
-                    className="user-avatar"
-                    onError={(e) => {
-                      e.target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
-                    }}
-                  />
+                <Link to="/profile" className="user-avatar-link" title="Hồ sơ cá nhân" style={{ overflow: 'visible' }}>
+                  <div className={`avatar-decor-wrapper ${decors.wrapper}`} style={{ width: '32px', height: '32px' }}>
+                    <img
+                      src={avatarSrc}
+                      alt="Avatar"
+                      className="user-avatar avatar-decor-img"
+                      onError={(e) => {
+                        e.target.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(displayName)}`;
+                      }}
+                    />
+                    {decors.overlay && <div className={`avatar-decor-overlay ${decors.overlay}`}></div>}
+                  </div>
                 </Link>
                 <span className="user-name">{displayName}</span>
                 <button onClick={handleLogout} className="btn btn-sm btn-secondary">

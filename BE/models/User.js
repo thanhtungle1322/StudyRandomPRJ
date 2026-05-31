@@ -47,8 +47,17 @@ const userSchema = new mongoose.Schema(
       enum: ['free', 'premium'],
       default: 'free',
     },
-    planExpiry: {
+    premiumPurchasedAt: {
       type: Date,
+      default: null,
+    },
+    // ---- Free Plan Limits ----
+    dailyMatchCount: {
+      type: Number,
+      default: 0,
+    },
+    lastMatchDate: {
+      type: String, // YYYY-MM-DD format
       default: null,
     },
     // ---- Reputation System ----
