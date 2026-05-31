@@ -585,6 +585,35 @@
   }
 }
 
+@media (max-width: 768px) {
+  .study-room { padding-top: 56px; }
+  .room-header { padding: 8px 16px; }
+  .room-info h2 { font-size: 15px; }
+  .room-body { padding: 8px 12px; gap: 8px; }
+  .video-grid { padding: 8px; gap: 8px; flex-direction: column; }
+  .control-bar { gap: 10px; padding: 10px; border-radius: 12px; }
+  .control-btn { width: 42px; height: 42px; }
+  .end-call-btn { width: 50px; height: 50px; }
+  .chat-sidebar { height: 300px; }
+  .chat-header { padding: 10px 14px; }
+  .chat-messages { padding: 10px 14px; }
+  .chat-input-form { padding: 10px 14px; }
+  .pomodoro-container { margin-right: 8px; padding: 4px 8px; }
+}
+
+@media (max-width: 480px) {
+  .room-header { flex-wrap: wrap; gap: 6px; }
+  .room-header-left { gap: 8px; }
+  .room-info h2 { font-size: 13px; }
+  .room-subject-badge { font-size: 11px; }
+  .connection-status { font-size: 11px; padding: 4px 10px; }
+  .control-bar { gap: 6px; padding: 8px; }
+  .control-btn { width: 38px; height: 38px; }
+  .end-call-btn { width: 44px; height: 44px; }
+  .video-avatar-fallback { width: 60px; height: 60px; }
+  .video-label { font-size: 12px; bottom: 6px; left: 6px; padding: 4px 8px; }
+}
+
 /* ======================== */
 /* Permission Popup         */
 /* ======================== */

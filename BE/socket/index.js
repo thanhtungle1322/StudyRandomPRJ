@@ -77,6 +77,19 @@ module.exports = function setupSocket(io) {
     io.emit('queue_stats', queueStats);
   });
 
+  matchmaking.on('user:refunded', ({ userId, dailyMatchCount }) => {
+    console.log(`[Socket][Observer] User ${userId} was refunded. New count: ${dailyMatchCount}`);
+    const FREE_DAILY_LIMIT = 3;
+    const remaining = Math.max(0, FREE_DAILY_LIMIT - dailyMatchCount);
+    
+    emitToUser(io, userId, 'match_refunded', {
+      message: 'Phiên học của bạn kéo dài chưa đầy 5 phút. Bạn đã được hoàn trả lượt ghép học! 💸',
+      dailyMatchCount,
+      remaining,
+      limit: FREE_DAILY_LIMIT,
+    });
+  });
+
   // ================================================================
   // SOCKET CONNECTIONS
   // ================================================================
@@ -107,10 +120,42 @@ module.exports = function setupSocket(io) {
     // MATCHMAKING
     // ========================
 
-    socket.on('join_queue', ({ subjectId }) => {
+    socket.on('join_queue', async ({ subjectId }) => {
       console.log(`[Socket] ${username} joining queue for ${subjectId}`);
 
-      const match = matchmaking.addToQueue(subjectId, socket.id, socketUser);
+      let dbUser = null;
+      // ---- Check free plan limits ----
+      try {
+        dbUser = await User.findById(userId);
+        if (dbUser && dbUser.plan !== 'premium') {
+          const today = new Date().toISOString().split('T')[0];
+          const dailyCount = dbUser.lastMatchDate === today ? dbUser.dailyMatchCount : 0;
+          const FREE_DAILY_LIMIT = 3;
+
+          if (dailyCount >= FREE_DAILY_LIMIT) {
+            socket.emit('match_limit_reached', {
+              message: 'Bạn đã hết lượt tìm bạn học hôm nay. Nâng cấp Premium để không giới hạn!',
+              remaining: 0,
+              limit: FREE_DAILY_LIMIT,
+            });
+            return;
+          }
+        }
+      } catch (err) {
+        console.error('[Socket] Error checking match limits:', err.message);
+      }
+
+      const freshSocketUser = {
+        userId,
+        username,
+        avatar,
+        plan: dbUser ? dbUser.plan : 'free',
+        badges: dbUser ? dbUser.badges : [],
+        reputation: dbUser ? dbUser.reputation : 5.0,
+        ratingCount: dbUser ? dbUser.ratingCount : 0
+      };
+
+      const match = matchmaking.addToQueue(subjectId, socket.id, freshSocketUser);
 
       if (match) {
         const { roomId, user1, user2, subject } = match;
@@ -121,11 +166,40 @@ module.exports = function setupSocket(io) {
         if (socket1) socket1.join(roomId);
         if (socket2) socket2.join(roomId);
 
+        // ---- Track daily match count for both users ----
+        for (const mu of [user1, user2]) {
+          try {
+            const muDb = await User.findById(mu.user.userId);
+            if (muDb && muDb.plan !== 'premium') {
+              const today = new Date().toISOString().split('T')[0];
+              if (muDb.lastMatchDate !== today) {
+                muDb.dailyMatchCount = 1;
+                muDb.lastMatchDate = today;
+              } else {
+                muDb.dailyMatchCount += 1;
+              }
+              await muDb.save();
+            }
+          } catch (_) {}
+        }
+
+        // ---- Get session time limits ----
+        const getSessionLimit = async (uid) => {
+          try {
+            const u = await User.findById(uid);
+            return (u && u.plan === 'premium') ? null : 30;
+          } catch (_) { return 30; }
+        };
+
+        const user1Limit = await getSessionLimit(user1.user.userId);
+        const user2Limit = await getSessionLimit(user2.user.userId);
+
         if (socket1) {
           socket1.emit('matched', {
             roomId,
             subject,
             partner: user2.user,
+            sessionTimeLimit: user1Limit,
           });
         }
         if (socket2) {
@@ -133,6 +207,7 @@ module.exports = function setupSocket(io) {
             roomId,
             subject,
             partner: user1.user,
+            sessionTimeLimit: user2Limit,
           });
         }
 

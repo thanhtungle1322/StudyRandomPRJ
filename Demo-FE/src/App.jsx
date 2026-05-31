@@ -14,6 +14,7 @@ import WhiteboardPage from './pages/WhiteboardPage';
 import FriendsPage from './pages/FriendsPage';
 import ReportPage from './pages/ReportPage';
 import LeaderboardPage from './pages/LeaderboardPage';
+import PricingPage from './pages/PricingPage';
 
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useAuth();
@@ -98,6 +99,7 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/pricing" element={<PricingPage />} />
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

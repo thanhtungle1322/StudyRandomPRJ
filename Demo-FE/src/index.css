@@ -371,3 +371,105 @@ img {
     font-size: 15px;
   }
 }
+
+/* =============================================
+   Discord-style Avatar Decorations
+   ============================================= */
+.avatar-decor-wrapper {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-decor-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+/* Base Decoration overlay */
+.avatar-decor-overlay {
+  position: absolute;
+  inset: -5px; /* expands slightly outside the avatar border */
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 2;
+  box-sizing: border-box;
+}
+
+/* 1. Starter: Neon Pink/Purple border with light pulse */
+.decor-starter {
+  border: 3.5px solid transparent;
+  background: linear-gradient(135deg, #f783ac, #da77f2) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  animation: decor-spin 4s linear infinite, decor-pulse 2s ease-in-out infinite;
+  box-shadow: 0 0 10px rgba(218, 119, 242, 0.4);
+}
+
+/* 2. Pro: Gold ring & Golden crown badge */
+.decor-pro {
+  border: 3.5px solid transparent;
+  background: linear-gradient(135deg, #ffd43b, #fab005, #ff922b) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  animation: decor-spin 3s linear infinite;
+  filter: drop-shadow(0 0 4px rgba(254, 212, 59, 0.6));
+}
+
+.avatar-decor-wrapper.has-decor-pro::after {
+  content: '👑';
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+  font-size: 16px;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%) rotate(-5deg);
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+}
+
+/* 3. Ultimate: Swirling diamond/galaxy with float sparkles */
+.decor-ultimate {
+  border: 4px solid transparent;
+  background: linear-gradient(135deg, #4dabf7, #3bc9db, #94d82d, #f783ac) border-box;
+  -webkit-mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: destination-out;
+  mask-composite: exclude;
+  animation: decor-spin-reverse 2.5s linear infinite;
+  filter: drop-shadow(0 0 6px rgba(59, 201, 219, 0.8));
+}
+
+.avatar-decor-wrapper.has-decor-ultimate::after {
+  content: '✨';
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+  font-size: 14px;
+  top: -8px;
+  right: -6px;
+  animation: decor-sparkle 1.5s ease-in-out infinite;
+}
+
+@keyframes decor-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+@keyframes decor-spin-reverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+@keyframes decor-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.03); opacity: 1; }
+}
+@keyframes decor-sparkle {
+  0%, 100% { transform: scale(0.8) rotate(0deg); opacity: 0.5; }
+  50% { transform: scale(1.2) rotate(45deg); opacity: 1; }
+}
+

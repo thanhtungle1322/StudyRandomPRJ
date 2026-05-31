@@ -377,8 +377,10 @@
 
 /* Responsive */
 @media (max-width: 600px) {
+  .login-page { padding: 16px; }
+  .login-container { margin-top: 56px; }
   .login-card {
-    padding: 32px 24px;
+    padding: 28px 20px;
     border-radius: 20px;
   }
 
@@ -386,5 +388,22 @@
   .login-mascot-2 { right: 20px; top: 30px; width: 85px; }
   .login-mascot-3 { right: 10px; bottom: 30px; width: 80px; }
 
-  .login-header h1 { font-size: 24px; }
+  .login-header h1 { font-size: 22px; }
+  .login-header .login-welcome { font-size: 13px; }
+  .login-header p { font-size: 13px; }
+
+  .login-icon { width: 56px; height: 56px; font-size: 36px; }
+
+  .input-field { padding: 12px 14px; font-size: 14px; }
+  .login-btn { padding: 12px 20px; font-size: 15px; }
+  .btn-google { padding: 11px 20px; font-size: 14px; }
+
+  .login-divider span { font-size: 11px; }
+  .login-footer p { font-size: 13px; }
+}
+
+@media (max-width: 380px) {
+  .login-card { padding: 24px 16px; }
+  .login-header h1 { font-size: 20px; }
+  .login-mascot { display: none; }
 }

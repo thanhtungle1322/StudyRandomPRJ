@@ -13,6 +13,7 @@ const subjectsRoutes = require('./routes/subjects');
 const profileRoutes = require('./routes/profile');
 const usersRoutes = require('./routes/users');
 const friendsRoutes = require('./routes/friends');
+const premiumRoutes = require('./routes/premium');
 
 const setupSocket = require('./socket');
 
@@ -56,6 +57,7 @@ app.use('/api/subjects', subjectsRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/friends', friendsRoutes);
+app.use('/api/premium', premiumRoutes);
 
 // Cấp TURN Server credentials động cho WebRTC (Dùng Secret Key)
 app.get('/api/turn-credentials', async (req, res) => {

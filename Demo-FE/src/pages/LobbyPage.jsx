@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { connectSocket, getSocket } from '../services/socket';
 import api from '../services/api';
-import { FiSearch, FiBook, FiCrosshair, FiEdit3, FiUsers, FiAlertOctagon, FiX, FiZap, FiDatabase, FiGlobe, FiCpu } from 'react-icons/fi';
+import { FiSearch, FiBook, FiCrosshair, FiEdit3, FiUsers, FiAlertOctagon, FiX, FiZap, FiDatabase, FiGlobe, FiCpu, FiStar } from 'react-icons/fi';
 import { FaCalculator, FaNodeJs, FaReact, FaPython } from 'react-icons/fa';
 import backgroundLogin from '../../background/backgroundLogin.png';
 import mascot1 from '../../background/mascot1.png';
@@ -49,6 +49,22 @@ export default function LobbyPage() {
   const [searchTime, setSearchTime] = useState(0);
   const [queueStats, setQueueStats] = useState({});
 
+  // ---- Premium state ----
+  const [premiumStatus, setPremiumStatus] = useState(null);
+  const [limitReached, setLimitReached] = useState(false);
+  const [refundNotification, setRefundNotification] = useState(null);
+
+  // Fetch premium status
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const { data } = await api.get('/premium/status');
+        if (data.success) setPremiumStatus(data);
+      } catch (_) {}
+    };
+    fetchStatus();
+  }, []);
+
   useEffect(() => {
     const fetchSubjects = async () => {
       try {
@@ -74,13 +90,48 @@ export default function LobbyPage() {
     const socket = connectSocket();
     socket.on('matched', (data) => {
       setSearching(false); setSearchTime(0);
-      navigate(`/room/${data.roomId}`, { state: { partner: data.partner, subject: data.subject } });
+      navigate(`/room/${data.roomId}`, {
+        state: { partner: data.partner, subject: data.subject, sessionTimeLimit: data.sessionTimeLimit }
+      });
     });
     socket.on('waiting', (data) => { if (data.queueStats) setQueueStats(data.queueStats); });
     socket.on('queue_left', () => { setSearching(false); setSearchTime(0); });
     socket.on('queue_stats', (stats) => setQueueStats(stats));
+
+    // Handle match limit reached
+    socket.on('match_limit_reached', () => {
+      setSearching(false);
+      setSearchTime(0);
+      setLimitReached(true);
+    });
+
+    // Handle match refunded event
+    socket.on('match_refunded', (data) => {
+      setRefundNotification(data.message);
+      // Auto-hide after 8 seconds
+      setTimeout(() => setRefundNotification(null), 8000);
+
+      // Dynamically update premiumStatus limits in the state
+      setPremiumStatus(prev => {
+        if (!prev || prev.isPremium) return prev;
+        return {
+          ...prev,
+          limits: {
+            ...prev.limits,
+            dailyMatchesUsed: data.dailyMatchCount,
+            dailyMatchesRemaining: data.remaining,
+          }
+        };
+      });
+    });
+
     const interval = setInterval(() => socket.emit('get_queue_stats'), 5000);
-    return () => { clearInterval(interval); socket.off('matched'); socket.off('waiting'); socket.off('queue_left'); socket.off('queue_stats'); };
+    return () => {
+      clearInterval(interval);
+      socket.off('matched'); socket.off('waiting'); socket.off('queue_left');
+      socket.off('queue_stats'); socket.off('match_limit_reached');
+      socket.off('match_refunded');
+    };
   }, [navigate]);
 
   useEffect(() => {
@@ -91,6 +142,7 @@ export default function LobbyPage() {
 
   const handleSearch = useCallback(() => {
     if (!selectedSubject) return;
+    setLimitReached(false);
     const socket = getSocket();
     if (!socket.connected) connectSocket();
     setSearching(true); setSearchTime(0);
@@ -104,20 +156,33 @@ export default function LobbyPage() {
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
+  const isPremium = premiumStatus?.isPremium;
+  const remaining = premiumStatus?.limits?.dailyMatchesRemaining;
+
   return (
     <div className="lobby-page" style={{ backgroundImage: `url(${backgroundLogin})` }}>
 
-      {/* Mascot trái dưới - mascot1 */}
+      {/* Refund Notification Toast */}
+      {refundNotification && (
+        <div className="lobby-refund-toast animate-fade-in">
+          <span className="toast-icon">💸</span>
+          <div className="toast-content">
+            <h3>Hoàn lượt ghép bạn!</h3>
+            <p>{refundNotification}</p>
+          </div>
+          <button className="toast-close" onClick={() => setRefundNotification(null)}>
+            <FiX />
+          </button>
+        </div>
+      )}
+
+      {/* Mascots */}
       <div className="lobby-mascot-fixed lobby-mascot-left">
         <img src={mascot1} alt="Mascot 1" />
       </div>
-
-      {/* Mascot phải dưới - mascot2 */}
       <div className="lobby-mascot-fixed lobby-mascot-right">
         <img src={mascot2} alt="Mascot 2" />
       </div>
-
-      {/* Mascot bên cạnh nút tìm bạn học - mascot3 */}
       <div className="lobby-mascot-fixed lobby-mascot-center-right">
         <img src={mascot3} alt="Mascot 3" />
       </div>
@@ -129,8 +194,56 @@ export default function LobbyPage() {
           <h1>
             Chào, <span className="lobby-name-highlight">{user?.displayName}</span>! 👋
           </h1>
-          <p>Chọn môn học bạn muốn ôn tập và tìm bạn học ngay</p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', alignItems: 'center', marginTop: '8px', flexWrap: 'wrap' }}>
+            <p style={{ margin: 0 }}>Chọn môn học bạn muốn ôn tập và tìm bạn học ngay</p>
+            <span className="lobby-reputation-pill" title="Điểm uy tín đánh giá từ bạn học" style={{ background: 'rgba(132, 94, 247, 0.15)', border: '1px solid rgba(132, 94, 247, 0.3)', padding: '4px 12px', borderRadius: '999px', fontSize: '13px', fontWeight: '800', color: '#845ef7', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+              ⭐ <strong style={{ color: '#f59f00' }}>{user?.reputation !== undefined ? Number(user.reputation).toFixed(1) : '5.0'}</strong> / 5.0 ({user?.ratingCount || 0} đánh giá)
+            </span>
+          </div>
         </div>
+
+        {/* Premium Status Banner */}
+        {premiumStatus && !isPremium && (
+          <div className="lobby-quota-banner animate-fade-in">
+            <div className="quota-info">
+              <span className="quota-label">Lượt tìm bạn hôm nay:</span>
+              <span className={`quota-count ${remaining === 0 ? 'depleted' : ''}`}>
+                {remaining ?? '...'} / {premiumStatus.limits?.dailyMatches}
+              </span>
+            </div>
+            <Link to="/pricing" className="quota-upgrade-btn">
+              <FiStar /> Nâng cấp Premium
+            </Link>
+          </div>
+        )}
+
+        {isPremium && (
+          <div className="lobby-premium-badge animate-fade-in">
+            👑 <span>Premium</span> — Không giới hạn lượt tìm & thời gian phiên
+          </div>
+        )}
+
+        {/* Limit Reached Modal */}
+        {limitReached && (
+          <div className="search-overlay animate-fade-in">
+            <div className="search-modal limit-modal">
+              <div className="limit-icon">🔒</div>
+              <h2>Hết lượt tìm bạn học!</h2>
+              <p className="limit-desc">
+                Bạn đã sử dụng hết <strong>{premiumStatus?.limits?.dailyMatches || 3} lượt</strong> miễn phí hôm nay.
+              </p>
+              <p className="limit-hint">Nâng cấp Premium — mua 1 lần dùng vĩnh viễn!</p>
+              <div className="limit-actions">
+                <Link to="/pricing" className="btn-find-partner" style={{ textDecoration: 'none' }}>
+                  <FiStar /> Xem gói Premium
+                </Link>
+                <button onClick={() => setLimitReached(false)} className="btn-cancel-search" style={{ marginTop: 8 }}>
+                  <FiX /> Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Searching Overlay */}
         {searching && (
@@ -186,7 +299,7 @@ export default function LobbyPage() {
           </div>
         </div>
 
-        {/* Search Button + Mascot */}
+        {/* Search Button */}
         <div className="search-action animate-fade-in">
           <button
             onClick={handleSearch}
@@ -200,9 +313,6 @@ export default function LobbyPage() {
               Bạn đã chọn: <strong>{subjects.find(s => s.id === selectedSubject)?.name}</strong>
             </p>
           )}
-          {/* <div className="lobby-mascot">
-            <img src={mascot3} alt="Mascot" />
-          </div> */}
         </div>
 
         {/* Quick Actions */}

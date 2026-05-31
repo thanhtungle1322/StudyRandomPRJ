@@ -1,0 +1,577 @@
+/* ===========================
+   Pricing Page Redesign – Harmonized with Lobby
+   =========================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+.pricing-page {
+  padding-top: 80px;
+  padding-bottom: 80px;
+  min-height: 100vh;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  font-family: 'Nunito', 'Inter', sans-serif;
+  position: relative;
+}
+
+.pricing-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16px;
+  color: #5a4a7a;
+}
+
+.pricing-container {
+  position: relative;
+  z-index: 10;
+}
+
+/* Back button */
+.pricing-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  color: #5a4a7a;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 24px;
+  font-family: 'Nunito', sans-serif;
+  backdrop-filter: blur(10px);
+}
+.pricing-back-btn:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(132, 94, 247, 0.15);
+}
+
+/* Header */
+.pricing-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.pricing-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 20px;
+  background: rgba(132, 94, 247, 0.1);
+  border: 1px solid rgba(132, 94, 247, 0.25);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #845ef7;
+  margin-bottom: 16px;
+}
+.pricing-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #51cf66;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.pricing-title {
+  font-size: 42px;
+  font-weight: 900;
+  color: #1e3a8a;
+  margin-bottom: 8px;
+  line-height: 1.1;
+}
+.pricing-title-highlight {
+  background: linear-gradient(135deg, #845ef7, #f783ac);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.pricing-subtitle {
+  font-size: 16px;
+  color: #5a4a7a;
+  font-weight: 600;
+}
+
+/* =============================================
+   Discord-style Avatar Preview Card
+   ============================================= */
+.avatar-live-preview-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+  margin-bottom: 32px;
+  gap: 24px;
+}
+
+.preview-card-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.preview-user-info h4 {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin-bottom: 4px;
+}
+
+.plan-badge-preview {
+  display: inline-block;
+  padding: 2px 10px;
+  font-size: 11px;
+  font-weight: 800;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.plan-badge-preview.free { background: #e9ecef; color: #495057; }
+.plan-badge-preview.starter { background: rgba(247, 131, 172, 0.2); color: #f783ac; }
+.plan-badge-preview.pro { background: rgba(254, 212, 59, 0.2); color: #e67700; }
+.plan-badge-preview.ultimate { background: rgba(77, 171, 247, 0.2); color: #1971c2; }
+
+.preview-card-right h5 {
+  font-size: 14px;
+  font-weight: 800;
+  color: #5a4a7a;
+  margin-bottom: 10px;
+}
+
+.preview-plan-selector {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preview-select-btn {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 700;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.preview-select-btn:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.preview-select-btn.active {
+  background: #495057;
+  color: #ffffff;
+  border-color: #495057;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.preview-select-btn.starter.active {
+  background: linear-gradient(135deg, #f783ac, #da77f2);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(218, 119, 242, 0.4);
+}
+
+.preview-select-btn.pro.active {
+  background: linear-gradient(135deg, #ffd43b, #ff922b);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(254, 212, 59, 0.4);
+}
+
+.preview-select-btn.ultimate.active {
+  background: linear-gradient(135deg, #4dabf7, #3bc9db, #94d82d);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(59, 201, 219, 0.4);
+}
+
+/* =============================================
+   Free limits info & Active premium info
+   ============================================= */
+.free-limits-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 107, 107, 0.2);
+  border-radius: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+}
+.free-limits-icon {
+  font-size: 32px;
+}
+.free-limits-content h3 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #e64980;
+  margin-bottom: 4px;
+}
+.free-limits-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.free-limit-item {
+  font-size: 14px;
+  color: #5a4a7a;
+  font-weight: 600;
+}
+.free-limit-num {
+  font-weight: 900;
+  color: #e64980;
+  font-size: 16px;
+}
+.free-limit-divider {
+  color: #ccc;
+}
+
+.premium-active-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(132, 94, 247, 0.3);
+  border-radius: 20px;
+  margin-bottom: 24px;
+}
+.premium-active-icon {
+  font-size: 32px;
+}
+.premium-active-card h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #845ef7;
+}
+.premium-active-card p {
+  font-size: 14px;
+  color: #5a4a7a;
+}
+
+/* Message */
+.pricing-message {
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 24px;
+  text-align: center;
+}
+.pricing-message.success {
+  background: rgba(81, 207, 102, 0.12);
+  color: #2f9e44;
+  border: 1px solid rgba(81, 207, 102, 0.3);
+}
+.pricing-message.error {
+  background: rgba(255, 107, 107, 0.12);
+  color: #e03131;
+  border: 1px solid rgba(255, 107, 107, 0.3);
+}
+
+/* =============================================
+   Plans Grid & Cards
+   ============================================= */
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  margin-bottom: 48px;
+}
+
+.pricing-card {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 24px;
+  padding: 32px 24px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.pricing-card:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 40px rgba(132, 94, 247, 0.15);
+}
+
+.pricing-card-popular {
+  border-color: #845ef7;
+  box-shadow: 0 8px 32px rgba(132, 94, 247, 0.2);
+  transform: scale(1.03);
+}
+.pricing-card-popular:hover {
+  transform: scale(1.03) translateY(-6px);
+}
+
+.pricing-popular-badge {
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 20px;
+  background: linear-gradient(135deg, #845ef7, #f783ac);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  border-radius: 999px;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(132, 94, 247, 0.4);
+}
+
+.pricing-card-header {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.pricing-plan-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f0e6ff, #e8e0ff);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+  font-size: 24px;
+  color: #845ef7;
+}
+.icon-popular {
+  background: linear-gradient(135deg, #845ef7, #cc5de8);
+  color: #fff;
+}
+
+.pricing-plan-name {
+  font-size: 20px;
+  font-weight: 900;
+  color: #1e3a8a;
+  margin-bottom: 4px;
+}
+.pricing-plan-desc {
+  font-size: 13px;
+  color: #5a4a7a;
+  font-weight: 600;
+}
+
+.pricing-price {
+  text-align: center;
+  margin-bottom: 20px;
+}
+.pricing-price-amount {
+  font-size: 32px;
+  font-weight: 900;
+  color: #1e3a8a;
+  display: block;
+}
+.pricing-price-label {
+  font-size: 13px;
+  color: #5a4a7a;
+  font-weight: 700;
+}
+
+.pricing-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 24px;
+  flex: 1;
+}
+.pricing-features li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4a5568;
+}
+.pricing-check {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(81, 207, 102, 0.15);
+  color: #2f9e44;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.pricing-buy-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  font-family: 'Nunito', sans-serif;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: #f0e6ff;
+  color: #845ef7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pricing-buy-btn:hover:not(:disabled) {
+  background: #845ef7;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(132, 94, 247, 0.4);
+}
+.pricing-buy-btn.btn-popular {
+  background: linear-gradient(135deg, #845ef7, #cc5de8);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(132, 94, 247, 0.4);
+}
+.pricing-buy-btn.btn-popular:hover:not(:disabled) {
+  box-shadow: 0 8px 28px rgba(132, 94, 247, 0.6);
+}
+.pricing-buy-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* =============================================
+   FAQ Section
+   ============================================= */
+.pricing-faq {
+  margin-bottom: 40px;
+}
+.pricing-faq h2 {
+  font-size: 28px;
+  font-weight: 900;
+  color: #1e3a8a;
+  text-align: center;
+  margin-bottom: 24px;
+}
+.faq-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.faq-item {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 20px;
+  padding: 20px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+}
+.faq-item h4 {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin-bottom: 6px;
+}
+.faq-item p {
+  font-size: 13px;
+  color: #5a4a7a;
+  line-height: 1.5;
+  font-weight: 600;
+}
+
+/* ===========================
+   RESPONSIVE - Mobile Optimized
+   =========================== */
+@media (max-width: 900px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .pricing-card-popular {
+    transform: none;
+  }
+  .pricing-card-popular:hover {
+    transform: translateY(-6px);
+  }
+}
+
+@media (max-width: 768px) {
+  .pricing-page {
+    padding-top: 72px;
+    padding-bottom: 40px;
+  }
+  .pricing-title {
+    font-size: 30px;
+  }
+  .pricing-subtitle {
+    font-size: 14px;
+  }
+  .faq-grid {
+    grid-template-columns: 1fr;
+  }
+  .pricing-faq h2 {
+    font-size: 22px;
+  }
+  .avatar-live-preview-card {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 20px;
+  }
+  .preview-card-right {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .pricing-title {
+    font-size: 26px;
+  }
+  .pricing-card {
+    padding: 24px 18px;
+  }
+  .pricing-price-amount {
+    font-size: 28px;
+  }
+  .free-limits-card {
+    flex-direction: column;
+    text-align: center;
+  }
+  .pricing-badge {
+    font-size: 11px;
+    padding: 5px 14px;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

@@ -735,6 +735,23 @@ export default function StudyRoom() {
     handleFinalLeave();
   };
 
+  const getDecorClasses = (member) => {
+    if (!member || !member.badges) return { wrapper: '', overlay: '' };
+    if (member.badges.includes('PREMIUM_ULTIMATE')) {
+      return { wrapper: 'has-decor-ultimate', overlay: 'decor-ultimate' };
+    }
+    if (member.badges.includes('PREMIUM_PRO')) {
+      return { wrapper: 'has-decor-pro', overlay: 'decor-pro' };
+    }
+    if (member.badges.includes('PREMIUM_STARTER')) {
+      return { wrapper: 'has-decor-starter', overlay: 'decor-starter' };
+    }
+    return { wrapper: '', overlay: '' };
+  };
+
+  const partnerDecors = getDecorClasses(partner);
+  const selfDecors = getDecorClasses(user);
+
   const formatTime = (timestamp) => {
     const date = new Date(timestamp);
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
@@ -887,24 +904,35 @@ export default function StudyRoom() {
               {!partnerHasVideo && (
                 partnerLeft ? (
                   <div className="video-offline">
-                    <img
-                      src={partner?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner?.username}`}
-                      alt="partner"
-                      className="video-avatar-fallback offline"
-                    />
+                    <div className={`avatar-decor-wrapper ${partnerDecors.wrapper}`} style={{ width: '80px', height: '80px', marginBottom: '16px' }}>
+                      <img
+                        src={partner?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner?.username}`}
+                        alt="partner"
+                        className="video-avatar-fallback offline avatar-decor-img"
+                      />
+                      {partnerDecors.overlay && <div className={`avatar-decor-overlay ${partnerDecors.overlay}`}></div>}
+                    </div>
                     <span className="video-status-text">Đã rời phòng</span>
                   </div>
                 ) : partner ? (
                   <>
                     <div className="video-simulated-feed">
-                      <img
-                        src={partner.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner.username}`}
-                        alt={partner.username}
-                        className="video-avatar-fallback"
-                      />
+                      <div className={`avatar-decor-wrapper ${partnerDecors.wrapper}`} style={{ width: '100px', height: '100px' }}>
+                        <img
+                          src={partner.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner.username}`}
+                          alt={partner.username}
+                          className="video-avatar-fallback avatar-decor-img"
+                        />
+                        {partnerDecors.overlay && <div className={`avatar-decor-overlay ${partnerDecors.overlay}`}></div>}
+                      </div>
                       <div className="pulse-ring"></div>
                     </div>
-                    <div className="video-label">{partner.username}</div>
+                    <div className="video-label" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', justifyContent: 'center' }}>
+                      <span>{partner.username}</span>
+                      <span className="partner-reputation-stars" style={{ color: '#fadb14', fontWeight: '900', fontSize: '13px', background: 'rgba(0,0,0,0.5)', padding: '2px 6px', borderRadius: '4px' }}>
+                        ⭐ {partner.reputation !== undefined ? Number(partner.reputation).toFixed(1) : '5.0'}
+                      </span>
+                    </div>
                   </>
                 ) : (
                   <div className="video-offline">
@@ -925,11 +953,14 @@ export default function StudyRoom() {
               />
               {isVideoOff && (
                 <div className="video-offline">
-                  <img
-                    src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}
-                    alt="You"
-                    className="video-avatar-fallback"
-                  />
+                  <div className={`avatar-decor-wrapper ${selfDecors.wrapper}`} style={{ width: '80px', height: '80px', marginBottom: '16px' }}>
+                    <img
+                      src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`}
+                      alt="You"
+                      className="video-avatar-fallback avatar-decor-img"
+                    />
+                    {selfDecors.overlay && <div className={`avatar-decor-overlay ${selfDecors.overlay}`}></div>}
+                  </div>
                   <span className="video-status-text">Camera tắt</span>
                 </div>
               )}
