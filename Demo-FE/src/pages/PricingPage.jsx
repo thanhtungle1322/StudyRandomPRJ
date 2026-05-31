@@ -31,9 +31,9 @@ export default function PricingPage() {
         }
       } catch {
         setPlans([
-          { id: 'starter', name: 'Starter', price: 49000, description: 'Trải nghiệm cơ bản không giới hạn', features: ['Tìm bạn học không giới hạn', 'Không giới hạn thời gian phiên học', 'Khung trang trí "Starter Spark" ngọt ngào'] },
-          { id: 'pro', name: 'Pro', price: 99000, popular: true, description: 'Trọn gói cho học sinh nghiêm túc', features: ['Tất cả tính năng Starter', 'Ưu tiên ghép đôi nhanh hơn', 'Khung trang trí "Pro Crown" vương miện vàng', 'Hỗ trợ ưu tiên'] },
-          { id: 'ultimate', name: 'Ultimate', price: 199000, description: 'Trải nghiệm cao cấp nhất', features: ['Tất cả tính năng Pro', 'Khung trang trí "Ultimate Cosmic" vũ trụ lấp lánh', 'Truy cập tính năng beta sớm', 'Hỗ trợ VIP 24/7'] },
+          { id: 'starter', name: 'Starter', price: 5000, description: 'Trải nghiệm cơ bản không giới hạn', features: ['Tìm bạn học không giới hạn', 'Không giới hạn thời gian phiên học', 'Khung trang trí "Starter Spark" ngọt ngào'] },
+          { id: 'pro', name: 'Pro', price: 10000, popular: true, description: 'Trọn gói cho học sinh nghiêm túc', features: ['Tất cả tính năng Starter', 'Ưu tiên ghép đôi nhanh hơn', 'Khung trang trí "Pro Crown" vương miện vàng', 'Hỗ trợ ưu tiên'] },
+          { id: 'ultimate', name: 'Ultimate', price: 15000, description: 'Trải nghiệm cao cấp nhất', features: ['Tất cả tính năng Pro', 'Khung trang trí "Ultimate Cosmic" vũ trụ lấp lánh', 'Truy cập tính năng beta sớm', 'Hỗ trợ VIP 24/7'] },
         ]);
         setFreeLimits({ dailyMatches: 3, sessionMinutes: 30 });
       } finally {
@@ -50,10 +50,17 @@ export default function PricingPage() {
     try {
       const { data } = await api.post('/premium/purchase', { planId });
       if (data.success) {
-        setMessage(data.message);
-        const token = localStorage.getItem('studyrandom_token_v2');
-        login({ ...user, plan: 'premium', premiumPurchasedAt: data.premiumPurchasedAt, badges: data.badges }, token);
-        setTimeout(() => navigate('/lobby'), 2000);
+        if (data.usePayOS && data.checkoutUrl) {
+          setMessage('Đang chuyển hướng tới cổng thanh toán PayOS... 💳');
+          setTimeout(() => {
+            window.location.href = data.checkoutUrl;
+          }, 1200);
+        } else {
+          setMessage(data.message);
+          const token = localStorage.getItem('studyrandom_token_v2');
+          login({ ...user, plan: 'premium', premiumPurchasedAt: data.premiumPurchasedAt, badges: data.badges }, token);
+          setTimeout(() => navigate('/lobby'), 2000);
+        }
       }
     } catch (err) {
       setMessage(err.response?.data?.message || 'Có lỗi xảy ra, vui lòng thử lại');

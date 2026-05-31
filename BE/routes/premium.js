@@ -27,4 +27,16 @@ router.post('/purchase', authenticateToken, premiumController.purchasePremium);
  */
 router.get('/check-match-limit', authenticateToken, premiumController.checkMatchLimit);
 
+/**
+ * GET /api/premium/verify-order/:orderCode
+ * Xác minh giao dịch thanh toán trực tiếp
+ */
+router.get('/verify-order/:orderCode', authenticateToken, premiumController.verifyOrder);
+
+/**
+ * POST /api/premium/webhook
+ * Nhận thông báo thanh toán tự động từ PayOS
+ */
+router.post('/webhook', premiumController.handleWebhook);
+
 module.exports = router;

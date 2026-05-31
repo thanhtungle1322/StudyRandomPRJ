@@ -75,6 +75,35 @@ class PremiumController {
       res.status(status).json({ success: false, message: error.message || 'Lỗi server' });
     }
   }
+
+  /**
+   * Verify order code directly
+   */
+  async verifyOrder(req, res) {
+    try {
+      const { orderCode } = req.params;
+      const result = await premiumService.verifyOrder(orderCode);
+      res.json(result);
+    } catch (error) {
+      console.error('[PremiumCtrl] Verify order error:', error);
+      const status = error.status || 500;
+      res.status(status).json({ success: false, message: error.message || 'Lỗi server' });
+    }
+  }
+
+  /**
+   * Receive PayOS webhook notifications
+   */
+  async handleWebhook(req, res) {
+    try {
+      const result = await premiumService.handleWebhook(req.body);
+      res.json(result);
+    } catch (error) {
+      console.error('[PremiumCtrl] Webhook error:', error);
+      const status = error.status || 400;
+      res.status(status).json({ success: false, message: error.message || 'Lỗi chữ ký webhook' });
+    }
+  }
 }
 
 module.exports = new PremiumController();

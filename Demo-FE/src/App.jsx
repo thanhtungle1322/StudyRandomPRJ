@@ -15,6 +15,7 @@ import FriendsPage from './pages/FriendsPage';
 import ReportPage from './pages/ReportPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import PricingPage from './pages/PricingPage';
+import PaymentSuccessPage from './pages/PaymentSuccessPage';
 
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useAuth();
@@ -100,6 +101,14 @@ function App() {
             }
           />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route
+            path="/payment-success"
+            element={
+              <ProtectedRoute>
+                <PaymentSuccessPage />
+              </ProtectedRoute>
+            }
+          />
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
