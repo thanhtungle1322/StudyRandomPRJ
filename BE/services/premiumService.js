@@ -156,10 +156,21 @@ class PremiumService {
           orderCode,
         };
       } catch (err) {
-        console.error('[PremiumService] Failed to create PayOS link, falling back to direct mock:', err.message);
-        return this.purchasePremiumDirect(userId, planId);
+        console.error('[PremiumService] Failed to create PayOS link:', err);
+        throw { 
+          status: 400, 
+          message: `Lỗi kết nối PayOS: ${err.message || 'Không thể tạo liên kết thanh toán. Vui lòng kiểm tra lại cấu hình API Keys trên PayOS Dashboard.'}` 
+        };
       }
     } else {
+      // Chỉ tự động Mock khi CHƯA KHAI BÁO biến môi trường PayOS ở môi trường development
+      if (config.nodeEnv === 'production') {
+        throw { 
+          status: 500, 
+          message: 'Lỗi bảo mật: Cấu hình PayOS chưa hoàn tất hoặc thiếu biến môi trường trên máy chủ Production!' 
+        };
+      }
+      
       // Create mock transaction in DB and directly activate for easy testing
       await Order.create({
         orderCode,
