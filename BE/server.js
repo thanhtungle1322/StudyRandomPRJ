@@ -14,6 +14,8 @@ const profileRoutes = require('./routes/profile');
 const usersRoutes = require('./routes/users');
 const friendsRoutes = require('./routes/friends');
 const premiumRoutes = require('./routes/premium');
+const adminRoutes = require('./routes/admin');
+const feedbackRoutes = require('./routes/feedback');
 
 const setupSocket = require('./socket');
 
@@ -58,6 +60,8 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/premium', premiumRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/feedback', feedbackRoutes);
 
 // Cấp TURN Server credentials động cho WebRTC (Dùng Secret/Static Key bảo mật)
 app.get('/api/turn-credentials', async (req, res) => {
@@ -164,6 +168,39 @@ dbObserver.on('error', (err) => {
 
 async function startServer() {
   await dbObserver.connect(config.mongoUri);
+
+  // Seed default admin account
+  try {
+    const User = require('./models/User');
+    const bcrypt = require('bcryptjs');
+    const adminEmail = 'admin@studyrandom.com';
+    const adminUser = await User.findOne({ email: adminEmail });
+    if (!adminUser) {
+      console.log('[Seed] Default Admin user not found. Seeding admin account...');
+      const hashedPassword = await bcrypt.hash('admin123', 12);
+      await User.create({
+        email: adminEmail,
+        password: hashedPassword,
+        displayName: 'Quản trị viên (Admin)',
+        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+        authProvider: 'local',
+        role: 'admin',
+        plan: 'premium',
+        premiumTier: 'ultimate',
+        premiumExpiresAt: null, // Admin không bao giờ hết hạn
+        badges: ['PREMIUM_ULTIMATE'],
+        isOnline: false,
+      });
+      console.log('[Seed] Successfully seeded default Admin account: admin@studyrandom.com / admin123');
+    }
+    // Đảm bảo tất cả admin đều có gói Ultimate vĩnh viễn
+    await User.updateMany(
+      { role: 'admin', premiumTier: { $ne: 'ultimate' } },
+      { $set: { plan: 'premium', premiumTier: 'ultimate', premiumExpiresAt: null }, $addToSet: { badges: 'PREMIUM_ULTIMATE' } }
+    );
+  } catch (seedError) {
+    console.error('[Seed] Failed to seed default Admin account:', seedError.message);
+  }
 
   if (!process.env.VERCEL) {
     server.listen(config.port, () => {

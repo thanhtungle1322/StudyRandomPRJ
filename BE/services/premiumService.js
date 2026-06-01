@@ -19,23 +19,27 @@ const PREMIUM_PLANS = {
     id: 'starter',
     name: 'Starter',
     price: 5000,
-    description: 'Trải nghiệm cơ bản không giới hạn',
+    description: 'Mở rộng giới hạn cơ bản cho việc ôn tập',
     features: [
-      'Tìm bạn học không giới hạn',
-      'Không giới hạn thời gian phiên học',
-      'Badge "Starter" độc quyền',
+      '15 lượt tìm bạn học / ngày (thay vì 3)',
+      'Phiên học tối đa 60 phút (thay vì 30)',
+      'Thời hạn sử dụng: 30 ngày',
+      'Khung avatar "Starter Spark" hồng lấp lánh',
+      'Danh hiệu PREMIUM STARTER trong hồ sơ',
     ],
   },
   pro: {
     id: 'pro',
     name: 'Pro',
     price: 10000,
-    description: 'Trọn gói cho học sinh nghiêm túc',
+    description: 'Không giới hạn lượt tìm, phiên học 3 tiếng',
     features: [
-      'Tất cả tính năng Starter',
+      'Không giới hạn lượt tìm bạn học / ngày',
+      'Phiên học tối đa 180 phút (3 tiếng)',
+      'Thời hạn sử dụng: 90 ngày',
+      'Khung avatar "Pro Crown" vương miện vàng',
+      'Danh hiệu PREMIUM PRO trong hồ sơ',
       'Ưu tiên ghép đôi nhanh hơn',
-      'Badge "Pro" độc quyền',
-      'Hỗ trợ ưu tiên',
     ],
     popular: true,
   },
@@ -43,10 +47,13 @@ const PREMIUM_PLANS = {
     id: 'ultimate',
     name: 'Ultimate',
     price: 15000,
-    description: 'Trải nghiệm cao cấp nhất',
+    description: 'Trải nghiệm tối thượng, không giới hạn bất kỳ điều gì',
     features: [
-      'Tất cả tính năng Pro',
-      'Badge "Ultimate" huyền thoại',
+      'Không giới hạn lượt tìm bạn học / ngày',
+      'Không giới hạn thời gian phiên học',
+      'Thời hạn sử dụng: 365 ngày (1 năm)',
+      'Khung avatar "Ultimate Cosmic" vũ trụ huyền ảo',
+      'Danh hiệu PREMIUM ULTIMATE trong hồ sơ',
       'Truy cập tính năng beta sớm',
       'Hỗ trợ VIP 24/7',
     ],
@@ -58,42 +65,104 @@ const FREE_LIMITS = {
   sessionMinutes: 30,
 };
 
+// Thời hạn sử dụng gói (ngày)
+const TIER_DURATION_DAYS = {
+  starter: 30,
+  pro: 90,
+  ultimate: 365,
+};
+
+const PREMIUM_BADGES = ['PREMIUM_STARTER', 'PREMIUM_PRO', 'PREMIUM_ULTIMATE'];
+
 class PremiumService {
   get PREMIUM_PLANS() { return PREMIUM_PLANS; }
   get FREE_LIMITS() { return FREE_LIMITS; }
+  get TIER_DURATION_DAYS() { return TIER_DURATION_DAYS; }
 
   /**
    * Get plans list and free limits configuration
    */
   getPlans() {
     return {
-      plans: Object.values(PREMIUM_PLANS),
+      plans: Object.values(PREMIUM_PLANS).map(p => ({
+        ...p,
+        durationDays: TIER_DURATION_DAYS[p.id] || 30,
+      })),
       freeLimits: FREE_LIMITS,
     };
+  }
+
+  getLimitsForTier(tier) {
+    const limits = {
+      none: { dailyMatches: 3, sessionMinutes: 30 },
+      free: { dailyMatches: 3, sessionMinutes: 30 },
+      starter: { dailyMatches: 15, sessionMinutes: 60 },
+      pro: { dailyMatches: Infinity, sessionMinutes: 180 },
+      ultimate: { dailyMatches: Infinity, sessionMinutes: Infinity }
+    };
+    return limits[tier] || limits.none;
+  }
+
+  /**
+   * Kiểm tra và tự động hết hạn gói Premium nếu đã quá ngày.
+   * Khi hết hạn: xoá plan, premiumTier, badge premium, khung avatar.
+   * Trả về user đã cập nhật (hoặc user gốc nếu chưa hết hạn).
+   */
+  async checkAndExpirePremium(user) {
+    if (!user || user.plan !== 'premium') return user;
+    // Admin không bao giờ hết hạn
+    if (user.role === 'admin') return user;
+    // Nếu không có ngày hết hạn thì coi như vĩnh viễn (legacy)
+    if (!user.premiumExpiresAt) return user;
+
+    const now = new Date();
+    if (now < new Date(user.premiumExpiresAt)) return user;
+
+    // === HẾT HẠN — Thu hồi toàn bộ quyền lợi ===
+    console.log(`[PremiumService] Gói Premium của ${user.displayName} đã hết hạn. Thu hồi quyền lợi...`);
+    user.plan = 'free';
+    user.premiumTier = 'none';
+    user.premiumPurchasedAt = null;
+    user.premiumExpiresAt = null;
+    // Xoá tất cả badge premium
+    user.badges = user.badges.filter(b => !PREMIUM_BADGES.includes(b));
+    await user.save();
+    return user;
   }
 
   /**
    * Get premium status of user
    */
   async getPremiumStatus(userId) {
-    const user = await User.findById(userId);
+    let user = await User.findById(userId);
     if (!user) {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
 
+    // Auto-expire nếu hết hạn
+    user = await this.checkAndExpirePremium(user);
+
+    const tier = user.premiumTier || 'none';
     const today = new Date().toISOString().split('T')[0];
     const dailyMatchCount = user.lastMatchDate === today ? user.dailyMatchCount : 0;
+    const tierLimits = this.getLimitsForTier(tier);
+
+    const dailyMatchesRemaining = tierLimits.dailyMatches === Infinity 
+      ? Infinity 
+      : Math.max(0, tierLimits.dailyMatches - dailyMatchCount);
 
     return {
       plan: user.plan,
+      premiumTier: tier,
       premiumPurchasedAt: user.premiumPurchasedAt,
+      premiumExpiresAt: user.premiumExpiresAt,
       isPremium: user.plan === 'premium',
-      limits: user.plan === 'free' ? {
-        dailyMatches: FREE_LIMITS.dailyMatches,
+      limits: {
+        dailyMatches: tierLimits.dailyMatches,
         dailyMatchesUsed: dailyMatchCount,
-        dailyMatchesRemaining: Math.max(0, FREE_LIMITS.dailyMatches - dailyMatchCount),
-        sessionMinutes: FREE_LIMITS.sessionMinutes,
-      } : null,
+        dailyMatchesRemaining,
+        sessionMinutes: tierLimits.sessionMinutes,
+      },
     };
   }
 
@@ -108,14 +177,21 @@ class PremiumService {
       throw { status: 400, message: 'Gói không hợp lệ' };
     }
 
-    const user = await User.findById(userId);
+    let user = await User.findById(userId);
     if (!user) {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
 
-    if (user.plan === 'premium') {
-      throw { status: 400, message: 'Bạn đã có gói Premium rồi!' };
+    // Admin luôn ở gói ultimate, không cần mua
+    if (user.role === 'admin') {
+      throw { status: 400, message: 'Admin đã có gói Ultimate vĩnh viễn, không cần mua thêm.' };
     }
+
+    // Auto-expire trước khi kiểm tra upgrade
+    user = await this.checkAndExpirePremium(user);
+
+    const { PremiumDto } = require('../dtos/premiumDto');
+    PremiumDto.validateUpgrade(user.premiumTier, planId);
 
     const plan = PREMIUM_PLANS[planId];
     const amount = plan.price;
@@ -193,8 +269,14 @@ class PremiumService {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
 
+    const now = new Date();
+    const durationDays = TIER_DURATION_DAYS[planId] || 30;
+    const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
     user.plan = 'premium';
-    user.premiumPurchasedAt = new Date();
+    user.premiumTier = planId;
+    user.premiumPurchasedAt = now;
+    user.premiumExpiresAt = expiresAt;
 
     const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
     if (badgeMap[planId] && !user.badges.includes(badgeMap[planId])) {
@@ -205,9 +287,74 @@ class PremiumService {
 
     return {
       usePayOS: false,
-      message: `Chúc mừng! Bạn đã nâng cấp thành công lên gói ${plan.name}! 🎉`,
+      message: `Chúc mừng! Bạn đã nâng cấp thành công lên gói ${plan.name} (${durationDays} ngày)! 🎉`,
       plan: user.plan,
+      premiumTier: user.premiumTier,
       premiumPurchasedAt: user.premiumPurchasedAt,
+      premiumExpiresAt: user.premiumExpiresAt,
+      badges: user.badges,
+    };
+  }
+
+  /**
+   * Redeem a giftcode to get Premium plan
+   */
+  async redeemGiftcode(userId, code) {
+    if (!code) {
+      throw { status: 400, message: 'Vui lòng cung cấp mã Giftcode' };
+    }
+
+    const Giftcode = require('../models/Giftcode');
+    const cleanedCode = code.toUpperCase().trim();
+    const giftcode = await Giftcode.findOne({ code: cleanedCode });
+
+    if (!giftcode) {
+      throw { status: 404, message: 'Mã Giftcode không hợp lệ hoặc không tồn tại' };
+    }
+
+    if (giftcode.isUsed) {
+      throw { status: 400, message: 'Mã Giftcode này đã được sử dụng trước đó' };
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      throw { status: 404, message: 'Không tìm thấy user' };
+    }
+
+    const planId = giftcode.planId || 'starter';
+    const { PremiumDto } = require('../dtos/premiumDto');
+    PremiumDto.validateUpgrade(user.premiumTier, planId);
+
+    // Activate premium with expiration
+    const now = new Date();
+    const durationDays = TIER_DURATION_DAYS[planId] || 30;
+    const expiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+
+    user.plan = 'premium';
+    user.premiumTier = planId;
+    user.premiumPurchasedAt = now;
+    user.premiumExpiresAt = expiresAt;
+
+    const planName = PREMIUM_PLANS[planId]?.name || 'Starter';
+    const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
+    if (badgeMap[planId] && !user.badges.includes(badgeMap[planId])) {
+      user.badges.push(badgeMap[planId]);
+    }
+
+    // Update giftcode status
+    giftcode.isUsed = true;
+    giftcode.usedBy = userId;
+    giftcode.usedAt = new Date();
+
+    await user.save();
+    await giftcode.save();
+
+    return {
+      message: `Chúc mừng! Bạn đã kích hoạt gói ${planName} (${durationDays} ngày) thành công bằng mã Giftcode! 🎉`,
+      plan: user.plan,
+      premiumTier: user.premiumTier,
+      premiumPurchasedAt: user.premiumPurchasedAt,
+      premiumExpiresAt: user.premiumExpiresAt,
       badges: user.badges,
     };
   }
@@ -238,8 +385,12 @@ class PremiumService {
 
           const user = await User.findById(order.userId);
           if (user) {
+            const now = new Date();
+            const durationDays = TIER_DURATION_DAYS[order.planId] || 30;
             user.plan = 'premium';
-            user.premiumPurchasedAt = new Date();
+            user.premiumTier = order.planId;
+            user.premiumPurchasedAt = now;
+            user.premiumExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
             const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
             if (badgeMap[order.planId] && !user.badges.includes(badgeMap[order.planId])) {
               user.badges.push(badgeMap[order.planId]);
@@ -266,8 +417,12 @@ class PremiumService {
 
       const user = await User.findById(order.userId);
       if (user) {
+        const now = new Date();
+        const durationDays = TIER_DURATION_DAYS[order.planId] || 30;
         user.plan = 'premium';
-        user.premiumPurchasedAt = new Date();
+        user.premiumTier = order.planId;
+        user.premiumPurchasedAt = now;
+        user.premiumExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
         const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
         if (badgeMap[order.planId] && !user.badges.includes(badgeMap[order.planId])) {
           user.badges.push(badgeMap[order.planId]);
@@ -310,8 +465,12 @@ class PremiumService {
 
       const user = await User.findById(order.userId);
       if (user) {
+        const now = new Date();
+        const durationDays = TIER_DURATION_DAYS[order.planId] || 30;
         user.plan = 'premium';
-        user.premiumPurchasedAt = new Date();
+        user.premiumTier = order.planId;
+        user.premiumPurchasedAt = now;
+        user.premiumExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
         const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
         if (badgeMap[order.planId] && !user.badges.includes(badgeMap[order.planId])) {
           user.badges.push(badgeMap[order.planId]);
@@ -331,25 +490,32 @@ class PremiumService {
    * Check if user is allowed to perform matchmaking
    */
   async checkMatchLimit(userId) {
-    const user = await User.findById(userId);
+    let user = await User.findById(userId);
     if (!user) {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
 
-    if (user.plan === 'premium') {
-      return { success: true, allowed: true, isPremium: true };
+    // Auto-expire nếu hết hạn
+    user = await this.checkAndExpirePremium(user);
+
+    const tier = user.premiumTier || 'none';
+    const limits = this.getLimitsForTier(tier);
+
+    if (limits.dailyMatches === Infinity) {
+      return { success: true, allowed: true, isPremium: tier !== 'none', tier };
     }
 
     const today = new Date().toISOString().split('T')[0];
     const dailyCount = user.lastMatchDate === today ? user.dailyMatchCount : 0;
-    const remaining = Math.max(0, FREE_LIMITS.dailyMatches - dailyCount);
+    const remaining = Math.max(0, limits.dailyMatches - dailyCount);
 
     return {
       allowed: remaining > 0,
-      isPremium: false,
+      isPremium: tier !== 'none',
+      tier,
       remaining,
-      limit: FREE_LIMITS.dailyMatches,
-      sessionMinutes: FREE_LIMITS.sessionMinutes,
+      limit: limits.dailyMatches,
+      sessionMinutes: limits.sessionMinutes,
     };
   }
 }

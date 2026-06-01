@@ -22,6 +22,12 @@ router.get('/status', authenticateToken, premiumController.getPremiumStatus);
 router.post('/purchase', authenticateToken, premiumController.purchasePremium);
 
 /**
+ * POST /api/premium/redeem-giftcode
+ * Đổi mã quà tặng Premium
+ */
+router.post('/redeem-giftcode', authenticateToken, premiumController.redeemGiftcode);
+
+/**
  * GET /api/premium/check-match-limit
  * Kiểm tra xem user có đủ điều kiện để vào hàng chờ tìm bạn học hay không
  */

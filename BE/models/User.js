@@ -42,12 +42,26 @@ const userSchema = new mongoose.Schema(
       enum: ['local', 'google'],
       required: true,
     },
+    role: {
+      type: String,
+      enum: ['customer', 'admin'],
+      default: 'customer',
+    },
     plan: {
       type: String,
       enum: ['free', 'premium'],
       default: 'free',
     },
+    premiumTier: {
+      type: String,
+      enum: ['none', 'starter', 'pro', 'ultimate'],
+      default: 'none',
+    },
     premiumPurchasedAt: {
+      type: Date,
+      default: null,
+    },
+    premiumExpiresAt: {
       type: Date,
       default: null,
     },
