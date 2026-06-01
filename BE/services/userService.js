@@ -132,6 +132,25 @@ class UserService {
       badges: user.badges,
     };
   }
+
+  /**
+   * Search for users matching a search query by username or displayName
+   */
+  async searchUsers(query, currentUserId) {
+    if (!query) return [];
+    
+    const users = await User.find({
+      _id: { $ne: currentUserId }, // Exclude current user
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { displayName: { $regex: query, $options: 'i' } },
+      ],
+    })
+    .limit(20)
+    .select('username displayName avatar email');
+
+    return users;
+  }
 }
 
 module.exports = new UserService();

@@ -21,7 +21,7 @@ function emitToUser(io, userId, event, data) {
 
 module.exports = function setupSocket(io) {
 
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
     if (!token) {
       return next(new Error('Authentication required'));
@@ -30,7 +30,11 @@ module.exports = function setupSocket(io) {
       const decoded = jwt.verify(token, config.jwtSecret);
       socket.userId = decoded.userId;
       socket.username = decoded.displayName;
-      socket.userAvatar = decoded.avatar;
+      
+      // Fetch avatar tươi mới trực tiếp từ database vì JWT token giờ là lightweight (không chứa avatar Base64)
+      const user = await User.findById(decoded.userId).select('avatar');
+      socket.userAvatar = user ? user.avatar : '';
+      
       next();
     } catch (err) {
       next(new Error('Invalid token'));
@@ -148,7 +152,7 @@ module.exports = function setupSocket(io) {
       const freshSocketUser = {
         userId,
         username,
-        avatar,
+        avatar: dbUser ? dbUser.avatar : avatar,
         plan: dbUser ? dbUser.plan : 'free',
         badges: dbUser ? dbUser.badges : [],
         reputation: dbUser ? dbUser.reputation : 5.0,
@@ -284,6 +288,18 @@ module.exports = function setupSocket(io) {
       }
     });
 
+    socket.on('user_temp_away', ({ roomId }) => {
+      socket.to(roomId).emit('partner_temp_away', {
+        message: 'Bạn học đang tạm thời chuyển trang...',
+      });
+    });
+
+    socket.on('user_back', ({ roomId }) => {
+      socket.to(roomId).emit('partner_back', {
+        message: 'Bạn học đã quay lại!',
+      });
+    });
+
     // ========================
     // WEBRTC Signaling
     // ========================
@@ -300,6 +316,10 @@ module.exports = function setupSocket(io) {
 
     socket.on('webrtc_ice_candidate', ({ roomId, candidate }) => {
       socket.to(roomId).emit('webrtc_ice_candidate', { candidate, senderId: socket.id });
+    });
+
+    socket.on('camera_status', ({ roomId, isVideoOff }) => {
+      socket.to(roomId).emit('partner_camera_status', { isVideoOff });
     });
 
     // ========================
@@ -459,13 +479,19 @@ module.exports = function setupSocket(io) {
             return;
           }
 
+          // Fetch fresh avatars dynamically to guarantee synchronization
+          const dbInviter = await User.findById(inviterId).select('avatar');
+          const dbAccepter = await User.findById(userId).select('avatar');
+          const freshInviterAvatar = dbInviter ? dbInviter.avatar : inviterSocket.userAvatar;
+          const freshAccepterAvatar = dbAccepter ? dbAccepter.avatar : avatar;
+
           const inviterUserData = {
             socketId: inviterSocketId,
-            user: { userId: inviterId, username: inviterSocket.username, avatar: inviterSocket.userAvatar },
+            user: { userId: inviterId, username: inviterSocket.username, avatar: freshInviterAvatar },
           };
           const accepterUserData = {
             socketId: socket.id,
-            user: { userId, username, avatar },
+            user: { userId, username, avatar: freshAccepterAvatar },
           };
 
           const { roomId } = matchmaking.createDirectRoom(subject, inviterUserData, accepterUserData);
@@ -475,8 +501,8 @@ module.exports = function setupSocket(io) {
           inviterSocket.join(roomId);
 
           // Notify both users to navigate to the room
-          const inviterInfo = { userId: inviterId, username: inviterSocket.username, avatar: inviterSocket.userAvatar };
-          const accepterInfo = { userId, username, avatar };
+          const inviterInfo = { userId: inviterId, username: inviterSocket.username, avatar: freshInviterAvatar };
+          const accepterInfo = { userId, username, avatar: freshAccepterAvatar };
 
           inviterSocket.emit('room:invitation_accepted', {
             invitationId,

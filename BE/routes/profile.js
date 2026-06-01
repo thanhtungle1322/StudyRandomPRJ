@@ -10,6 +10,12 @@ const router = express.Router();
 router.put('/', authenticateToken, profileController.updateProfile);
 
 /**
+ * GET /api/profile/:userId
+ * Lấy thông tin profile chi tiết của một user (bao gồm cả review)
+ */
+router.get('/:userId', authenticateToken, profileController.getProfile);
+
+/**
  * PUT /api/profile/password
  * Đổi mật khẩu
  */

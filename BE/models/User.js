@@ -86,6 +86,35 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // ---- Custom Profile Customization (Discord-like) ----
+    nickname: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 30,
+    },
+    bio: {
+      type: String,
+      default: '',
+      trim: true,
+      maxlength: 200,
+    },
+    interests: {
+      type: [String],
+      default: [],
+    },
+    themeColor: {
+      type: String,
+      default: '#7c3aed', // Default purple color
+    },
+    themeGradient: {
+      type: String,
+      default: 'linear-gradient(135deg, #7c3aed, #4f46e5)', // Default theme gradient
+    },
+    banner: {
+      type: String,
+      default: '',
+    },
   },
   {
     timestamps: true,

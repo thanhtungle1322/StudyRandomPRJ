@@ -22,6 +22,48 @@ export default function FriendsPage() {
   const [invitingId, setInvitingId] = useState(null);
   const [inviteSuccess, setInviteSuccess] = useState(null);
   const [showSubjectPicker, setShowSubjectPicker] = useState(null); // friendId
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+
+  // Search states
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [actionStatus, setActionStatus] = useState({}); // { [userId]: 'sending' | 'sent' | 'error' }
+
+  const handleSearchUsers = async (val) => {
+    setSearchQuery(val);
+    if (!val.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    try {
+      const { data } = await api.get(`/users/search?q=${encodeURIComponent(val)}`);
+      if (data.success) {
+        setSearchResults(data.users);
+      }
+    } catch (err) {
+      console.error('Failed to search users:', err);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleSendFriendRequest = async (recipientId) => {
+    setActionStatus((prev) => ({ ...prev, [recipientId]: 'sending' }));
+    try {
+      const { data } = await api.post('/friends/request', { recipientId });
+      if (data.success) {
+        setActionStatus((prev) => ({ ...prev, [recipientId]: 'sent' }));
+      }
+    } catch (err) {
+      console.error('Failed to send friend request:', err);
+      setActionStatus((prev) => ({ ...prev, [recipientId]: 'error' }));
+      alert(err.response?.data?.message || 'Không thể gửi lời mời kết bạn');
+    }
+  };
 
   const statusConfig = {
     online:   { label: 'Online',    color: '#51cf66', bg: 'rgba(81,207,102,0.18)'  },
@@ -45,9 +87,39 @@ export default function FriendsPage() {
     }
   }, []);
 
+  const fetchPendingRequests = useCallback(async () => {
+    try {
+      setPendingLoading(true);
+      const { data } = await api.get('/friends/pending');
+      if (data.success) {
+        setPendingRequests(data.requests);
+      }
+    } catch (err) {
+      console.error('Failed to fetch pending requests:', err);
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
+
+  const handleRespondRequest = async (friendshipId, action) => {
+    try {
+      const { data } = await api.put('/friends/respond', { friendshipId, action });
+      if (data.success) {
+        setPendingRequests(prev => prev.filter(r => r.friendshipId !== friendshipId));
+        if (action === 'accept') {
+          fetchFriends();
+        }
+      }
+    } catch (err) {
+      console.error('Failed to respond to friend request:', err);
+      alert('Không thể thực hiện thao tác.');
+    }
+  };
+
   useEffect(() => {
     fetchFriends();
-  }, [fetchFriends]);
+    fetchPendingRequests();
+  }, [fetchFriends, fetchPendingRequests]);
 
   // Listen for real-time friend updates
   useEffect(() => {
@@ -252,17 +324,146 @@ export default function FriendsPage() {
             })}
           </div>
 
-          {/* Features */}
+          {/* Features & Search Column */}
           <div className="friends-features">
-            <div className="friends-feature-card">
-              <span className="friends-feature-icon" style={{ background: 'rgba(81,207,102,0.2)', color: '#51cf66' }}>
-                <FiPlusCircle />
-              </span>
-              <div>
-                <h3>Thêm bạn bè</h3>
-                <p>Sau khi học cùng ai đó, bạn có thể gửi lời mời kết bạn</p>
+            {/* Pending Friend Requests Panel */}
+            <div className="friends-pending-panel animate-fade-in" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', fontSize: '16px', color: '#fff' }}>
+                ✉️ Lời mời kết bạn đang chờ ({pendingRequests.length})
+              </h3>
+              
+              {pendingLoading && (
+                <div style={{ textAlign: 'center', padding: '10px', fontSize: '13px', opacity: 0.6 }}>
+                  <FiLoader className="spin-icon animate-spin" /> Đang tải lời mời...
+                </div>
+              )}
+
+              {!pendingLoading && pendingRequests.length === 0 && (
+                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic' }}>
+                  Không có lời mời kết bạn nào đang chờ phản hồi.
+                </p>
+              )}
+
+              <div className="pending-requests-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto' }}>
+                {!pendingLoading && pendingRequests.map((req) => {
+                  const avatarSrc = req.requester.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.requester.displayName}`;
+                  
+                  return (
+                    <div key={req.friendshipId} className="friend-card-new" style={{ padding: '8px 12px', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', gap: '8px', minHeight: 'auto' }}>
+                      <div className="friend-avatar" style={{ width: '36px', height: '36px', minWidth: '36px' }}>
+                        <img src={avatarSrc} alt="" className="friend-avatar-img" />
+                      </div>
+                      
+                      <div className="friend-details" style={{ flex: 1 }}>
+                        <h4 className="friend-name" style={{ fontSize: '13px', fontWeight: '600', margin: 0, color: '#fff' }}>
+                          {req.requester.displayName}
+                        </h4>
+                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
+                          @{req.requester.displayName?.split(' ')[0] || 'user'}
+                        </p>
+                      </div>
+
+                      <div className="friend-actions-new" style={{ padding: 0, gap: '4px', display: 'flex' }}>
+                        <button
+                          className="btn-friend-invite"
+                          style={{ padding: '4px 8px', fontSize: '11px', height: 'auto', background: '#51cf66', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '2px' }}
+                          onClick={() => handleRespondRequest(req.friendshipId, 'accept')}
+                          title="Đồng ý"
+                        >
+                          <FiCheck /> Nhận
+                        </button>
+                        <button
+                          className="btn-cancel-pick"
+                          style={{ padding: '4px 8px', fontSize: '11px', height: 'auto', background: 'rgba(255,107,107,0.15)', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)', display: 'flex', alignItems: 'center', gap: '2px', borderRadius: '4px' }}
+                          onClick={() => handleRespondRequest(req.friendshipId, 'reject')}
+                          title="Từ chối"
+                        >
+                          <FiUserX />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+
+            {/* Dedicated Search Panel */}
+            <div className="friends-search-panel animate-fade-in" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', fontSize: '16px', color: '#fff' }}>
+                🔍 Tìm bạn học mới
+              </h3>
+              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+                Nhập tên hiển thị hoặc biệt danh để tìm kiếm và kết bạn.
+              </p>
+              
+              <input
+                type="text"
+                className="input-field"
+                placeholder="VD: Nguyễn Văn A..."
+                value={searchQuery}
+                onChange={(e) => handleSearchUsers(e.target.value)}
+                style={{ width: '100%', marginBottom: '16px' }}
+              />
+
+              {/* Search Results list */}
+              <div className="search-results-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '280px', overflowY: 'auto' }}>
+                {searchLoading && (
+                  <div style={{ textAlign: 'center', padding: '10px', fontSize: '13px', opacity: 0.6 }}>
+                    <FiLoader className="spin-icon animate-spin" /> Đang tìm kiếm...
+                  </div>
+                )}
+
+                {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '10px', fontSize: '13px', opacity: 0.6 }}>
+                    Không tìm thấy người dùng nào.
+                  </div>
+                )}
+
+                {!searchLoading && searchResults.map((usr) => {
+                  const status = actionStatus[usr._id];
+                  const avatarSrc = usr.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${usr.displayName}`;
+                  
+                  return (
+                    <div key={usr._id} className="friend-card-new" style={{ padding: '8px 12px', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', gap: '8px', minHeight: 'auto' }}>
+                      <div className="friend-avatar" style={{ width: '36px', height: '36px', minWidth: '36px' }}>
+                        <img src={avatarSrc} alt="" className="friend-avatar-img" />
+                      </div>
+                      
+                      <div className="friend-details" style={{ flex: 1 }}>
+                        <h4 className="friend-name" style={{ fontSize: '13px', fontWeight: '600', margin: 0, color: '#fff' }}>
+                          {usr.displayName}
+                        </h4>
+                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
+                          @{usr.email?.split('@')[0]}
+                        </p>
+                      </div>
+
+                      <div className="friend-actions-new" style={{ padding: 0 }}>
+                        {status === 'sent' ? (
+                          <span style={{ fontSize: '11px', color: '#51cf66', background: 'rgba(81,207,102,0.15)', padding: '4px 8px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <FiCheck /> Đã gửi
+                          </span>
+                        ) : (
+                          <button
+                            className="btn-friend-invite"
+                            style={{ padding: '4px 10px', fontSize: '11px', height: 'auto', display: 'flex', alignItems: 'center', gap: '4px' }}
+                            disabled={status === 'sending'}
+                            onClick={() => handleSendFriendRequest(usr._id)}
+                          >
+                            {status === 'sending' ? (
+                              <FiLoader className="spin-icon animate-spin" />
+                            ) : (
+                              <><FiPlusCircle /> Kết bạn</>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="friends-feature-card">
               <span className="friends-feature-icon" style={{ background: 'rgba(116,192,252,0.2)', color: '#74c0fc' }}>
                 <FiMail />
