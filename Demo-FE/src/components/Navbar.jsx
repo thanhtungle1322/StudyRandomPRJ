@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { disconnectSocket } from '../services/socket';
 import api from '../services/api';
 import { FaGraduationCap } from 'react-icons/fa';
-import { FiHome, FiEdit3, FiUsers, FiBarChart2 } from 'react-icons/fi';
+import { FiHome, FiEdit3, FiUsers, FiBarChart2, FiShield } from 'react-icons/fi';
 import './Navbar.css';
 
 export default function Navbar() {
@@ -56,6 +56,12 @@ export default function Navbar() {
 
           {isLoggedIn ? (
             <>
+              {user?.role === 'admin' && (
+                <Link to="/admin" className="nav-link nav-link-admin" style={{ fontWeight: 'bold' }}>
+                  <span className="nav-icon"><FiShield style={{ color: '#ff6b6b' }} /></span>
+                  Admin
+                </Link>
+              )}
               <Link to="/lobby" className="nav-link">
                 <span className="nav-icon"><FiBarChart2 style={{ color: '#339af0' }} /></span>
                 Sảnh chờ
@@ -71,6 +77,10 @@ export default function Navbar() {
               <Link to="/leaderboard" className="nav-link">
                 <span className="nav-icon">🏆</span>
                 Xếp hạng
+              </Link>
+              <Link to="/feedback" className="nav-link">
+                <span className="nav-icon">💬</span>
+                Đánh giá
               </Link>
               <Link to="/pricing" className="nav-link nav-link-premium">
                 <span className="nav-icon">⭐</span>

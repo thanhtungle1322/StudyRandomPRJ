@@ -37,9 +37,16 @@ class MatchmakingService extends EventEmitter {
       this.queues[subjectId] = [];
     }
 
-    // Kiểm tra user đã trong queue chưa
-    const existing = this.queues[subjectId].find((q) => q.socketId === socketId);
-    if (existing) return null;
+    // Kiểm tra socket đã trong queue chưa
+    const existingSocket = this.queues[subjectId].find((q) => q.socketId === socketId);
+    if (existingSocket) return null;
+
+    // === FIX: Chặn cùng 1 userId vào queue 2 lần (VD: mở 2 tab/2 máy) ===
+    const existingUser = this.queues[subjectId].find((q) => q.user.userId === user.userId);
+    if (existingUser) {
+      console.log(`[Matchmaking] ⚠️ User ${user.username} already in queue for ${subjectId} (duplicate tab/device). Ignoring.`);
+      return null;
+    }
 
     this.queues[subjectId].push({ socketId, user });
     console.log(`[Matchmaking] ${user.username} joined queue for ${subjectId}. Queue size: ${this.queues[subjectId].length}`);
@@ -77,14 +84,26 @@ class MatchmakingService extends EventEmitter {
     // Select the first user in the queue
     const user1 = this.queues[subjectId].shift();
     
+    // === FIX: Loại bỏ tất cả entries cùng userId với user1 (phòng trường hợp race condition) ===
+    this.queues[subjectId] = this.queues[subjectId].filter(q => q.user.userId !== user1.user.userId);
+
+    if (this.queues[subjectId].length === 0) {
+      // Không còn ai khác để ghép → đưa user1 lại vào queue
+      this.queues[subjectId].push(user1);
+      return null;
+    }
+
     // Dynamically find a partner with the closest reputation score to user1 to ensure high compatibility
     let bestPartnerIndex = 0;
     let minRepDiff = Infinity;
     const u1Rep = user1.user.reputation !== undefined ? user1.user.reputation : 5.0;
 
     for (let i = 0; i < this.queues[subjectId].length; i++) {
-      const u2Rep = this.queues[subjectId][i].user.reputation !== undefined 
-        ? this.queues[subjectId][i].user.reputation 
+      const candidate = this.queues[subjectId][i];
+      // === FIX: Bỏ qua nếu cùng userId (chống ghép với chính mình) ===
+      if (candidate.user.userId === user1.user.userId) continue;
+      const u2Rep = candidate.user.reputation !== undefined 
+        ? candidate.user.reputation 
         : 5.0;
       const diff = Math.abs(u1Rep - u2Rep);
       if (diff < minRepDiff) {

@@ -81,17 +81,22 @@ module.exports = function setupSocket(io) {
     io.emit('queue_stats', queueStats);
   });
 
-  matchmaking.on('user:refunded', ({ userId, dailyMatchCount }) => {
+  matchmaking.on('user:refunded', async ({ userId, dailyMatchCount }) => {
     console.log(`[Socket][Observer] User ${userId} was refunded. New count: ${dailyMatchCount}`);
-    const FREE_DAILY_LIMIT = 3;
-    const remaining = Math.max(0, FREE_DAILY_LIMIT - dailyMatchCount);
-    
-    emitToUser(io, userId, 'match_refunded', {
-      message: 'Phiên học của bạn kéo dài chưa đầy 5 phút. Bạn đã được hoàn trả lượt ghép học! 💸',
-      dailyMatchCount,
-      remaining,
-      limit: FREE_DAILY_LIMIT,
-    });
+    try {
+      const u = await User.findById(userId);
+      const premiumService = require('../services/premiumService');
+      const limits = premiumService.getLimitsForTier(u?.premiumTier || 'none');
+      if (limits.dailyMatches !== Infinity) {
+        const remaining = Math.max(0, limits.dailyMatches - dailyMatchCount);
+        emitToUser(io, userId, 'match_refunded', {
+          message: 'Phiên học của bạn kéo dài chưa đầy 5 phút. Bạn đã được hoàn trả lượt ghép học! 💸',
+          dailyMatchCount,
+          remaining,
+          limit: limits.dailyMatches,
+        });
+      }
+    } catch (_) {}
   });
 
   // ================================================================
@@ -131,19 +136,16 @@ module.exports = function setupSocket(io) {
       // ---- Check free plan limits ----
       try {
         dbUser = await User.findById(userId);
-        if (dbUser && dbUser.plan !== 'premium') {
-          const today = new Date().toISOString().split('T')[0];
-          const dailyCount = dbUser.lastMatchDate === today ? dbUser.dailyMatchCount : 0;
-          const FREE_DAILY_LIMIT = 3;
+        const premiumService = require('../services/premiumService');
+        const limitCheck = await premiumService.checkMatchLimit(userId);
 
-          if (dailyCount >= FREE_DAILY_LIMIT) {
-            socket.emit('match_limit_reached', {
-              message: 'Bạn đã hết lượt tìm bạn học hôm nay. Nâng cấp Premium để không giới hạn!',
-              remaining: 0,
-              limit: FREE_DAILY_LIMIT,
-            });
-            return;
-          }
+        if (!limitCheck.allowed) {
+          socket.emit('match_limit_reached', {
+            message: 'Bạn đã hết lượt tìm bạn học hôm nay. Nâng cấp Premium để có thêm lượt ghép học!',
+            remaining: 0,
+            limit: limitCheck.limit,
+          });
+          return;
         }
       } catch (err) {
         console.error('[Socket] Error checking match limits:', err.message);
@@ -171,18 +173,22 @@ module.exports = function setupSocket(io) {
         if (socket2) socket2.join(roomId);
 
         // ---- Track daily match count for both users ----
+        const premiumService = require('../services/premiumService');
         for (const mu of [user1, user2]) {
           try {
             const muDb = await User.findById(mu.user.userId);
-            if (muDb && muDb.plan !== 'premium') {
-              const today = new Date().toISOString().split('T')[0];
-              if (muDb.lastMatchDate !== today) {
-                muDb.dailyMatchCount = 1;
-                muDb.lastMatchDate = today;
-              } else {
-                muDb.dailyMatchCount += 1;
+            if (muDb) {
+              const limits = premiumService.getLimitsForTier(muDb.premiumTier || 'none');
+              if (limits.dailyMatches !== Infinity) {
+                const today = new Date().toISOString().split('T')[0];
+                if (muDb.lastMatchDate !== today) {
+                  muDb.dailyMatchCount = 1;
+                  muDb.lastMatchDate = today;
+                } else {
+                  muDb.dailyMatchCount += 1;
+                }
+                await muDb.save();
               }
-              await muDb.save();
             }
           } catch (_) {}
         }
@@ -191,7 +197,9 @@ module.exports = function setupSocket(io) {
         const getSessionLimit = async (uid) => {
           try {
             const u = await User.findById(uid);
-            return (u && u.plan === 'premium') ? null : 30;
+            if (!u) return 30;
+            const limits = premiumService.getLimitsForTier(u.premiumTier || 'none');
+            return limits.sessionMinutes === Infinity ? null : limits.sessionMinutes;
           } catch (_) { return 30; }
         };
 

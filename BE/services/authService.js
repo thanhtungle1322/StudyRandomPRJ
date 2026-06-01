@@ -125,6 +125,7 @@ class AuthService {
       userId: user._id.toString(),
       displayName: user.displayName,
       email: user.email,
+      role: user.role || 'customer',
     };
     return jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: '7d' });
   }

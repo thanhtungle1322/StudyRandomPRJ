@@ -156,8 +156,9 @@ export default function LobbyPage() {
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  const isPremium = premiumStatus?.isPremium;
+  const hasInfiniteMatches = premiumStatus?.limits?.dailyMatches === Infinity;
   const remaining = premiumStatus?.limits?.dailyMatchesRemaining;
+  const tierName = premiumStatus?.premiumTier || 'none';
 
   return (
     <div className="lobby-page" style={{ backgroundImage: `url(${backgroundLogin})` }}>
@@ -203,23 +204,30 @@ export default function LobbyPage() {
         </div>
 
         {/* Premium Status Banner */}
-        {premiumStatus && !isPremium && (
+        {premiumStatus && !hasInfiniteMatches && (
           <div className="lobby-quota-banner animate-fade-in">
             <div className="quota-info">
-              <span className="quota-label">Lượt tìm bạn hôm nay:</span>
+              <span className="quota-label">
+                Lượt tìm ngày ({tierName === 'none' ? 'Free' : 'Starter'}):
+              </span>
               <span className={`quota-count ${remaining === 0 ? 'depleted' : ''}`}>
                 {remaining ?? '...'} / {premiumStatus.limits?.dailyMatches}
               </span>
             </div>
             <Link to="/pricing" className="quota-upgrade-btn">
-              <FiStar /> Nâng cấp Premium
+              <FiStar /> Nâng cấp thêm
             </Link>
           </div>
         )}
 
-        {isPremium && (
+        {premiumStatus && hasInfiniteMatches && (
           <div className="lobby-premium-badge animate-fade-in">
-            👑 <span>Premium</span> — Không giới hạn lượt tìm & thời gian phiên
+            👑 <span style={{ textTransform: 'uppercase' }}>Premium {tierName}</span> — Không giới hạn lượt tìm & thời gian học!
+            {premiumStatus.premiumExpiresAt && (
+              <span style={{ fontSize: '12px', opacity: 0.8, marginLeft: '8px' }}>
+                (Hết hạn: {new Date(premiumStatus.premiumExpiresAt).toLocaleDateString('vi-VN')})
+              </span>
+            )}
           </div>
         )}
 

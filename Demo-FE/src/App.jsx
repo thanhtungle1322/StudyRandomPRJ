@@ -17,6 +17,8 @@ import ReportPage from './pages/ReportPage';
 import LeaderboardPage from './pages/LeaderboardPage';
 import PricingPage from './pages/PricingPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
+import FeedbackPage from './pages/FeedbackPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 import { getSocket } from './services/socket';
 
@@ -287,6 +289,22 @@ function App() {
             element={
               <ProtectedRoute>
                 <LeaderboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/feedback"
+            element={
+              <ProtectedRoute>
+                <FeedbackPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <AdminDashboardPage />
               </ProtectedRoute>
             }
           />

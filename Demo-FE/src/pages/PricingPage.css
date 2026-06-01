@@ -575,3 +575,112 @@
     opacity: 0.5;
   }
 }
+
+/* =============================================
+   Giftcode Redemption styles
+   ============================================= */
+.giftcode-redeem-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(132, 94, 247, 0.25);
+  border-radius: 24px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+}
+
+.giftcode-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.giftcode-title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.giftcode-icon {
+  font-size: 32px;
+}
+
+.giftcode-title-wrapper h3 {
+  font-size: 16px;
+  font-weight: 800;
+  color: #1e3a8a;
+  margin-bottom: 2px;
+}
+
+.giftcode-title-wrapper p {
+  font-size: 13px;
+  color: #5a4a7a;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.giftcode-form {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.giftcode-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1.5px solid rgba(132, 94, 247, 0.2);
+  border-radius: 14px;
+  padding: 12px 18px;
+  color: #1e3a8a;
+  font-size: 14px;
+  font-weight: 700;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.giftcode-input:focus {
+  outline: none;
+  border-color: #845ef7;
+  background: #ffffff;
+  box-shadow: 0 0 10px rgba(132, 94, 247, 0.15);
+}
+
+.giftcode-submit-btn {
+  background: linear-gradient(135deg, #845ef7, #5c7cfa);
+  color: #ffffff;
+  border: none;
+  border-radius: 14px;
+  padding: 0 28px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(132, 94, 247, 0.25);
+  font-family: 'Nunito', sans-serif;
+}
+
+.giftcode-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(132, 94, 247, 0.4);
+}
+
+.giftcode-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 600px) {
+  .giftcode-form {
+    flex-direction: column;
+  }
+  .giftcode-submit-btn {
+    padding: 12px;
+  }
+}

@@ -58,6 +58,25 @@ class PremiumController {
   }
 
   /**
+   * Redeem a premium giftcode
+   */
+  async redeemGiftcode(req, res) {
+    try {
+      const userId = req.user.userId;
+      const { code } = req.body;
+      const result = await premiumService.redeemGiftcode(userId, code);
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error) {
+      console.error('[PremiumCtrl] Redeem giftcode error:', error);
+      const status = error.status || 500;
+      res.status(status).json({ success: false, message: error.message || 'Lỗi server' });
+    }
+  }
+
+  /**
    * Check if user is eligible to join matchmaking
    */
   async checkMatchLimit(req, res) {

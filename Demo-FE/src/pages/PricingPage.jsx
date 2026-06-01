@@ -16,6 +16,9 @@ export default function PricingPage() {
   const [freeLimits, setFreeLimits] = useState(null);
   const [loading, setLoading] = useState(true);
   const [purchasing, setPurchasing] = useState(null);
+  const [giftcode, setGiftcode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  
   const [message, setMessage] = useState('');
   
   // Live Avatar Preview State (Discord style)
@@ -31,9 +34,9 @@ export default function PricingPage() {
         }
       } catch {
         setPlans([
-          { id: 'starter', name: 'Starter', price: 5000, description: 'Trải nghiệm cơ bản không giới hạn', features: ['Tìm bạn học không giới hạn', 'Không giới hạn thời gian phiên học', 'Khung trang trí "Starter Spark" ngọt ngào'] },
-          { id: 'pro', name: 'Pro', price: 10000, popular: true, description: 'Trọn gói cho học sinh nghiêm túc', features: ['Tất cả tính năng Starter', 'Ưu tiên ghép đôi nhanh hơn', 'Khung trang trí "Pro Crown" vương miện vàng', 'Hỗ trợ ưu tiên'] },
-          { id: 'ultimate', name: 'Ultimate', price: 15000, description: 'Trải nghiệm cao cấp nhất', features: ['Tất cả tính năng Pro', 'Khung trang trí "Ultimate Cosmic" vũ trụ lấp lánh', 'Truy cập tính năng beta sớm', 'Hỗ trợ VIP 24/7'] },
+          { id: 'starter', name: 'Starter', price: 5000, durationDays: 30, description: 'Mở rộng giới hạn cơ bản cho việc ôn tập', features: ['15 lượt tìm bạn học / ngày (thay vì 3)', 'Phiên học tối đa 60 phút (thay vì 30)', 'Thời hạn sử dụng: 30 ngày', 'Khung avatar "Starter Spark" hồng lấp lánh', 'Danh hiệu PREMIUM STARTER trong hồ sơ'] },
+          { id: 'pro', name: 'Pro', price: 10000, durationDays: 90, popular: true, description: 'Không giới hạn lượt tìm, phiên học 3 tiếng', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Phiên học tối đa 180 phút (3 tiếng)', 'Thời hạn sử dụng: 90 ngày', 'Khung avatar "Pro Crown" vương miện vàng', 'Danh hiệu PREMIUM PRO trong hồ sơ', 'Ưu tiên ghép đôi nhanh hơn'] },
+          { id: 'ultimate', name: 'Ultimate', price: 15000, durationDays: 365, description: 'Trải nghiệm tối thượng, không giới hạn bất kỳ điều gì', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Không giới hạn thời gian phiên học', 'Thời hạn sử dụng: 365 ngày (1 năm)', 'Khung avatar "Ultimate Cosmic" vũ trụ huyền ảo', 'Danh hiệu PREMIUM ULTIMATE trong hồ sơ', 'Truy cập tính năng beta sớm', 'Hỗ trợ VIP 24/7'] },
         ]);
         setFreeLimits({ dailyMatches: 3, sessionMinutes: 30 });
       } finally {
@@ -58,7 +61,7 @@ export default function PricingPage() {
         } else {
           setMessage(data.message);
           const token = localStorage.getItem('studyrandom_token_v2');
-          login({ ...user, plan: 'premium', premiumPurchasedAt: data.premiumPurchasedAt, badges: data.badges }, token);
+          login({ ...user, plan: 'premium', premiumTier: planId, premiumPurchasedAt: data.premiumPurchasedAt, premiumExpiresAt: data.premiumExpiresAt, badges: data.badges }, token);
           setTimeout(() => navigate('/lobby'), 2000);
         }
       }
@@ -69,8 +72,52 @@ export default function PricingPage() {
     }
   };
 
+  const handleRedeemGiftcode = async (e) => {
+    e.preventDefault();
+    if (!user) { navigate('/login'); return; }
+    if (!giftcode.trim()) {
+      setMessage('Vui lòng nhập mã Giftcode');
+      return;
+    }
+    
+    setRedeeming(true);
+    setMessage('');
+    
+    try {
+      const { data } = await api.post('/premium/redeem-giftcode', { code: giftcode });
+      if (data.success) {
+        setMessage(data.message);
+        setGiftcode('');
+        
+        // Find which plan was redeemed from data
+        const token = localStorage.getItem('studyrandom_token_v2');
+        
+        // Let's decode or get updated user info from response
+        login({ 
+          ...user, 
+          plan: 'premium', 
+          premiumTier: data.planTier || data.premiumTier || 'starter',
+          premiumPurchasedAt: data.premiumPurchasedAt, 
+          premiumExpiresAt: data.premiumExpiresAt,
+          badges: data.badges 
+        }, token);
+        
+        setTimeout(() => navigate('/lobby'), 2500);
+      }
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Lỗi khi kích hoạt Giftcode, vui lòng thử lại.');
+    } finally {
+      setRedeeming(false);
+    }
+  };
+
   const formatPrice = (price) => new Intl.NumberFormat('vi-VN').format(price) + 'đ';
+  
+  const TIER_LEVELS = { none: 0, starter: 1, pro: 2, ultimate: 3 };
+  const premiumTier = user?.premiumTier || 'none';
+  const currentTierLevel = TIER_LEVELS[premiumTier] || 0;
   const isPremium = user?.plan === 'premium';
+  
   const planIcons = { starter: <FiZap />, pro: <FiStar />, ultimate: <FiShield /> };
 
   // Avatar and Display details
@@ -111,7 +158,7 @@ export default function PricingPage() {
         <div className="pricing-header animate-fade-in">
           <div className="pricing-badge">
             <span className="pricing-badge-dot"></span>
-            <span>Mua một lần • Sử dụng vĩnh viễn</span>
+            <span>Gói có thời hạn • Nâng cấp trải nghiệm</span>
           </div>
           <h1 className="pricing-title">
             Nâng cấp <span className="pricing-title-highlight">Premium</span>
@@ -194,8 +241,44 @@ export default function PricingPage() {
           <div className="premium-active-card animate-fade-in">
             <div className="premium-active-icon">👑</div>
             <div>
-              <h3>Bạn đang sử dụng gói Premium!</h3>
-              <p>Tận hưởng tất cả tính năng không giới hạn và khung avatar độc quyền</p>
+              <h3>Bạn đang sử dụng gói Premium {premiumTier.toUpperCase()}!</h3>
+              <p>
+                {user?.premiumExpiresAt 
+                  ? `Hết hạn: ${new Date(user.premiumExpiresAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })}` 
+                  : 'Vĩnh viễn (Admin)'}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Giftcode redemption section */}
+        {currentTierLevel < 3 && (
+          <div className="giftcode-redeem-card glass-card animate-fade-in" style={{ marginTop: '24px', marginBottom: '24px' }}>
+            <div className="giftcode-content">
+              <div className="giftcode-title-wrapper">
+                <span className="giftcode-icon">🎁</span>
+                <div>
+                  <h3>Bạn có mã quà tặng (Giftcode)?</h3>
+                  <p>Nhập mã để nâng cấp ngay lên gói Premium cao hơn trọn đời mà không cần thanh toán!</p>
+                </div>
+              </div>
+              <form onSubmit={handleRedeemGiftcode} className="giftcode-form">
+                <input
+                  type="text"
+                  placeholder="Nhập mã Giftcode nâng cấp (Ví dụ: SR-PRO-XXXX)..."
+                  className="giftcode-input"
+                  value={giftcode}
+                  onChange={(e) => setGiftcode(e.target.value)}
+                  disabled={redeeming}
+                />
+                <button 
+                  type="submit" 
+                  className="giftcode-submit-btn" 
+                  disabled={redeeming || !giftcode.trim()}
+                >
+                  {redeeming ? <span className="spinner"></span> : 'Kích hoạt'}
+                </button>
+              </form>
             </div>
           </div>
         )}
@@ -226,7 +309,7 @@ export default function PricingPage() {
 
               <div className="pricing-price">
                 <span className="pricing-price-amount">{formatPrice(plan.price)}</span>
-                <span className="pricing-price-label">trọn đời</span>
+                <span className="pricing-price-label">{plan.durationDays || 30} ngày</span>
               </div>
 
               <ul className="pricing-features">
@@ -238,11 +321,11 @@ export default function PricingPage() {
               <button
                 className={`pricing-buy-btn ${plan.popular ? 'btn-popular' : ''}`}
                 onClick={() => handlePurchase(plan.id)}
-                disabled={isPremium || purchasing === plan.id}
+                disabled={currentTierLevel >= TIER_LEVELS[plan.id] || purchasing === plan.id}
               >
                 {purchasing === plan.id ? (
                   <><span className="spinner"></span> Đang xử lý...</>
-                ) : isPremium ? 'Đã kích hoạt ✓' : `Mua ${plan.name}`}
+                ) : currentTierLevel >= TIER_LEVELS[plan.id] ? 'Đã sở hữu ✓' : `Mua ${plan.name}`}
               </button>
             </div>
           ))}
@@ -254,7 +337,7 @@ export default function PricingPage() {
           <div className="faq-grid">
             <div className="faq-item">
               <h4>💡 Premium có hết hạn không?</h4>
-              <p>Không! Mua một lần, sử dụng vĩnh viễn không giới hạn.</p>
+              <p>Có! Mỗi gói có thời hạn riêng: Starter 30 ngày, Pro 90 ngày, Ultimate 365 ngày. Khi hết hạn, khung avatar và danh hiệu premium sẽ bị thu hồi.</p>
             </div>
             <div className="faq-item">
               <h4>🔒 Thanh toán an toàn?</h4>

@@ -120,6 +120,7 @@ class AuthController {
           userId: user._id.toString(),
           displayName: user.displayName,
           email: user.email,
+          role: user.role || 'customer',
         };
 
         const token = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: '7d' });
