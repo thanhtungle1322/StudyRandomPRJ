@@ -13,8 +13,7 @@ const reviewSchema = new mongoose.Schema(
       required: true,
     },
     sessionId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Session',
+      type: String,
       required: true,
     },
     rating: {

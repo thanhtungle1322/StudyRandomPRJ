@@ -2,13 +2,13 @@ const profileService = require('../services/profileService');
 
 class ProfileController {
   /**
-   * Update user profile displayName and/or avatar
+   * Update user profile displayName and/or avatar and other Discord-like personalization details
    */
   async updateProfile(req, res) {
     try {
       const userId = req.user.userId;
-      const { displayName, avatar } = req.body;
-      const updatedUser = await profileService.updateProfile(userId, { displayName, avatar });
+      const { displayName, avatar, nickname, bio, interests, themeColor, themeGradient, banner, badges } = req.body;
+      const updatedUser = await profileService.updateProfile(userId, { displayName, avatar, nickname, bio, interests, themeColor, themeGradient, banner, badges });
       
       res.json({
         success: true,
@@ -17,6 +17,25 @@ class ProfileController {
       });
     } catch (error) {
       console.error('[ProfileCtrl] Update error:', error);
+      const status = error.status || 500;
+      res.status(status).json({ success: false, message: error.message || 'Lỗi server' });
+    }
+  }
+
+  /**
+   * Fetch a user profile by their ID (for Discord-like popup)
+   */
+  async getProfile(req, res) {
+    try {
+      const { userId } = req.params;
+      const data = await profileService.getProfile(userId);
+      
+      res.json({
+        success: true,
+        data,
+      });
+    } catch (error) {
+      console.error('[ProfileCtrl] GetProfile error:', error);
       const status = error.status || 500;
       res.status(status).json({ success: false, message: error.message || 'Lỗi server' });
     }

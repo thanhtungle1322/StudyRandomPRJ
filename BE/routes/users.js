@@ -1,5 +1,6 @@
 const express = require('express');
 const userController = require('../controllers/userController');
+const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 
 /**
@@ -19,5 +20,11 @@ router.post('/review', userController.submitReview);
  * Cập nhật thời gian học (Statistics & Gamification)
  */
 router.post('/study-time', userController.updateStudyTime);
+
+/**
+ * GET /api/users/search
+ * Tìm kiếm người dùng bằng username hoặc displayName
+ */
+router.get('/search', authenticateToken, userController.searchUsers);
 
 module.exports = router;

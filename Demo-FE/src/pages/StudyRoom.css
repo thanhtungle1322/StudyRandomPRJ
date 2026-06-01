@@ -238,10 +238,14 @@
 }
 
 .video-element {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   border-radius: 12px;
+  z-index: 1;
 }
 
 .video-element.hidden {
@@ -249,10 +253,16 @@
 }
 
 .video-offline {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 12px;
+  z-index: 10;
+  background: #0f111a;
+  border-radius: 12px;
 }
 
 .video-avatar-fallback {
@@ -275,12 +285,14 @@
 }
 
 .video-simulated-feed {
-  position: relative;
-  width: 100%;
-  height: 100%;
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 5;
+  background: #0f111a;
+  border-radius: 12px;
 }
 
 .pulse-ring {
@@ -792,5 +804,402 @@
 
 .review-modal {
   max-width: 500px;
+}
+
+/* ======================== */
+/* Discord-like Profile Card */
+/* ======================== */
+.discord-profile-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.25s ease;
+}
+
+.discord-profile-card {
+  width: 450px;
+  height: 580px; /* Fixed elegant Discord height to prevent infinite stretch */
+  background: #18191c; /* Discord dark theme base */
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  display: flex;
+  flex-direction: column;
+  color: #b9bbbe;
+  font-family: 'Inter', sans-serif;
+  max-height: 90vh;
+}
+
+/* Custom premium smooth scrollbar for Discord Profile */
+.discord-profile-body::-webkit-scrollbar,
+.discord-reviews-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.discord-profile-body::-webkit-scrollbar-track,
+.discord-reviews-list::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+}
+
+.discord-profile-body::-webkit-scrollbar-thumb,
+.discord-reviews-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+.discord-profile-body::-webkit-scrollbar-thumb:hover,
+.discord-reviews-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.discord-banner {
+  height: 120px;
+  position: relative;
+  background: var(--profile-gradient, linear-gradient(135deg, #7c3aed, #4f46e5));
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.discord-avatar-container {
+  position: absolute;
+  left: 22px;
+  bottom: -45px;
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: #18191c;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.discord-avatar-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #2f3136;
+}
+
+.discord-profile-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding: 12px 16px;
+  height: 32px;
+  gap: 8px;
+}
+
+.discord-btn {
+  background: rgba(79, 84, 92, 0.5);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.discord-btn:hover {
+  background: #4f545c;
+}
+
+.discord-btn-primary {
+  background: #5865F2; /* Discord Blurple */
+}
+
+.discord-btn-primary:hover {
+  background: #4752c4;
+}
+
+.discord-profile-body {
+  padding: 16px 22px 22px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.discord-username-row {
+  margin-top: 12px;
+}
+
+.discord-display-name {
+  font-size: 20px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.discord-nickname-badge {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #8e9297;
+  font-weight: 500;
+}
+
+.discord-username {
+  font-size: 14px;
+  color: #b9bbbe;
+  margin-top: 2px;
+}
+
+.discord-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 16px 0;
+}
+
+.discord-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #fff;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+.discord-bio {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #dcddde;
+  white-space: pre-wrap;
+}
+
+.discord-interests-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.discord-interest-tag {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  color: #e3e5e8;
+  padding: 4px 10px;
+  border-radius: 12px;
+}
+
+.discord-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.discord-stat-card {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  padding: 10px;
+  text-align: center;
+}
+
+.discord-stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  margin-top: 4px;
+}
+
+.discord-stat-label {
+  font-size: 11px;
+  color: #72767d;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.discord-reviews-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.discord-review-card {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 8px;
+  padding: 8px 12px;
+  border: 1px solid rgba(255,255,255,0.02);
+}
+
+.discord-review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.discord-review-author {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e3e5e8;
+}
+
+.discord-review-stars {
+  color: #fadb14;
+  font-size: 11px;
+}
+
+.discord-review-comment {
+  font-size: 13px;
+  color: #b9bbbe;
+  line-height: 1.4;
+}
+
+.discord-badges-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.discord-badge-pill {
+  font-size: 11px;
+  background: rgba(88, 101, 242, 0.15);
+  border: 1px solid rgba(88, 101, 242, 0.3);
+  color: #5865F2;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Edit Mode styling */
+.discord-edit-input {
+  width: 100%;
+  background: #202225;
+  border: 1px solid #202225;
+  border-radius: 4px;
+  padding: 10px;
+  box-sizing: border-box;
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  margin-bottom: 12px;
+  transition: border-color 0.2s;
+}
+
+.discord-edit-input:focus {
+  outline: none;
+  border-color: #5865F2;
+}
+
+.discord-color-pickers {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.discord-color-picker-group {
+  flex: 1;
+}
+
+.discord-color-picker-group label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.discord-color-input {
+  width: 100%;
+  height: 40px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+.video-profile-trigger {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  z-index: 40;
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.video-profile-trigger:hover {
+  background: #5865F2; /* Discord Blurple */
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(88, 101, 242, 0.4);
+}
+
+/* Full-card hover overlay style */
+.video-hover-profile-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 10, 15, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 35;
+  transition: opacity 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+/* Ensure the card container supports hover child display */
+.video-card:hover .video-hover-profile-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.hover-overlay-avatar {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 2px solid #5865F2; /* Discord Blurple */
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(88, 101, 242, 0.3);
+}
+
+.hover-overlay-prompt {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #fff;
+  background: rgba(88, 101, 242, 0.85);
+  padding: 6px 14px;
+  border-radius: 20px;
+  box-shadow: 0 4px 12px rgba(88, 101, 242, 0.2);
+  transition: transform 0.2s ease;
+}
+
+.video-hover-profile-overlay:hover .hover-overlay-prompt {
+  transform: scale(1.05);
+  background: #5865F2;
 }
 

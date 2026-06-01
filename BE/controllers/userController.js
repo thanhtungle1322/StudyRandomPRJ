@@ -56,6 +56,26 @@ class UserController {
       res.status(status).json({ success: false, message: error.message || 'Lỗi server' });
     }
   }
+
+  /**
+   * Search users matching search query
+   */
+  async searchUsers(req, res) {
+    try {
+      const { q } = req.query;
+      const currentUserId = req.user.userId;
+      
+      const users = await userService.searchUsers(q, currentUserId);
+      
+      res.json({
+        success: true,
+        users,
+      });
+    } catch (error) {
+      console.error('[UserCtrl] Search users error:', error);
+      res.status(500).json({ success: false, message: 'Lỗi server khi tìm kiếm' });
+    }
+  }
 }
 
 module.exports = new UserController();

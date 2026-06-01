@@ -8,10 +8,12 @@ function authenticateToken(req, res, next) {
   }
 
   try {
-    const decoded = jwt.verify(authHeader.split(' ')[1], config.jwtSecret);
+    const token = authHeader.split(' ')[1];
+    const decoded = jwt.verify(token, config.jwtSecret);
     req.user = { userId: decoded.userId, displayName: decoded.displayName, email: decoded.email };
     next();
   } catch (err) {
+    console.error('[AuthMiddleware] JWT Verification Failed! Error:', err.message, 'Secret used:', config.jwtSecret ? 'YES (length: ' + config.jwtSecret.length + ')' : 'NO');
     return res.status(401).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn' });
   }
 }

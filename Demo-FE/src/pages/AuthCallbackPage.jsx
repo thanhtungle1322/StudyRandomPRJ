@@ -1,20 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../services/api';
 import './LoginPage.css';
-
-/**
- * Decode JWT payload (không cần verify vì server vừa tạo token)
- */
-function parseJwtPayload(token) {
-  try {
-    const base64Payload = token.split('.')[1];
-    const payload = atob(base64Payload.replace(/-/g, '+').replace(/_/g, '/'));
-    return JSON.parse(payload);
-  } catch {
-    return null;
-  }
-}
 
 export default function AuthCallbackPage() {
   const { login } = useAuth();
@@ -22,7 +10,7 @@ export default function AuthCallbackPage() {
   const processedRef = useRef(false);
 
   useEffect(() => {
-    // Prevent double-processing in React 18 StrictMode
+    // Ngăn chặn xử lý 2 lần do React 18 StrictMode
     if (processedRef.current) return;
 
     const params = new URLSearchParams(window.location.search);
@@ -35,26 +23,44 @@ export default function AuthCallbackPage() {
 
     processedRef.current = true;
 
-    // Decode JWT payload trực tiếp — không cần gọi thêm API
-    const payload = parseJwtPayload(token);
+    // Tiến hành đăng nhập luồng không đồng bộ: lấy thông tin user hoàn chỉnh từ MongoDB
+    const handleLoginFlow = async () => {
+      try {
+        console.log('[AuthCallback] Received token length:', token.length);
+        console.log('[AuthCallback] Token prefix:', token.substring(0, 30));
 
-    if (!payload || !payload.userId) {
-      console.error('[AuthCallback] Invalid JWT payload');
-      navigate('/login?error=google_auth_failed', { replace: true });
-      return;
-    }
+        // Lưu token tạm thời để api interceptor tự động đính kèm vào header
+        localStorage.setItem('studyrandom_token_v2', token);
 
-    const user = {
-      id: payload.userId,
-      displayName: payload.displayName,
-      email: payload.email,
-      avatar: payload.avatar,
+        // Fetch thông tin profile tươi mới từ database với header được truyền tường minh
+        const res = await api.get('/auth/me', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+
+        if (res.data && res.data.success) {
+          const fullUser = res.data.user;
+          console.log('[AuthCallback] Sync user profile SUCCESS:', fullUser.displayName);
+          
+          // Đăng nhập thành công với đầy đủ profile
+          login(fullUser, token);
+          navigate('/lobby', { replace: true });
+        } else {
+          throw new Error('Không thể tải profile của user');
+        }
+      } catch (err) {
+        console.error('[AuthCallback] Lỗi đồng bộ profile:', err);
+        if (err.response) {
+          console.error('[AuthCallback] Server response error status:', err.response.status);
+          console.error('[AuthCallback] Server response error data:', JSON.stringify(err.response.data));
+        }
+        localStorage.removeItem('studyrandom_token_v2');
+        navigate('/login?error=google_auth_failed&reason=profile_error', { replace: true });
+      }
     };
 
-    // Lưu token + login + chuyển trang
-    localStorage.setItem('studyrandom_token_v2', token);
-    login(user, token);
-    navigate('/lobby', { replace: true });
+    handleLoginFlow();
   }, [login, navigate]);
 
   return (
@@ -63,7 +69,7 @@ export default function AuthCallbackPage() {
         <div className="login-card glass-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
           <div className="login-icon" style={{ fontSize: '48px', marginBottom: '20px' }}>🔄</div>
           <h2>Đang xử lý đăng nhập...</h2>
-          <p>Vui lòng đợi trong giây lát</p>
+          <p>Vui lòng lấy thông tin tài khoản Google của bạn</p>
           <span className="spinner" style={{ margin: '20px auto', display: 'block' }}></span>
         </div>
       </div>

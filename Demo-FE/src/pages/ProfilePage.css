@@ -1,0 +1,162 @@
+/* ==========================================================================
+   Profile Personalization Styling - Premium Discord-like Theme & Editor Layout
+   ========================================================================== */
+
+.profile-editor-container {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 28px;
+  width: 100%;
+  max-width: 950px !important;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .profile-editor-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+.profile-form-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-preview-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  position: sticky;
+  top: 80px;
+}
+
+/* live preview card */
+.live-preview-card {
+  width: 320px;
+  background: #18191c;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+  display: flex;
+  flex-direction: column;
+  color: #b9bbbe;
+  font-family: 'Inter', sans-serif;
+  text-align: left;
+}
+
+.live-preview-banner {
+  height: 90px;
+  position: relative;
+  background-size: cover;
+  background-position: center;
+  transition: all 0.3s ease;
+}
+
+.live-preview-avatar {
+  position: absolute;
+  left: 16px;
+  bottom: -35px;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: #18191c;
+  padding: 4px;
+}
+
+.live-preview-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #2f3136;
+}
+
+.live-preview-body {
+  padding: 45px 16px 16px;
+}
+
+.live-preview-displayname {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.live-preview-nickname {
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #8e9297;
+  font-weight: 500;
+}
+
+.live-preview-email {
+  font-size: 12px;
+  color: #b9bbbe;
+  margin-top: 1px;
+}
+
+.live-preview-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.live-preview-badge {
+  font-size: 9px;
+  background: rgba(88, 101, 242, 0.15);
+  border: 1px solid rgba(88, 101, 242, 0.3);
+  color: #5865F2;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.live-preview-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin: 12px 0;
+}
+
+.live-preview-bio {
+  font-size: 12px;
+  line-height: 1.4;
+  color: #dcddde;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.live-preview-interests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.live-preview-tag {
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.03);
+  color: #e3e5e8;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+@media (max-width: 480px) {
+  .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
