@@ -22,6 +22,8 @@ module.exports = {
   // TURN Server API Key
   meteredDomain: process.env.METERED_DOMAIN || '', // VD: "my-app"
   meteredApiKey: process.env.METERED_API_KEY || '',
+  meteredUsername: process.env.METERED_USERNAME || '',
+  meteredPassword: process.env.METERED_PASSWORD || '',
 
   // Parse ra array cho CORS
   get corsOrigins() {

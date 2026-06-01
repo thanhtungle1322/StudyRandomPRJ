@@ -59,26 +59,65 @@ app.use('/api/users', usersRoutes);
 app.use('/api/friends', friendsRoutes);
 app.use('/api/premium', premiumRoutes);
 
-// Cấp TURN Server credentials động cho WebRTC (Dùng Secret Key)
+// Cấp TURN Server credentials động cho WebRTC (Dùng Secret/Static Key bảo mật)
 app.get('/api/turn-credentials', async (req, res) => {
   try {
     const secretKey = config.meteredApiKey;
     const domain = config.meteredDomain;
+    const username = config.meteredUsername;
+    const password = config.meteredPassword;
     
-    if (!secretKey || !domain) {
-      console.warn('[WebRTC] METERED_API_KEY or METERED_DOMAIN not set. Return empty.');
-      return res.json([]);
+    // Cách 1: Sử dụng REST API động (Khuyên dùng vì bảo mật hơn, tự động thay đổi token)
+    if (secretKey && domain) {
+      try {
+        console.log('[WebRTC] Fetching TURN credentials from Metered API dynamically...');
+        const getResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${secretKey}`);
+        if (getResponse.ok) {
+          const iceServers = await getResponse.json();
+          console.log('[WebRTC] Dynamic TURN credentials loaded successfully.');
+          return res.json(iceServers);
+        }
+        
+        const errorText = await getResponse.text();
+        console.error(`[WebRTC] Metered API returned error status: ${getResponse.status}, response: ${errorText}`);
+      } catch (apiError) {
+        console.error('[WebRTC] Error calling Metered API:', apiError);
+      }
     }
 
-    const getResponse = await fetch(`https://${domain}.metered.live/api/v1/turn/credentials?apiKey=${secretKey}`);
-    if (!getResponse.ok) {
-      const errorText = await getResponse.text();
-      console.error(`[WebRTC] Metered GET API failed. Status: ${getResponse.status}, Response: ${errorText}`);
-      return res.json([]); // Gracefully fallback to empty array (STUN only)
+    // Cách 2: Fallback hoặc Sử dụng Credentials tĩnh có sẵn từ Environment Variables
+    if (username && password) {
+      console.log('[WebRTC] Falling back or using configured static Metered credentials...');
+      const staticIceServers = [
+        {
+          urls: 'stun:stun.relay.metered.ca:80',
+        },
+        {
+          urls: 'turn:standard.relay.metered.ca:80',
+          username: username,
+          credential: password,
+        },
+        {
+          urls: 'turn:standard.relay.metered.ca:80?transport=tcp',
+          username: username,
+          credential: password,
+        },
+        {
+          urls: 'turn:standard.relay.metered.ca:443',
+          username: username,
+          credential: password,
+        },
+        {
+          urls: 'turns:standard.relay.metered.ca:443?transport=tcp',
+          username: username,
+          credential: password,
+        },
+      ];
+      return res.json(staticIceServers);
     }
-    const iceServers = await getResponse.json();
-    
-    res.json(iceServers);
+
+    console.warn('[WebRTC] Neither Metered API Key nor static credentials are configured. Returning empty.');
+    res.json([]);
   } catch (error) {
     console.error('[WebRTC] Error generating TURN credentials:', error);
     res.status(500).json({ error: 'Failed to generate TURN credentials' });
