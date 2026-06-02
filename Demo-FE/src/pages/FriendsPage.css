@@ -9,6 +9,7 @@
   background-size: cover;
   background-position: center top;
   background-repeat: no-repeat;
+  background-attachment: fixed;
   position: relative;
   font-family: 'Nunito', 'Inter', sans-serif;
 }
@@ -445,4 +446,8 @@
   .subject-select {
     flex: 1;
   }
+}
+
+.friends-search-panel .input-field::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
 }

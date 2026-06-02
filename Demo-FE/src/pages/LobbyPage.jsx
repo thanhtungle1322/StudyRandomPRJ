@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { connectSocket, getSocket } from '../services/socket';
 import api from '../services/api';
-import { FiSearch, FiBook, FiCrosshair, FiEdit3, FiUsers, FiAlertOctagon, FiX, FiZap, FiDatabase, FiGlobe, FiCpu, FiStar } from 'react-icons/fi';
+import { FiSearch, FiBook, FiCrosshair, FiEdit3, FiUsers, FiAlertOctagon, FiX, FiZap, FiDatabase, FiGlobe, FiCpu, FiStar, FiBarChart2 } from 'react-icons/fi';
 import { FaCalculator, FaNodeJs, FaReact, FaPython } from 'react-icons/fa';
 import backgroundLogin from '../../background/backgroundLogin.png';
 import mascot1 from '../../background/mascot1.png';
@@ -341,6 +341,15 @@ export default function LobbyPage() {
             <div>
               <h3>Bạn Bè</h3>
               <p>Xem danh sách bạn bè</p>
+            </div>
+          </div>
+          <div className="quick-card" onClick={() => navigate('/stats')}>
+            <span className="quick-icon quick-icon-blue">
+              <FiBarChart2 />
+            </span>
+            <div>
+              <h3>Thống Kê</h3>
+              <p>Thành tích học tập</p>
             </div>
           </div>
           <div className="quick-card" onClick={() => navigate('/report')}>

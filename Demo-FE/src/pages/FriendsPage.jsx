@@ -22,6 +22,7 @@ export default function FriendsPage() {
   const [invitingId, setInvitingId] = useState(null);
   const [inviteSuccess, setInviteSuccess] = useState(null);
   const [showSubjectPicker, setShowSubjectPicker] = useState(null); // friendId
+  const [activeTab, setActiveTab] = useState('friends'); // 'friends' hoặc 'pending'
   const [pendingRequests, setPendingRequests] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
 
@@ -129,6 +130,18 @@ export default function FriendsPage() {
       fetchFriends(); // Refresh list when someone accepts
     };
 
+    const handleFriendRequestReceived = () => {
+      fetchPendingRequests(); // Refresh pending list
+    };
+
+    const handleFriendRespondSuccess = (data) => {
+      const { friendshipId, action } = data;
+      setPendingRequests(prev => prev.filter(req => req.friendshipId !== friendshipId));
+      if (action === 'accept') {
+        fetchFriends(); // Reload friends list if accepted
+      }
+    };
+
     const handleInvitationAccepted = (data) => {
       if (data.roomId) {
         navigate(`/room/${data.roomId}`, {
@@ -154,6 +167,8 @@ export default function FriendsPage() {
     };
 
     socket.on('friend:request_accepted', handleFriendAccepted);
+    socket.on('friend:request_received', handleFriendRequestReceived);
+    socket.on('friend:respond_success', handleFriendRespondSuccess);
     socket.on('room:invitation_accepted', handleInvitationAccepted);
     socket.on('room:invite_error', handleInviteError);
     socket.on('room:invite_sent', handleInviteSent);
@@ -161,12 +176,14 @@ export default function FriendsPage() {
 
     return () => {
       socket.off('friend:request_accepted', handleFriendAccepted);
+      socket.off('friend:request_received', handleFriendRequestReceived);
+      socket.off('friend:respond_success', handleFriendRespondSuccess);
       socket.off('room:invitation_accepted', handleInvitationAccepted);
       socket.off('room:invite_error', handleInviteError);
       socket.off('room:invite_sent', handleInviteSent);
       socket.off('room:invitation_rejected', handleInvitationRejected);
     };
-  }, [navigate, fetchFriends]);
+  }, [navigate, fetchFriends, fetchPendingRequests]);
 
   const handleInviteToStudy = (friend, subject) => {
     const socket = getSocket();
@@ -208,20 +225,79 @@ export default function FriendsPage() {
         <div className="friends-body animate-fade-in-up">
           {/* Friend list */}
           <div className="friends-list">
+            {/* Tab Selector */}
+            <div className="friends-tabs" style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+              <button 
+                className={`tab-btn ${activeTab === 'friends' ? 'active' : ''}`}
+                onClick={() => setActiveTab('friends')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: activeTab === 'friends' ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  padding: '8px 16px',
+                  borderBottom: activeTab === 'friends' ? '2px solid #ffffff' : '2px solid transparent',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Bạn bè ({friends.length})
+              </button>
+              <button 
+                className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
+                onClick={() => setActiveTab('pending')}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: activeTab === 'pending' ? '#ffffff' : 'rgba(255,255,255,0.6)',
+                  fontSize: '16px',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  padding: '8px 16px',
+                  borderBottom: activeTab === 'pending' ? '2px solid #ffffff' : '2px solid transparent',
+                  position: 'relative',
+                  transition: 'all 0.3s ease'
+                }}
+              >
+                Lời mời kết bạn
+                {pendingRequests.length > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-4px',
+                    right: '-4px',
+                    background: '#ff6b6b',
+                    color: 'white',
+                    borderRadius: '50%',
+                    width: '18px',
+                    height: '18px',
+                    fontSize: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 'bold'
+                  }}>
+                    {pendingRequests.length}
+                  </span>
+                )}
+              </button>
+            </div>
+
             {loading && (
               <div className="friends-loading">
-                <FiLoader className="spin-icon" /> Đang tải danh sách bạn bè...
+                <FiLoader className="spin-icon" /> Đang tải dữ liệu...
               </div>
             )}
 
             {error && (
               <div className="friends-error">
                 <FiAlertCircle /> {error}
-                <button onClick={fetchFriends} className="btn-retry">Thử lại</button>
+                <button onClick={activeTab === 'friends' ? fetchFriends : fetchPendingRequests} className="btn-retry">Thử lại</button>
               </div>
             )}
 
-            {!loading && !error && friends.length === 0 && (
+            {/* Friends Tab Content */}
+            {activeTab === 'friends' && !loading && !error && friends.length === 0 && (
               <div className="friends-empty">
                 <span className="friends-empty-icon">😢</span>
                 <h3>Chưa có bạn bè nào</h3>
@@ -232,7 +308,7 @@ export default function FriendsPage() {
               </div>
             )}
 
-            {!loading && friends.map((friend) => {
+            {activeTab === 'friends' && !loading && friends.map((friend) => {
               const status = getStatus(friend);
               const sc = statusConfig[status];
               const avatarSrc = friend.user.avatar
@@ -322,77 +398,64 @@ export default function FriendsPage() {
                 </div>
               );
             })}
+
+            {/* Pending Requests Tab Content */}
+            {activeTab === 'pending' && !loading && !error && pendingRequests.length === 0 && (
+              <div className="friends-empty">
+                <span className="friends-empty-icon">🔔</span>
+                <h3>Không có lời mời nào</h3>
+                <p>Khi có ai đó gửi lời mời kết bạn cho bạn, yêu cầu sẽ xuất hiện ở đây!</p>
+              </div>
+            )}
+
+            {activeTab === 'pending' && !loading && pendingRequests.map((req) => {
+              const reqAvatarSrc = req.requester.avatar 
+                || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.requester.displayName}`;
+              return (
+                <div key={req.friendshipId} className="friend-card-new">
+                  <div className="friend-avatar">
+                    {req.requester.avatar ? (
+                      <img src={reqAvatarSrc} alt="" className="friend-avatar-img" />
+                    ) : (
+                      <FiUser />
+                    )}
+                  </div>
+                  <div className="friend-details">
+                    <h3 className="friend-name">{req.requester.displayName}</h3>
+                    <p className="friend-last-seen">
+                      Yêu cầu kết bạn gửi ngày: {new Date(req.createdAt).toLocaleDateString('vi-VN')}
+                    </p>
+                  </div>
+                  <div className="friend-actions-new">
+                    <button 
+                      className="btn-friend-invite"
+                      onClick={() => handleRespondRequest(req.friendshipId, 'accept')}
+                      style={{ background: '#51cf66', color: 'white' }}
+                    >
+                      <FiCheck /> Chấp nhận
+                    </button>
+                    <button 
+                      className="btn-friend-more"
+                      onClick={() => handleRespondRequest(req.friendshipId, 'reject')}
+                      style={{ background: '#ff6b6b', color: 'white', border: 'none', borderRadius: '8px', padding: '10px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      title="Từ chối"
+                    >
+                      <FiUserX />
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Features & Search Column */}
           <div className="friends-features">
-            {/* Pending Friend Requests Panel */}
-            <div className="friends-pending-panel animate-fade-in" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', fontSize: '16px', color: '#fff' }}>
-                ✉️ Lời mời kết bạn đang chờ ({pendingRequests.length})
-              </h3>
-              
-              {pendingLoading && (
-                <div style={{ textAlign: 'center', padding: '10px', fontSize: '13px', opacity: 0.6 }}>
-                  <FiLoader className="spin-icon animate-spin" /> Đang tải lời mời...
-                </div>
-              )}
-
-              {!pendingLoading && pendingRequests.length === 0 && (
-                <p style={{ fontSize: '13px', color: 'var(--text-secondary)', margin: 0, fontStyle: 'italic' }}>
-                  Không có lời mời kết bạn nào đang chờ phản hồi.
-                </p>
-              )}
-
-              <div className="pending-requests-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '250px', overflowY: 'auto' }}>
-                {!pendingLoading && pendingRequests.map((req) => {
-                  const avatarSrc = req.requester.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.requester.displayName}`;
-                  
-                  return (
-                    <div key={req.friendshipId} className="friend-card-new" style={{ padding: '8px 12px', border: '1px solid rgba(255,255,255,0.04)', borderRadius: '8px', background: 'rgba(255,255,255,0.01)', gap: '8px', minHeight: 'auto' }}>
-                      <div className="friend-avatar" style={{ width: '36px', height: '36px', minWidth: '36px' }}>
-                        <img src={avatarSrc} alt="" className="friend-avatar-img" />
-                      </div>
-                      
-                      <div className="friend-details" style={{ flex: 1 }}>
-                        <h4 className="friend-name" style={{ fontSize: '13px', fontWeight: '600', margin: 0, color: '#fff' }}>
-                          {req.requester.displayName}
-                        </h4>
-                        <p style={{ fontSize: '11px', color: 'var(--text-secondary)', margin: 0 }}>
-                          @{req.requester.displayName?.split(' ')[0] || 'user'}
-                        </p>
-                      </div>
-
-                      <div className="friend-actions-new" style={{ padding: 0, gap: '4px', display: 'flex' }}>
-                        <button
-                          className="btn-friend-invite"
-                          style={{ padding: '4px 8px', fontSize: '11px', height: 'auto', background: '#51cf66', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: '2px' }}
-                          onClick={() => handleRespondRequest(req.friendshipId, 'accept')}
-                          title="Đồng ý"
-                        >
-                          <FiCheck /> Nhận
-                        </button>
-                        <button
-                          className="btn-cancel-pick"
-                          style={{ padding: '4px 8px', fontSize: '11px', height: 'auto', background: 'rgba(255,107,107,0.15)', color: '#ff6b6b', border: '1px solid rgba(255,107,107,0.3)', display: 'flex', alignItems: 'center', gap: '2px', borderRadius: '4px' }}
-                          onClick={() => handleRespondRequest(req.friendshipId, 'reject')}
-                          title="Từ chối"
-                        >
-                          <FiUserX />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* Dedicated Search Panel */}
-            <div className="friends-search-panel animate-fade-in" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '12px', padding: '20px', marginBottom: '20px' }}>
+            <div className="friends-search-panel animate-fade-in glass-card" style={{ padding: '20px', marginBottom: '20px' }}>
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px', fontSize: '16px', color: '#fff' }}>
                 🔍 Tìm bạn học mới
               </h3>
-              <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '12px' }}>
+              <p style={{ fontSize: '13px', color: 'rgba(255, 255, 255, 0.8)', marginBottom: '12px' }}>
                 Nhập tên hiển thị hoặc biệt danh để tìm kiếm và kết bạn.
               </p>
               

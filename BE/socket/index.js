@@ -309,6 +309,25 @@ module.exports = function setupSocket(io) {
     });
 
     // ========================
+    // POMODORO SYNC
+    // ========================
+    socket.on('pomodoro:action', (data) => {
+      const { roomId } = data;
+      if (roomId && socket.rooms.has(roomId)) {
+        console.log(`[Pomodoro] Relaying action in room ${roomId} from ${socket.id}`);
+        socket.to(roomId).emit('pomodoro:action', data);
+      }
+    });
+
+    socket.on('media_state_change', (data) => {
+      const { roomId } = data;
+      if (roomId) {
+        console.log(`[Media] Relaying state change in room ${roomId} from ${socket.id}`);
+        socket.to(roomId).emit('media_state_change', data);
+      }
+    });
+
+    // ========================
     // WEBRTC Signaling
     // ========================
 

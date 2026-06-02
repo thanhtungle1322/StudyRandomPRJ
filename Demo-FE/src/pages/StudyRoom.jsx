@@ -4,7 +4,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
 import api from '../services/api';
-import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck, FiTv } from 'react-icons/fi';
+import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck, FiTv, FiPlay, FiPause, FiRotateCcw, FiCoffee, FiTarget } from 'react-icons/fi';
 import { FaCircle } from 'react-icons/fa';
 import './StudyRoom.css';
 
@@ -36,8 +36,14 @@ export default function StudyRoom({ propRoomId }) {
 
   // Pomodoro
   const [pomodoroMode, setPomodoroMode] = useState('focus');
+  const [customFocusTime, setCustomFocusTime] = useState(25);
+  const [customBreakTime, setCustomBreakTime] = useState(5);
   const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
   const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
+  const audioContextRef = useRef(null);
+  const alarmAudioRef = useRef(null);
+  const alarmTimeoutRef = useRef(null);
 
   // Review & Stats
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -301,6 +307,16 @@ export default function StudyRoom({ propRoomId }) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Khởi tạo HTML5 Audio cho Pomodoro
+  useEffect(() => {
+    alarmAudioRef.current = new Audio('/alarm.wav');
+    return () => {
+      if (alarmAudioRef.current) {
+        alarmAudioRef.current.pause();
+      }
+    };
+  }, []);
+
   // Pomodoro Timer Effect
   useEffect(() => {
     let interval = null;
@@ -310,28 +326,138 @@ export default function StudyRoom({ propRoomId }) {
       }, 1000);
     } else if (pomodoroTime === 0) {
       setIsPomodoroRunning(false);
-      // Switch mode
-      if (pomodoroMode === 'focus') {
-        addSystemMessage('Hết thời gian tập trung! Nghỉ giải lao 5 phút nào.');
-        setPomodoroMode('break');
-        setPomodoroTime(5 * 60);
-      } else {
-        addSystemMessage('Hết giờ giải lao! Quay lại tập trung 25 phút nào.');
-        setPomodoroMode('focus');
-        setPomodoroTime(25 * 60);
+      setIsAlarmActive(true);
+      playAlarm();
+
+      alarmTimeoutRef.current = setTimeout(() => {
+        setIsAlarmActive(false);
+      }, 4000);
+
+      const nextMode = pomodoroMode === 'focus' ? 'break' : 'focus';
+      const nextTime = ((nextMode === 'focus' ? customFocusTime : customBreakTime) || (nextMode === 'focus' ? 25 : 5)) * 60;
+
+      setPomodoroMode(nextMode);
+      setPomodoroTime(nextTime);
+
+      addSystemMessage(nextMode === 'break'
+        ? `Hết thời gian tập trung! Nghỉ giải lao ${customBreakTime} phút nào.`
+        : `Hết giờ giải lao! Quay lại tập trung ${customFocusTime} phút nào.`
+      );
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+      if (alarmTimeoutRef.current) {
+        clearTimeout(alarmTimeoutRef.current);
+        alarmTimeoutRef.current = null;
+      }
+    };
+  }, [isPomodoroRunning, pomodoroTime, pomodoroMode, addSystemMessage, customFocusTime, customBreakTime]);
+
+  const playAlarm = async () => {
+    let playedSuccessfully = false;
+
+    if (alarmAudioRef.current) {
+      try {
+        alarmAudioRef.current.currentTime = 0;
+        await alarmAudioRef.current.play();
+        playedSuccessfully = true;
+      } catch (e) {
+        console.warn('HTML5 Audio playback failed, falling back to Web Audio API:', e);
       }
     }
-    return () => clearInterval(interval);
-  }, [isPomodoroRunning, pomodoroTime, pomodoroMode, addSystemMessage]);
+
+    if (!playedSuccessfully) {
+      try {
+        let ctx = audioContextRef.current;
+        if (!ctx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          ctx = new AudioContextClass();
+          audioContextRef.current = ctx;
+        }
+        if (ctx.state === 'suspended') {
+          await ctx.resume();
+        }
+
+        const now = ctx.currentTime;
+        const freqs = [523.25, 659.25, 783.99];
+
+        freqs.forEach((freq, index) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.value = freq;
+
+          const startTime = now + index * 0.08;
+          const duration = 1.5;
+
+          gain.gain.setValueAtTime(0.001, startTime);
+          gain.gain.linearRampToValueAtTime(0.2, startTime + 0.05);
+          gain.gain.linearRampToValueAtTime(0, startTime + duration);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start(startTime);
+          osc.stop(startTime + duration);
+        });
+      } catch (e) {
+        console.warn('Failed to play AudioContext alarm fallback:', e);
+      }
+    }
+  };
 
   const togglePomodoro = () => {
     setIsPomodoroRunning(!isPomodoroRunning);
+
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.play()
+        .then(() => {
+          alarmAudioRef.current.pause();
+          alarmAudioRef.current.currentTime = 0;
+        })
+        .catch(() => {});
+    }
+
+    if (!audioContextRef.current) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioContextRef.current = new AudioContextClass();
+      } catch (e) {
+        console.warn('Web Audio API is not supported:', e);
+      }
+    }
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
   };
-  
+
   const resetPomodoro = () => {
     setIsPomodoroRunning(false);
+    setIsAlarmActive(false);
     setPomodoroMode('focus');
-    setPomodoroTime(25 * 60);
+    setPomodoroTime((customFocusTime || 25) * 60);
+
+    if (alarmAudioRef.current) {
+      alarmAudioRef.current.play()
+        .then(() => {
+          alarmAudioRef.current.pause();
+          alarmAudioRef.current.currentTime = 0;
+        })
+        .catch(() => {});
+    }
+
+    if (!audioContextRef.current) {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioContextRef.current = new AudioContextClass();
+      } catch (e) {
+        console.warn(e);
+      }
+    }
+    if (audioContextRef.current && audioContextRef.current.state === 'suspended') {
+      audioContextRef.current.resume().catch(() => {});
+    }
   };
 
   const formatPomodoro = (seconds) => {
@@ -1083,19 +1209,130 @@ export default function StudyRoom({ propRoomId }) {
         </div>
         <div className="room-header-right">
           {/* Pomodoro Timer UI */}
-          <div className={`pomodoro-container ${pomodoroMode === 'break' ? 'break-mode' : ''}`}>
+          <div className={`pomodoro-container ${pomodoroMode === 'break' ? 'break-mode' : 'focus-mode'} ${isPomodoroRunning ? 'running' : 'paused'} ${isAlarmActive ? 'visual-alarm-flash' : ''}`}>
+            <div
+              className="pomodoro-progress-bar"
+              style={{
+                width: `${(pomodoroTime / ((pomodoroMode === 'focus' ? (customFocusTime || 25) : (customBreakTime || 5)) * 60)) * 100}%`
+              }}
+            />
             <span className="pomodoro-icon">
-              {pomodoroMode === 'focus' ? '🍅' : '☕'}
+              {pomodoroMode === 'focus' ? <FiTarget className="icon-pulse" /> : <FiCoffee className="icon-swing" />}
             </span>
             <span className="pomodoro-time">
               {formatPomodoro(pomodoroTime)}
             </span>
-            <button className="pomodoro-btn" onClick={togglePomodoro}>
-              {isPomodoroRunning ? '⏸' : '▶'}
+            <button className="pomodoro-btn" onClick={togglePomodoro} title={isPomodoroRunning ? 'Tạm dừng' : 'Bắt đầu'}>
+              {isPomodoroRunning ? <FiPause /> : <FiPlay />}
             </button>
-            <button className="pomodoro-btn" onClick={resetPomodoro}>
-              ↺
+            <button className="pomodoro-btn" onClick={resetPomodoro} title="Đặt lại">
+              <FiRotateCcw />
             </button>
+
+            {!isPomodoroRunning && (
+              <div className="pomodoro-inline-settings">
+                <span className="setting-divider">|</span>
+
+                <div className="pomodoro-input-group" title="Thời gian tập trung">
+                  <FiTarget className="setting-icon focus-icon" />
+                  <input
+                    type="number"
+                    min="1"
+                    max="60"
+                    value={customFocusTime}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setCustomFocusTime('');
+                        return;
+                      }
+                      const parsed = parseInt(val);
+                      if (!isNaN(parsed)) {
+                        setCustomFocusTime(parsed);
+                        if (pomodoroMode === 'focus') {
+                          setPomodoroTime(parsed * 60);
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      let val = parseInt(customFocusTime);
+                      if (isNaN(val) || val < 1) val = 25;
+                      if (val > 60) val = 60;
+                      setCustomFocusTime(val);
+                      if (pomodoroMode === 'focus') {
+                        setPomodoroTime(val * 60);
+                      }
+                    }}
+                    className="pomodoro-input"
+                    title="Thời gian tập trung (phút)"
+                  />
+                  <span className="unit-label">m</span>
+                </div>
+
+                <div className="pomodoro-input-group" title="Thời gian giải lao">
+                  <FiCoffee className="setting-icon break-icon" />
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={customBreakTime}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === '') {
+                        setCustomBreakTime('');
+                        return;
+                      }
+                      const parsed = parseInt(val);
+                      if (!isNaN(parsed)) {
+                        setCustomBreakTime(parsed);
+                        if (pomodoroMode === 'break') {
+                          setPomodoroTime(parsed * 60);
+                        }
+                      }
+                    }}
+                    onBlur={() => {
+                      let val = parseInt(customBreakTime);
+                      if (isNaN(val) || val < 1) val = 5;
+                      if (val > 30) val = 30;
+                      setCustomBreakTime(val);
+                      if (pomodoroMode === 'break') {
+                        setPomodoroTime(val * 60);
+                      }
+                    }}
+                    className="pomodoro-input"
+                    title="Thời gian giải lao (phút)"
+                  />
+                  <span className="unit-label">m</span>
+                </div>
+
+                <div className="pomodoro-presets">
+                  <button
+                    type="button"
+                    className="preset-btn"
+                    onClick={() => {
+                      setCustomFocusTime(25);
+                      setCustomBreakTime(5);
+                      setPomodoroTime(pomodoroMode === 'focus' ? 25 * 60 : 5 * 60);
+                    }}
+                    title="25 phút học / 5 phút nghỉ"
+                  >
+                    25/5
+                  </button>
+                  <button
+                    type="button"
+                    className="preset-btn"
+                    onClick={() => {
+                      setCustomFocusTime(50);
+                      setCustomBreakTime(10);
+                      setPomodoroTime(pomodoroMode === 'focus' ? 50 * 60 : 10 * 60);
+                    }}
+                    title="50 phút học / 10 phút nghỉ"
+                  >
+                    50/10
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {reconnecting && (

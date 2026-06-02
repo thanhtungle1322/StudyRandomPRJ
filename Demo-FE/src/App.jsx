@@ -19,6 +19,7 @@ import PricingPage from './pages/PricingPage';
 import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import FeedbackPage from './pages/FeedbackPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import StatisticsPage from './pages/StatisticsPage';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 import { getSocket } from './services/socket';
 
@@ -305,6 +306,14 @@ function App() {
             element={
               <ProtectedRoute>
                 <AdminDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/stats"
+            element={
+              <ProtectedRoute>
+                <StatisticsPage />
               </ProtectedRoute>
             }
           />

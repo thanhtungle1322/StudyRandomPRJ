@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import './LoginPage.css';
 
+
 export default function AuthCallbackPage() {
   const { login } = useAuth();
   const navigate = useNavigate();

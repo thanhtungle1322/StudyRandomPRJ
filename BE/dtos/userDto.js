@@ -53,8 +53,10 @@ class UserDto {
    */
   static toLeaderboard(user) {
     if (!user) return null;
+    const id = user._id ? user._id.toString() : user.id;
     return {
-      id: user._id ? user._id.toString() : user.id,
+      _id: id,       // FE dùng u._id làm React key và so sánh user hiện tại
+      id,
       username: user.username || user.displayName, // support legacy field fallback
       displayName: user.displayName,
       avatar: user.avatar,

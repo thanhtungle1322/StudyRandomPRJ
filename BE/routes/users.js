@@ -13,13 +13,19 @@ router.get('/leaderboard', userController.getLeaderboard);
  * POST /api/users/review
  * Đánh giá bạn học (Reputation System)
  */
-router.post('/review', userController.submitReview);
+router.post('/review', authenticateToken, userController.submitReview);
 
 /**
  * POST /api/users/study-time
  * Cập nhật thời gian học (Statistics & Gamification)
  */
-router.post('/study-time', userController.updateStudyTime);
+router.post('/study-time', authenticateToken, userController.updateStudyTime);
+
+/**
+ * GET /api/users/stats
+ * Lấy số liệu thống kê học tập cá nhân
+ */
+router.get('/stats', authenticateToken, userController.getStats);
 
 /**
  * GET /api/users/search

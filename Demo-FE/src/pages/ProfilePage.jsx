@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { FiCheckCircle, FiAlertTriangle, FiSave, FiLock, FiStar, FiArrowLeft } from 'react-icons/fi';
 import { FiLoader } from 'react-icons/fi';
+import backgroundLogin from '../../background/backgroundLogin.png';
 import './LoginPage.css';
 import './ProfilePage.css';
 
@@ -226,7 +227,12 @@ export default function ProfilePage() {
     .filter(Boolean);
 
   return (
-    <div className="login-page">
+    <div className="login-page" style={{
+      backgroundImage: `url(${backgroundLogin})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center top',
+      backgroundAttachment: 'fixed'
+    }}>
       <div className="login-bg">
         <div className="login-orb login-orb-1"></div>
         <div className="login-orb login-orb-2"></div>
@@ -394,7 +400,7 @@ export default function ProfilePage() {
                     <label>Preset Gradient Theme</label>
                     <select
                       className="input-field"
-                      style={{ height: '40px' }}
+                      style={{ height: '44px', padding: '0 16px' }}
                       value={themeGradient}
                       onChange={(e) => {
                         setThemeGradient(e.target.value);

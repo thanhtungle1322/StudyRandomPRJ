@@ -25,7 +25,7 @@
 .lobby-mascot-fixed {
   position: fixed;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
 }
 
 /* Mascot1 – góc trái dưới */
@@ -33,7 +33,7 @@
   left: 50px;
   top: 100px;
   width: 200px;
-  animation: mascotBounce 4s ease-in-out infinite;
+  animation: lobbyMascotBounce 4s ease-in-out infinite;
 }
 
 /* Mascot2 – góc phải dưới */
@@ -41,7 +41,7 @@
   right: 12px;
   bottom: 0;
   width: 200px;
-  animation: mascotBounce 4s ease-in-out infinite 1.2s;
+  animation: lobbyMascotBounce 4s ease-in-out infinite 1.2s;
 }
 
 /* Mascot3 – phải giữa, ngang nút tìm bạn học */
@@ -49,7 +49,7 @@
   right: 60px;
   top: 100px;
   width: 200px;
-  animation: mascotBounce 3.5s ease-in-out infinite 0.6s;
+  animation: lobbyMascotBounce 3.5s ease-in-out infinite 0.6s;
 }
 
 .lobby-mascot-fixed img {
@@ -164,7 +164,7 @@
   text-align: center;
 }
 
-.queue-badge {
+.lobby-page .queue-badge {
   display: inline-flex;
   align-items: center;
   padding: 3px 10px;
@@ -231,7 +231,7 @@
   bottom: -20px;
   width: 110px;
   pointer-events: none;
-  animation: mascotBounce 3s ease-in-out infinite;
+  animation: lobbyMascotBounce 3s ease-in-out infinite;
 }
 
 .lobby-mascot img {
@@ -239,7 +239,7 @@
   height: auto;
 }
 
-@keyframes mascotBounce {
+@keyframes lobbyMascotBounce {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-10px); }
 }
@@ -247,7 +247,7 @@
 /* ---- Quick Actions ---- */
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 14px;
 }
 
@@ -283,6 +283,7 @@
 
 .quick-icon-purple { background: #f3d9fa; color: #9c36b5; }
 .quick-icon-teal   { background: #d3f9d8; color: #2f9e44; }
+.quick-icon-blue   { background: #e7f5ff; color: #1971c2; }
 .quick-icon-yellow { background: #fff3bf; color: #e67700; }
 
 .quick-card h3 {
@@ -340,14 +341,14 @@
   inset: 0;
   border: 2px solid #f06595;
   border-radius: 50%;
-  animation: ripple 2s ease-out infinite;
+  animation: lobbyRipple 2s ease-out infinite;
 }
 
 .ripple-ring-1 { animation-delay: 0s; }
 .ripple-ring-2 { animation-delay: 0.5s; }
 .ripple-ring-3 { animation-delay: 1s; }
 
-@keyframes ripple {
+@keyframes lobbyRipple {
   0%   { transform: scale(1); opacity: 0.5; }
   100% { transform: scale(2.2); opacity: 0; }
 }
@@ -357,10 +358,10 @@
   position: relative;
   z-index: 1;
   color: #f06595;
-  animation: float 2s ease-in-out infinite;
+  animation: lobbyFloat 2s ease-in-out infinite;
 }
 
-@keyframes float {
+@keyframes lobbyFloat {
   0%, 100% { transform: translateY(0); }
   50%       { transform: translateY(-6px); }
 }
@@ -523,6 +524,9 @@
 @media (max-width: 900px) {
   .subjects-grid {
     grid-template-columns: repeat(3, 1fr);
+  }
+  .quick-actions {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 

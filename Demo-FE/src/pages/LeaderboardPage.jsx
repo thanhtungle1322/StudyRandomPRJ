@@ -1,33 +1,56 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
-import './StaticPages.css';
+import {
+  FiClock, FiSearch, FiZap, FiAward, FiUser,
+} from 'react-icons/fi';
+import { FaTrophy, FaFire, FaMedal, FaStar } from 'react-icons/fa';
+import backgroundLogin from '../../background/backgroundLogin.png';
+import './LeaderboardPage.css';
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [sortBy, setSortBy] = useState('totalStudyMinutes'); // totalStudyMinutes, reputation
-  const [loading, setLoading] = useState(true);
 
+  const [allUsers, setAllUsers]     = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [sortBy, setSortBy]         = useState('totalStudyMinutes');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  /* ---- Fetch once on mount ---- */
   useEffect(() => {
     const fetchLeaderboard = async () => {
       setLoading(true);
       try {
         const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const res = await fetch(`${apiUrl}/users/leaderboard?sortBy=${sortBy}&limit=20`);
+        const res  = await fetch(`${apiUrl}/users/leaderboard?sortBy=totalStudyMinutes&limit=100`);
         const data = await res.json();
-        if (data.success) {
-          setUsers(data.data);
-        }
+        if (data.success) setAllUsers(data.data);
       } catch (err) {
         console.error('Failed to fetch leaderboard:', err);
       } finally {
         setLoading(false);
       }
     };
-    
     fetchLeaderboard();
-  }, [sortBy]);
+  }, []);
 
+  /* ---- Client-side sort + search ---- */
+  const displayUsers = useMemo(() => {
+    let result = [...allUsers];
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      result = result.filter((u) =>
+        (u.displayName || u.username || '').toLowerCase().includes(q)
+      );
+    }
+    result.sort((a, b) => {
+      if (sortBy === 'totalStudyMinutes') return (b.totalStudyMinutes || 0) - (a.totalStudyMinutes || 0);
+      if (sortBy === 'reputation')        return (b.reputation || 0) - (a.reputation || 0);
+      return 0;
+    });
+    return result;
+  }, [allUsers, sortBy, searchQuery]);
+
+  /* ---- Helpers ---- */
   const formatTime = (minutes) => {
     if (!minutes) return '0 phút';
     if (minutes < 60) return `${minutes} phút`;
@@ -36,126 +59,226 @@ export default function LeaderboardPage() {
     return m > 0 ? `${h}h ${m}m` : `${h}h`;
   };
 
+  // Badge: hiển thị nhỏ gọn trong cell
   const getBadgeIcon = (badge) => {
-    switch(badge) {
-      case 'FIRST_STEP': return '👶';
-      case 'DEDICATED': return '🔥';
-      case 'WEEK_STREAK': return '⚡';
-      default: return '🏅';
+    switch (badge) {
+      case 'FIRST_STEP':  return { icon: <FiUser  />, color: '#74c0fc', label: 'Người mới' };
+      case 'DEDICATED':   return { icon: <FiZap   />, color: '#ffd43b', label: 'Chăm chỉ' };
+      case 'WEEK_STREAK': return { icon: <FaFire  />, color: '#ff6b35', label: '7 ngày liên tiếp' };
+      default:            return { icon: <FiAward />, color: '#cc5de8', label: 'Huy hiệu' };
     }
   };
 
-  const getBadgeName = (badge) => {
-    switch(badge) {
-      case 'FIRST_STEP': return 'Người mới bắt đầu';
-      case 'DEDICATED': return 'Chăm chỉ (10h+)';
-      case 'WEEK_STREAK': return 'Chuỗi 7 ngày';
-      default: return 'Huy hiệu';
-    }
+  // Rank: dùng FaMedal cho cả 3 hạng → cùng icon, khác màu
+  const getRankDisplay = (index) => {
+    if (index === 0) return <FaMedal className="lb-medal lb-medal-gold"   title="Hạng 1" />;
+    if (index === 1) return <FaMedal className="lb-medal lb-medal-silver" title="Hạng 2" />;
+    if (index === 2) return <FaMedal className="lb-medal lb-medal-bronze" title="Hạng 3" />;
+    return <span className="lb-rank-num">#{index + 1}</span>;
   };
+
+  const getRankClass = (index) => {
+    if (index === 0) return 'lb-row-gold';
+    if (index === 1) return 'lb-row-silver';
+    if (index === 2) return 'lb-row-bronze';
+    return '';
+  };
+
+  const isCurrentUser = (u) =>
+    user && (user.id === u._id || user.dbId === u._id || user.id === u.id);
 
   return (
-    <div className="static-page">
-      <div className="container" style={{ maxWidth: '800px' }}>
-        <div className="static-header animate-fade-in">
-          <span className="static-icon">🏆</span>
+    <div
+      className="leaderboard-page"
+      style={{
+        backgroundImage:    `url(${backgroundLogin})`,
+        backgroundSize:     'cover',
+        backgroundPosition: 'center top',
+        backgroundRepeat:   'no-repeat',
+        backgroundAttachment: 'fixed',
+      }}
+    >
+      <div className="leaderboard-container">
+
+        {/* ---- Page Header ---- */}
+        <div className="leaderboard-header animate-fade-in">
+          <FaTrophy className="leaderboard-header-icon" />
           <h1>Bảng Xếp Hạng</h1>
-          <p className="static-subtitle">
-            Cùng thi đua học tập với cộng đồng StudyRandom
-          </p>
+          <p>Cùng thi đua học tập với cộng đồng StudyRandom</p>
         </div>
 
-        <div className="static-content animate-fade-in-up">
-          {/* User Stats Card */}
-          {user && (
-            <div className="glass-card" style={{ marginBottom: '32px', display: 'flex', alignItems: 'center', gap: '20px', padding: '24px' }}>
-              <img src={user.avatar} alt="You" style={{ width: 80, height: 80, borderRadius: '50%', background: 'white' }} />
-              <div style={{ flex: 1 }}>
-                <h3 style={{ fontSize: '20px', marginBottom: '8px' }}>Thành tích của bạn: {user.username}</h3>
-                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
-                  <div style={{ background: 'rgba(255,255,255,0.1)', padding: '10px 16px', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Tổng thời gian</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{formatTime(user.totalStudyMinutes || 0)}</div>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.1)', padding: '10px 16px', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Chuỗi học</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{user.streak || 0} ngày 🔥</div>
-                  </div>
-                  <div style={{ background: 'rgba(255,255,255,0.1)', padding: '10px 16px', borderRadius: '12px' }}>
-                    <div style={{ fontSize: '12px', opacity: 0.8 }}>Uy tín</div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{user.reputation || 5.0} ⭐</div>
-                  </div>
+        {/* ---- My Stats Card ---- */}
+        {user && (
+          <div className="lb-my-stats-card animate-fade-in">
+            <img
+              src={user.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.displayName}`}
+              alt="Bạn"
+              className="lb-my-avatar"
+            />
+            <div className="lb-my-info">
+              <h3>Thành tích của bạn: <span className="lb-my-name">{user.displayName}</span></h3>
+              <div className="lb-my-stats-row">
+                <div className="lb-stat-pill">
+                  <FiClock className="lb-stat-pill-icon time-icon" />
+                  <span className="lb-stat-pill-label">Tổng thời gian</span>
+                  <span className="lb-stat-pill-value">{formatTime(user.totalStudyMinutes || 0)}</span>
                 </div>
-                
-                {user.badges && user.badges.length > 0 && (
-                  <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
-                    {user.badges.map(b => (
-                      <span key={b} title={getBadgeName(b)} style={{ background: 'rgba(255,215,0,0.2)', border: '1px solid gold', padding: '4px 10px', borderRadius: '20px', fontSize: '14px' }}>
-                        {getBadgeIcon(b)} {getBadgeName(b)}
-                      </span>
-                    ))}
-                  </div>
-                )}
+                <div className="lb-stat-pill">
+                  <FaFire className="lb-stat-pill-icon fire-icon" />
+                  <span className="lb-stat-pill-label">Chuỗi học</span>
+                  <span className="lb-stat-pill-value">{user.streak || 0} ngày</span>
+                </div>
+                <div className="lb-stat-pill">
+                  <FaStar className="lb-stat-pill-icon star-icon" />
+                  <span className="lb-stat-pill-label">Uy tín</span>
+                  <span className="lb-stat-pill-value">{(user.reputation || 5.0).toFixed(1)}</span>
+                </div>
               </div>
+              {user.badges && user.badges.length > 0 && (
+                <div className="lb-my-badges">
+                  {user.badges.map((b) => {
+                    const { icon, color, label } = getBadgeIcon(b);
+                    return (
+                      <span key={b} className="lb-badge-pill" style={{ '--badge-color': color }} title={label}>
+                        {icon} {label}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
 
-          <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
-            <button 
-              className={`btn ${sortBy === 'totalStudyMinutes' ? 'btn-primary' : 'btn-secondary'}`}
+        {/* ---- Controls: Tabs + Search ---- */}
+        <div className="lb-controls animate-fade-in">
+          <div className="lb-sort-tabs">
+            <button
+              type="button"
+              className={`lb-tab-btn ${sortBy === 'totalStudyMinutes' ? 'active' : ''}`}
               onClick={() => setSortBy('totalStudyMinutes')}
             >
-              ⏱️ Thời gian học
+              <FiClock /> Thời gian học
             </button>
-            <button 
-              className={`btn ${sortBy === 'reputation' ? 'btn-primary' : 'btn-secondary'}`}
+            <button
+              type="button"
+              className={`lb-tab-btn ${sortBy === 'reputation' ? 'active' : ''}`}
               onClick={() => setSortBy('reputation')}
             >
-              ⭐ Độ uy tín
+              <FaStar /> Độ uy tín
             </button>
           </div>
 
-          <div className="glass-card" style={{ padding: 0, overflow: 'hidden' }}>
-            {loading ? (
-              <div style={{ padding: '40px', textAlign: 'center' }}>Đang tải bảng xếp hạng...</div>
-            ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                    <th style={{ padding: '16px 20px', width: '60px' }}>Hạng</th>
-                    <th style={{ padding: '16px 20px' }}>Thành viên</th>
-                    <th style={{ padding: '16px 20px' }}>Thời gian học</th>
-                    <th style={{ padding: '16px 20px' }}>Chuỗi</th>
-                    <th style={{ padding: '16px 20px' }}>Uy tín</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((u, index) => (
-                    <tr key={u._id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', background: user && (user.id === u._id || user.dbId === u._id) ? 'rgba(99, 102, 241, 0.1)' : 'transparent' }}>
-                      <td style={{ padding: '16px 20px', fontSize: '18px', fontWeight: 'bold', color: index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? '#cd7f32' : 'white' }}>
-                        #{index + 1}
-                      </td>
-                      <td style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <img src={u.avatar} alt={u.username} style={{ width: 40, height: 40, borderRadius: '50%', background: 'white' }} />
-                        <div>
-                          <div style={{ fontWeight: 'bold' }}>{u.username}</div>
-                          <div style={{ fontSize: '12px', display: 'flex', gap: '4px', marginTop: '4px' }}>
-                            {u.badges?.map(b => (
-                              <span key={b} title={getBadgeName(b)}>{getBadgeIcon(b)}</span>
-                            ))}
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '16px 20px' }}>{formatTime(u.totalStudyMinutes)}</td>
-                      <td style={{ padding: '16px 20px' }}>{u.streak || 0} 🔥</td>
-                      <td style={{ padding: '16px 20px' }}>{u.reputation?.toFixed(1) || '5.0'} ⭐</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+          <div className="lb-search-wrapper">
+            <FiSearch className="lb-search-icon" />
+            <input
+              type="text"
+              className="lb-search-input"
+              placeholder="Tìm kiếm thành viên..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
           </div>
         </div>
+
+        {/* ---- Table ---- */}
+        <div className="lb-table-card animate-fade-in-up">
+          {loading ? (
+            <div className="lb-loading">
+              <div className="lb-spinner" />
+              Đang tải bảng xếp hạng...
+            </div>
+          ) : displayUsers.length === 0 ? (
+            <div className="lb-empty">
+              <FiSearch className="lb-empty-icon" />
+              <p>Không tìm thấy thành viên nào.</p>
+            </div>
+          ) : (
+            <table className="lb-table">
+              <thead>
+                <tr>
+                  <th className="lb-th-rank">Hạng</th>
+                  <th className="lb-th-member">Thành viên</th>
+                  <th className="lb-th-data">
+                    <div className="lb-th-inner"><FiClock /> Thời gian</div>
+                  </th>
+                  <th className="lb-th-data">
+                    <div className="lb-th-inner"><FaFire className="col-fire" /> Chuỗi</div>
+                  </th>
+                  <th className="lb-th-data">
+                    <div className="lb-th-inner"><FaStar className="col-star" /> Uy tín</div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayUsers.map((u, index) => (
+                  <tr
+                    key={u._id || u.id || index}
+                    className={[getRankClass(index), isCurrentUser(u) ? 'is-me' : ''].join(' ').trim()}
+                  >
+                    {/* Hạng */}
+                    <td className="lb-td-rank">
+                      {getRankDisplay(index)}
+                    </td>
+
+                    {/* Thành viên */}
+                    <td className="lb-td-member">
+                      <div className="lb-member-inner">
+                        <img
+                          src={u.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.displayName}`}
+                          alt={u.displayName}
+                          className="lb-member-avatar"
+                        />
+                        <div className="lb-member-info">
+                          <span className="lb-member-name">{u.displayName || u.username}</span>
+                          {u.badges?.length > 0 && (
+                            <div className="lb-member-badges">
+                              {u.badges.map((b) => {
+                                const { icon, color, label } = getBadgeIcon(b);
+                                return (
+                                  <span
+                                    key={b}
+                                    className="lb-mini-badge"
+                                    style={{ color }}
+                                    title={label}
+                                  >
+                                    {icon}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+
+                    {/* Thời gian học */}
+                    <td className="lb-td-data">
+                      {formatTime(u.totalStudyMinutes)}
+                    </td>
+
+                    {/* Chuỗi — dùng div bên trong để tránh display:flex trên td */}
+                    <td className="lb-td-data">
+                      <div className="lb-cell-icon-val">
+                        <FaFire className="val-fire" />
+                        <span>{u.streak || 0}</span>
+                      </div>
+                    </td>
+
+                    {/* Uy tín */}
+                    <td className="lb-td-data">
+                      <div className="lb-cell-icon-val">
+                        <FaStar className="val-star" />
+                        <span>{u.reputation?.toFixed(1) || '5.0'}</span>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
       </div>
     </div>
   );

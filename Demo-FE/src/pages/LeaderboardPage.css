@@ -1,0 +1,507 @@
+/* ===========================
+   Leaderboard Page
+   =========================== */
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+.leaderboard-page {
+  min-height: 100vh;
+  padding-top: 100px;
+  padding-bottom: 80px;
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  font-family: 'Nunito', 'Inter', sans-serif;
+  position: relative;
+}
+
+.leaderboard-container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 24px;
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Page Header ---- */
+.leaderboard-header {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+@keyframes lbFloat {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-10px); }
+}
+
+.leaderboard-header-icon {
+  display: block;
+  font-size: 52px;
+  color: #ffd43b;
+  margin: 0 auto 12px;
+  filter: drop-shadow(0 4px 14px rgba(255, 212, 59, 0.55));
+  animation: lbFloat 3s ease-in-out infinite;
+}
+
+.leaderboard-header h1 {
+  font-size: 34px;
+  font-weight: 900;
+  color: #ffffff;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
+  margin-bottom: 8px;
+}
+
+.leaderboard-header p {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+}
+
+/* ---- My Stats Card ---- */
+.lb-my-stats-card {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 24px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+  margin-bottom: 20px;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.lb-my-stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px rgba(31, 38, 135, 0.15);
+}
+
+.lb-my-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid rgba(132, 94, 247, 0.3);
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.lb-my-info {
+  flex: 1;
+}
+
+.lb-my-info h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 12px;
+}
+
+.lb-my-name {
+  color: #4c6ef5;
+  font-weight: 900;
+}
+
+.lb-my-stats-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lb-stat-pill {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px;
+  background: rgba(132, 94, 247, 0.07);
+  border: 1px solid rgba(132, 94, 247, 0.15);
+  border-radius: 14px;
+  min-width: 90px;
+  gap: 2px;
+}
+
+.lb-stat-pill-icon {
+  font-size: 16px;
+  margin-bottom: 2px;
+  line-height: 1;
+}
+.lb-stat-pill-icon.time-icon { color: #4c6ef5; }
+.lb-stat-pill-icon.fire-icon { color: #ff6b35; }
+.lb-stat-pill-icon.star-icon { color: #ffd43b; font-size: 14px; }
+
+.lb-stat-pill-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.lb-stat-pill-value {
+  font-size: 16px;
+  font-weight: 900;
+  color: #1e3a8a;
+}
+
+.lb-my-badges {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.lb-badge-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  background: color-mix(in srgb, var(--badge-color, #845ef7) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--badge-color, #845ef7) 30%, transparent);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: color-mix(in srgb, var(--badge-color, #845ef7) 80%, #333);
+}
+
+/* ---- Controls row: Tabs + Search ---- */
+.lb-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+/* ---- Sort Tabs ---- */
+.lb-sort-tabs {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.lb-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 20px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 2px solid transparent;
+  border-radius: 999px;
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  font-weight: 800;
+  color: #5a4a7a;
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 0.22s ease;
+  box-shadow: 0 3px 12px rgba(31, 38, 135, 0.08);
+}
+
+.lb-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.95);
+  color: #1e3a8a;
+  transform: translateY(-1px);
+}
+
+.lb-tab-btn.active {
+  background: linear-gradient(135deg, #845ef7, #4c6ef5);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 5px 18px rgba(132, 94, 247, 0.4);
+  transform: translateY(-1px);
+}
+
+/* ---- Search Bar ---- */
+.lb-search-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.82);
+  border: 2px solid rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  padding: 8px 16px;
+  flex: 1;
+  max-width: 300px;
+  margin-left: auto;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 3px 14px rgba(31, 38, 135, 0.1);
+  transition: all 0.22s ease;
+}
+
+.lb-search-wrapper:focus-within {
+  border-color: #845ef7;
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow: 0 4px 20px rgba(132, 94, 247, 0.22);
+}
+
+.lb-search-icon {
+  color: #845ef7;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.lb-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: 'Nunito', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e3a8a;
+  width: 100%;
+}
+
+.lb-search-input::placeholder {
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+/* ---- Table Card ---- */
+.lb-table-card {
+  background: rgba(255, 255, 255, 0.93);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  border-radius: 20px;
+  overflow: hidden;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+}
+
+/* ---- Table ---- */
+.lb-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+/* -- Header -- */
+.lb-table thead tr {
+  background: rgba(30, 58, 138, 0.04);
+  border-bottom: 2px solid rgba(30, 58, 138, 0.08);
+}
+
+.lb-table thead th {
+  padding: 16px 20px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+.lb-th-rank   { width: 72px; text-align: center; }
+.lb-th-member { }
+.lb-th-data   { width: 110px; }
+
+.lb-th-inner {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.col-fire { color: #ff6b35; }
+.col-star { color: #ffd43b; font-size: 11px; }
+
+/* -- Body rows -- */
+.lb-table tbody tr {
+  border-bottom: 1px solid rgba(30, 58, 138, 0.06);
+  transition: background 0.18s ease;
+}
+
+.lb-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.lb-table tbody tr:hover {
+  background: rgba(132, 94, 247, 0.04);
+}
+
+/* Row accent for top 3 */
+.lb-row-gold   { background: rgba(245, 159, 0, 0.05); }
+.lb-row-silver { background: rgba(134, 142, 150, 0.05); }
+.lb-row-bronze { background: rgba(205, 127, 50, 0.05); }
+
+.lb-row-gold:hover   { background: rgba(245, 159, 0, 0.09) !important; }
+.lb-row-silver:hover { background: rgba(134, 142, 150, 0.09) !important; }
+.lb-row-bronze:hover { background: rgba(205, 127, 50, 0.09) !important; }
+
+/* Highlighted (current user) */
+.lb-table tbody tr.is-me {
+  background: rgba(76, 110, 245, 0.07);
+}
+.lb-table tbody tr.is-me:hover {
+  background: rgba(76, 110, 245, 0.11) !important;
+}
+
+/* ---- Rank cell ---- */
+.lb-td-rank {
+  padding: 16px 20px;
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Medal icons — same icon family, different color */
+.lb-medal {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.lb-medal-gold   { color: #f59f00; filter: drop-shadow(0 2px 5px rgba(245,159,0,0.5)); }
+.lb-medal-silver { color: #868e96; filter: drop-shadow(0 2px 5px rgba(134,142,150,0.4)); }
+.lb-medal-bronze { color: #cd7f32; filter: drop-shadow(0 2px 5px rgba(205,127,50,0.4)); }
+
+.lb-rank-num {
+  font-size: 15px;
+  font-weight: 800;
+  color: #6b7280;
+}
+
+/* ---- Member cell ---- */
+.lb-td-member {
+  padding: 14px 20px;
+  vertical-align: middle;
+}
+
+.lb-member-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.lb-member-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(132, 94, 247, 0.2);
+  flex-shrink: 0;
+}
+
+.lb-member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.lb-member-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1e293b;
+  line-height: 1.2;
+}
+
+.lb-member-badges {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+/* Mini badge icon: chỉ icon, không text */
+.lb-mini-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(0,0,0,0.04);
+}
+
+/* ---- Data cells (thời gian, chuỗi, uy tín) ---- */
+.lb-td-data {
+  padding: 16px 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #374151;
+  vertical-align: middle; /* quan trọng: không dùng display:flex trực tiếp trên td */
+  white-space: nowrap;
+}
+
+/* Inner flex wrapper trong data cell */
+.lb-cell-icon-val {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.val-fire {
+  color: #ff6b35;
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.val-star {
+  color: #ffd43b;
+  font-size: 11px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ---- Loading / Empty States ---- */
+.lb-loading {
+  padding: 56px 20px;
+  text-align: center;
+  color: #5a4a7a;
+  font-size: 15px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.lb-spinner {
+  width: 26px;
+  height: 26px;
+  border: 3px solid rgba(132, 94, 247, 0.2);
+  border-left-color: #845ef7;
+  border-radius: 50%;
+  animation: lbSpin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes lbSpin {
+  to { transform: rotate(360deg); }
+}
+
+.lb-empty {
+  padding: 56px 20px;
+  text-align: center;
+  color: #5a4a7a;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.lb-empty-icon {
+  font-size: 36px;
+  opacity: 0.35;
+}
+
+.lb-empty p {
+  font-size: 15px;
+  font-weight: 600;
+  opacity: 0.65;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+  .leaderboard-header h1  { font-size: 26px; }
+  .lb-my-stats-card       { flex-direction: column; text-align: center; }
+  .lb-my-stats-row        { justify-content: center; }
+  .lb-controls            { flex-direction: column; align-items: stretch; }
+  .lb-search-wrapper      { max-width: 100%; margin-left: 0; }
+  .lb-table thead th:nth-child(3),
+  .lb-table tbody td:nth-child(3) { display: none; }
+}
+
+@media (max-width: 480px) {
+  .leaderboard-container { padding: 0 14px; }
+  .lb-my-stats-card      { padding: 16px; }
+}

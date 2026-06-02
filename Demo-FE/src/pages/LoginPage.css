@@ -183,7 +183,7 @@
   gap: 20px;
 }
 
-.input-group label {
+.login-card .input-group label {
   display: block;
   font-size: 14px;
   font-weight: 700;
@@ -191,28 +191,28 @@
   margin-bottom: 8px;
 }
 
-.input-field {
+.login-card .input-field {
   width: 100%;
   padding: 14px 16px;
   font-size: 15px;
   font-family: var(--font-family);
   background: #fff;
-  border: 2px solid #000;
+  border: 2px solid #d0c8e8;
   border-radius: 12px;
-  color: #000;
+  color: #2d1b69;
   transition: all 0.2s ease;
   outline: none;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
 }
 
-.input-field::placeholder {
-  color: #888;
+.login-card .input-field::placeholder {
+  color: #9889b8;
 }
 
-.input-field:focus {
-  border-color: #000;
+.login-card .input-field:focus {
+  border-color: #845ef7;
   background: #fff;
-  box-shadow: 0 0 0 4px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 0 0 4px rgba(132, 94, 247, 0.12);
 }
 
 /* Button */
@@ -394,7 +394,7 @@
 
   .login-icon { width: 56px; height: 56px; font-size: 36px; }
 
-  .input-field { padding: 12px 14px; font-size: 14px; }
+  .login-card .input-field { padding: 12px 14px; font-size: 14px; }
   .login-btn { padding: 12px 20px; font-size: 15px; }
   .btn-google { padding: 11px 20px; font-size: 14px; }
 

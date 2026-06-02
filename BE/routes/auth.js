@@ -22,7 +22,8 @@ router.post('/login', authController.login);
  */
 router.get('/google', passport.authenticate('google', {
   scope: ['profile', 'email'],
-  session: true,
+  session: false, // Dùng JWT stateless, không cần session
+  prompt: 'select_account',
 }));
 
 /**

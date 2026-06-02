@@ -3,7 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { disconnectSocket } from '../services/socket';
 import api from '../services/api';
 import { FaGraduationCap } from 'react-icons/fa';
-import { FiHome, FiEdit3, FiUsers, FiBarChart2, FiShield } from 'react-icons/fi';
+import { FiHome, FiEdit3, FiUsers, FiBarChart2, FiShield, FiAward, FiStar, FiMessageSquare } from 'react-icons/fi';
 import './Navbar.css';
 
 export default function Navbar() {
@@ -75,15 +75,15 @@ export default function Navbar() {
                 Bạn bè
               </Link>
               <Link to="/leaderboard" className="nav-link">
-                <span className="nav-icon">🏆</span>
+                <span className="nav-icon"><FiAward style={{ color: '#f59f00' }} /></span>
                 Xếp hạng
               </Link>
               <Link to="/feedback" className="nav-link">
-                <span className="nav-icon">💬</span>
+                <span className="nav-icon"><FiMessageSquare style={{ color: '#4dabf7' }} /></span>
                 Đánh giá
               </Link>
               <Link to="/pricing" className="nav-link nav-link-premium">
-                <span className="nav-icon">⭐</span>
+                <span className="nav-icon"><FiStar /></span>
                 Premium
               </Link>
               <div className="navbar-user">
