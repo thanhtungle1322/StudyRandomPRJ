@@ -4,8 +4,9 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
 import api from '../services/api';
-import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck, FiTv, FiPlay, FiPause, FiRotateCcw, FiCoffee, FiTarget } from 'react-icons/fi';
+import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck, FiTv, FiPlay, FiPause, FiRotateCcw, FiCoffee, FiTarget, FiEdit3 } from 'react-icons/fi';
 import { FaCircle } from 'react-icons/fa';
+import WhiteboardPanel from '../components/WhiteboardPanel';
 import './StudyRoom.css';
 
 export default function StudyRoom({ propRoomId }) {
@@ -30,6 +31,8 @@ export default function StudyRoom({ propRoomId }) {
   const [isMuted, setIsMuted] = useState(true);
   const [isVideoOff, setIsVideoOff] = useState(true);
   const [showChat, setShowChat] = useState(true);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [whiteboardHasBeenOpened, setWhiteboardHasBeenOpened] = useState(false);
   const [partnerHasVideo, setPartnerHasVideo] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
@@ -1617,6 +1620,20 @@ export default function StudyRoom({ propRoomId }) {
             >
               <FiTv size={20} />
             </button>
+            {/* Whiteboard Toggle Button */}
+            <button
+              className={`control-btn wb-toggle-btn ${showWhiteboard ? 'wb-active' : 'active'}`}
+              onClick={() => {
+                setShowWhiteboard((v) => !v);
+                if (!whiteboardHasBeenOpened) {
+                  setWhiteboardHasBeenOpened(true);
+                }
+              }}
+              title={showWhiteboard ? 'Ẩn Bảng Trắng' : 'Mở Bảng Trắng'}
+              style={!showWhiteboard ? { background: 'rgba(255, 255, 255, 0.1)', color: 'white' } : {}}
+            >
+              <FiEdit3 size={20} />
+            </button>
             <button
               className="control-btn end-call-btn"
               onClick={handleLeaveRoomClick}
@@ -1633,6 +1650,16 @@ export default function StudyRoom({ propRoomId }) {
             </button>
           </div>
         </div>
+
+        {/* Whiteboard Panel — render qua Portal ra document.body, tránh ảnh hưởng layout video call */}
+        {whiteboardHasBeenOpened && createPortal(
+          <WhiteboardPanel
+            roomId={roomId}
+            isVisible={showWhiteboard}
+            onClose={() => setShowWhiteboard(false)}
+          />,
+          document.body
+        )}
 
         {/* Chat Area (Sidebar) */}
         {showChat && (

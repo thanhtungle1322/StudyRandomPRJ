@@ -16,4 +16,17 @@ export default defineConfig({
       },
     },
   },
+  optimizeDeps: {
+    include: ['@excalidraw/excalidraw'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          excalidraw: ['@excalidraw/excalidraw'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 3000,
+  },
 });

@@ -1,0 +1,370 @@
+/* ============================================================
+   WhiteboardPanel.css — Styles cho Excalidraw Panel trong StudyRoom
+   ============================================================ */
+
+/* ===== OVERLAY — render qua createPortal vào document.body ===== */
+.whiteboard-panel-overlay {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 500;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  padding-top: 72px;
+  /* pointer-events: all vì là Portal top-level — chỉ block input khi panel hiện */
+  pointer-events: none; /* Cho phép click-through vùng trống xung quanh panel */
+}
+
+/* Khi fullscreen — block toàn bộ */
+.whiteboard-panel-overlay.wb-fullscreen {
+  pointer-events: all;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  padding: 0;
+}
+
+/* Khi ẩn bằng CSS để giữ nguyên state vẽ */
+.whiteboard-panel-overlay.wb-hidden {
+  display: none !important;
+}
+
+/* ===== CONTAINER ===== */
+.whiteboard-panel-container {
+  pointer-events: all;
+  width: 100%;
+  max-width: 1400px;
+  height: calc(100vh - 160px);
+  max-height: 82vh;
+  background: #13141f;
+  border-radius: 16px 16px 0 0;
+  border: 1px solid rgba(132, 94, 247, 0.3);
+  border-bottom: none;
+  box-shadow:
+    0 -8px 40px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(132, 94, 247, 0.1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: wb-slide-up 0.28s ease-out;
+}
+
+.wb-fullscreen .whiteboard-panel-container {
+  max-width: 100%;
+  height: 100vh;
+  max-height: 100vh;
+  border-radius: 0;
+  border: none;
+  animation: none;
+}
+
+@keyframes wb-slide-up {
+  from {
+    opacity: 0;
+    /* KHÔNG dùng transform: translateY vì làm Excalidraw đọc sai getBoundingClientRect() */
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ===== HEADER ===== */
+.wb-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, rgba(132, 94, 247, 0.15), rgba(79, 70, 229, 0.1));
+  border-bottom: 1px solid rgba(132, 94, 247, 0.2);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.wb-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: 0.3px;
+}
+
+.wb-panel-icon {
+  font-size: 18px;
+}
+
+.wb-panel-live-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(81, 207, 102, 0.15);
+  border: 1px solid rgba(81, 207, 102, 0.3);
+  color: #51cf66;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 99px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.wb-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #51cf66;
+  animation: wb-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes wb-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ===== ACTION BUTTONS ===== */
+.wb-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wb-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: #a0aec0;
+  cursor: pointer;
+  padding: 6px 10px;
+  font-size: 13px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.wb-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.wb-clear-btn:hover {
+  background: rgba(255, 107, 107, 0.15);
+  border-color: rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+}
+
+.wb-close-btn:hover {
+  background: rgba(255, 107, 107, 0.15);
+  border-color: rgba(255, 107, 107, 0.3);
+  color: #ff6b6b;
+}
+
+/* ===== EXCALIDRAW WRAPPER ===== */
+.wb-excalidraw-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  min-height: 0; /* Quan trọng: cho phép flex item thu nhỏ đúng cách */
+}
+
+/* Loading placeholder hiển thị trong 120ms trước khi Excalidraw mount */
+.wb-loading-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: #1a1b26;
+  color: #4a5568;
+  font-size: 13px;
+}
+
+.wb-loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(132, 94, 247, 0.2);
+  border-top-color: #845ef7;
+  border-radius: 50%;
+  animation: wb-spin 0.7s linear infinite;
+}
+
+@keyframes wb-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Override Excalidraw styles để phù hợp dark theme của project */
+.wb-excalidraw-wrapper .excalidraw {
+  height: 100%;
+  width: 100%;
+}
+
+.wb-excalidraw-wrapper .excalidraw .App-menu_top {
+  top: 8px;
+  left: 8px;
+}
+
+/* Fix Excalidraw scrollbar */
+.wb-excalidraw-wrapper ::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+.wb-excalidraw-wrapper ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.wb-excalidraw-wrapper ::-webkit-scrollbar-thumb {
+  background: rgba(132, 94, 247, 0.4);
+  border-radius: 4px;
+}
+
+/* ===== FOOTER ===== */
+.wb-panel-footer {
+  padding: 6px 16px;
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 11px;
+  color: #4a5568;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* ===== TOGGLE BUTTON (trong control-bar của StudyRoom) ===== */
+.wb-toggle-btn {
+  position: relative;
+}
+
+.wb-toggle-btn.wb-active {
+  background: rgba(132, 94, 247, 0.25) !important;
+  border-color: rgba(132, 94, 247, 0.5) !important;
+  color: #845ef7 !important;
+  box-shadow: 0 0 12px rgba(132, 94, 247, 0.2) !important;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .whiteboard-panel-overlay {
+    padding: 0;
+    padding-top: 60px;
+  }
+
+  .whiteboard-panel-container {
+    border-radius: 12px 12px 0 0;
+    height: calc(100vh - 120px);
+    max-height: 85vh;
+  }
+
+  .wb-panel-title span:not(.wb-panel-icon):not(.wb-panel-live-badge) {
+    display: none;
+  }
+
+  .wb-clear-btn span {
+    display: none;
+  }
+}
+
+/* ===== CUSTOM CONFIRM MODAL POPUP ===== */
+.wb-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000; /* Nổi trên overlay của WhiteboardPanel (z-index 500) */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(10, 11, 18, 0.8);
+  backdrop-filter: blur(6px);
+  animation: wb-fade-in 0.2s ease-out;
+}
+
+.wb-confirm-modal {
+  width: 90%;
+  max-width: 400px;
+  background: #141521;
+  border: 1px solid rgba(255, 107, 107, 0.25);
+  border-radius: 16px;
+  padding: 24px;
+  text-align: center;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), inset 0 0 15px rgba(255, 107, 107, 0.05);
+  animation: wb-pop-in 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wb-confirm-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.wb-confirm-modal h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ff6b6b;
+  margin-bottom: 8px;
+}
+
+.wb-confirm-modal p {
+  font-size: 13.5px;
+  color: #a0aec0;
+  line-height: 1.5;
+  margin-bottom: 20px;
+}
+
+.wb-confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.wb-btn {
+  flex: 1;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  border: none;
+}
+
+.wb-btn-danger {
+  background: #fa5252;
+  color: white;
+}
+
+.wb-btn-danger:hover {
+  background: #e03131;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(250, 82, 82, 0.2);
+}
+
+.wb-btn-danger:active {
+  transform: translateY(0);
+}
+
+.wb-btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #a0aec0;
+}
+
+.wb-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
+}
+
+/* Animations */
+@keyframes wb-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes wb-pop-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}

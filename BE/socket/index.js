@@ -309,6 +309,38 @@ module.exports = function setupSocket(io) {
     });
 
     // ========================
+    // WHITEBOARD SYNC (Excalidraw)
+    // ========================
+
+    // Relay bản vẽ từ user này sang partner trong cùng phòng
+    socket.on('whiteboard:update', ({ roomId, elements, appState }) => {
+      if (roomId && socket.rooms.has(roomId)) {
+        socket.to(roomId).emit('whiteboard:update', { elements, appState });
+      }
+    });
+
+    // Khi user mở whiteboard, yêu cầu partner gửi state hiện tại
+    socket.on('whiteboard:request_sync', ({ roomId }) => {
+      if (roomId && socket.rooms.has(roomId)) {
+        socket.to(roomId).emit('whiteboard:send_sync');
+      }
+    });
+
+    // Partner gửi lại toàn bộ state khi được yêu cầu sync
+    socket.on('whiteboard:sync_response', ({ roomId, elements, appState }) => {
+      if (roomId && socket.rooms.has(roomId)) {
+        socket.to(roomId).emit('whiteboard:sync_response', { elements, appState });
+      }
+    });
+
+    // Xóa bảng có chủ ý — event riêng để phân biệt với broadcast rỗng do init
+    socket.on('whiteboard:clear', ({ roomId }) => {
+      if (roomId && socket.rooms.has(roomId)) {
+        socket.to(roomId).emit('whiteboard:clear');
+      }
+    });
+
+    // ========================
     // POMODORO SYNC
     // ========================
     socket.on('pomodoro:action', (data) => {
