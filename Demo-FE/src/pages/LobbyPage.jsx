@@ -325,15 +325,6 @@ export default function LobbyPage() {
 
         {/* Quick Actions */}
         <div className="quick-actions">
-          <div className="quick-card" onClick={() => navigate('/whiteboard')}>
-            <span className="quick-icon quick-icon-purple">
-              <FiEdit3 />
-            </span>
-            <div>
-              <h3>Bảng Trắng</h3>
-              <p>Giải bài tập cùng nhau</p>
-            </div>
-          </div>
           <div className="quick-card" onClick={() => navigate('/friends')}>
             <span className="quick-icon quick-icon-teal">
               <FiUsers />

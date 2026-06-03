@@ -66,10 +66,6 @@ export default function Navbar() {
                 <span className="nav-icon"><FiBarChart2 style={{ color: '#339af0' }} /></span>
                 Sảnh chờ
               </Link>
-              <Link to="/whiteboard" className="nav-link">
-                <span className="nav-icon"><FiEdit3 style={{ color: '#845ef7' }} /></span>
-                Bảng trắng
-              </Link>
               <Link to="/friends" className="nav-link">
                 <span className="nav-icon"><FiUsers style={{ color: '#20c997' }} /></span>
                 Bạn bè

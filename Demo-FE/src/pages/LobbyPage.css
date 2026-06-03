@@ -247,7 +247,7 @@
 /* ---- Quick Actions ---- */
 .quick-actions {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 14px;
 }
 
@@ -524,9 +524,6 @@
 @media (max-width: 900px) {
   .subjects-grid {
     grid-template-columns: repeat(3, 1fr);
-  }
-  .quick-actions {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 
