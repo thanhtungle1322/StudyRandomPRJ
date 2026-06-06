@@ -8,7 +8,7 @@ import backgroundLogin from '../../background/backgroundLogin.png';
 import './LeaderboardPage.css';
 
 export default function LeaderboardPage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
 
   const [allUsers, setAllUsers]     = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -31,7 +31,10 @@ export default function LeaderboardPage() {
       }
     };
     fetchLeaderboard();
-  }, []);
+    if (refreshUser) {
+      refreshUser();
+    }
+  }, [refreshUser]);
 
   /* ---- Client-side sort + search ---- */
   const displayUsers = useMemo(() => {

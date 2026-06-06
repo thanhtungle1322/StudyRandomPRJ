@@ -1103,11 +1103,8 @@ export default function StudyRoom({ propRoomId }) {
       // Tính toán thời gian học
       const studyMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
       if (studyMinutes > 0 && user) {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        await fetch(`${apiUrl}/users/study-time`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ userId: user.id || user.dbId, minutes: studyMinutes })
+        await api.post('/users/study-time', {
+          minutes: studyMinutes
         });
       }
     } catch (e) {
