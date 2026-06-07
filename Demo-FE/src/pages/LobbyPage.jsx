@@ -156,7 +156,10 @@ export default function LobbyPage() {
 
   const formatTime = (s) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
 
-  const hasInfiniteMatches = premiumStatus?.limits?.dailyMatches === Infinity;
+  const hasInfiniteMatches = 
+    premiumStatus?.limits?.dailyMatches === Infinity || 
+    premiumStatus?.limits?.dailyMatches === null ||
+    ['pro', 'ultimate'].includes(premiumStatus?.premiumTier);
   const remaining = premiumStatus?.limits?.dailyMatchesRemaining;
   const tierName = premiumStatus?.premiumTier || 'none';
 
@@ -208,7 +211,7 @@ export default function LobbyPage() {
           <div className="lobby-quota-banner animate-fade-in">
             <div className="quota-info">
               <span className="quota-label">
-                Lượt tìm ngày ({tierName === 'none' ? 'Free' : 'Starter'}):
+                Lượt tìm ngày ({['none', 'free'].includes(tierName) ? 'Free' : (tierName.charAt(0).toUpperCase() + tierName.slice(1))}):
               </span>
               <span className={`quota-count ${remaining === 0 ? 'depleted' : ''}`}>
                 {remaining ?? '...'} / {premiumStatus.limits?.dailyMatches}
