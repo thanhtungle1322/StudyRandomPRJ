@@ -1,7 +1,14 @@
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const User = require('../models/User');
 
-function authenticateToken(req, res, next) {
+/**
+ * Authenticate JWT token.
+ * SECURITY: Only userId is trusted from the JWT payload.
+ * Role and other sensitive fields are ALWAYS fetched from the database
+ * to prevent token manipulation attacks.
+ */
+async function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return res.status(401).json({ success: false, message: 'Vui lòng đăng nhập' });
@@ -10,15 +17,22 @@ function authenticateToken(req, res, next) {
   try {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, config.jwtSecret);
+
+    // SECURITY: Fetch role and critical fields from DB, NOT from JWT
+    const user = await User.findById(decoded.userId).select('displayName email role plan premiumTier');
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Tài khoản không tồn tại' });
+    }
+
     req.user = { 
-      userId: decoded.userId, 
-      displayName: decoded.displayName, 
-      email: decoded.email,
-      role: decoded.role || 'customer'
+      userId: user._id.toString(), 
+      displayName: user.displayName, 
+      email: user.email,
+      role: user.role || 'customer'  // Always from DB
     };
     next();
   } catch (err) {
-    console.error('[AuthMiddleware] JWT Verification Failed! Error:', err.message, 'Secret used:', config.jwtSecret ? 'YES (length: ' + config.jwtSecret.length + ')' : 'NO');
+    console.error('[AuthMiddleware] JWT Verification Failed! Error:', err.message);
     return res.status(401).json({ success: false, message: 'Token không hợp lệ hoặc đã hết hạn' });
   }
 }
@@ -30,17 +44,21 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-function optionalAuth(req, res, next) {
+async function optionalAuth(req, res, next) {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     try {
       const decoded = jwt.verify(authHeader.split(' ')[1], config.jwtSecret);
-      req.user = { 
-        userId: decoded.userId, 
-        displayName: decoded.displayName, 
-        email: decoded.email,
-        role: decoded.role || 'customer'
-      };
+      // SECURITY: Fetch role from DB for optional auth too
+      const user = await User.findById(decoded.userId).select('displayName email role');
+      if (user) {
+        req.user = { 
+          userId: user._id.toString(), 
+          displayName: user.displayName, 
+          email: user.email,
+          role: user.role || 'customer'
+        };
+      }
     } catch (_) {}
   }
   next();

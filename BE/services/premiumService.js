@@ -312,8 +312,17 @@ class PremiumService {
       throw { status: 404, message: 'Mã Giftcode không hợp lệ hoặc không tồn tại' };
     }
 
-    if (giftcode.isUsed) {
-      throw { status: 400, message: 'Mã Giftcode này đã được sử dụng trước đó' };
+    // Check usage limit: maxUses=0 means unlimited
+    if (giftcode.maxUses > 0 && giftcode.usedCount >= giftcode.maxUses) {
+      throw { status: 400, message: 'Mã Giftcode này đã hết lượt sử dụng' };
+    }
+
+    // Check if this specific user already used this code
+    const alreadyUsed = giftcode.usedByList && giftcode.usedByList.some(
+      entry => entry.userId.toString() === userId.toString()
+    );
+    if (alreadyUsed) {
+      throw { status: 400, message: 'Bạn đã sử dụng mã Giftcode này trước đó rồi' };
     }
 
     const user = await User.findById(userId);
@@ -341,10 +350,17 @@ class PremiumService {
       user.badges.push(badgeMap[planId]);
     }
 
-    // Update giftcode status
-    giftcode.isUsed = true;
-    giftcode.usedBy = userId;
-    giftcode.usedAt = new Date();
+    // Update giftcode usage tracking
+    giftcode.usedCount += 1;
+    giftcode.usedBy = userId;       // Last user who redeemed
+    giftcode.usedAt = new Date();   // Last redemption time
+    if (!giftcode.usedByList) giftcode.usedByList = [];
+    giftcode.usedByList.push({ userId, usedAt: new Date() });
+
+    // Mark as fully used if limit reached
+    if (giftcode.maxUses > 0 && giftcode.usedCount >= giftcode.maxUses) {
+      giftcode.isUsed = true;
+    }
 
     await user.save();
     await giftcode.save();

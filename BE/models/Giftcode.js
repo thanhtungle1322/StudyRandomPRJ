@@ -14,10 +14,22 @@ const giftcodeSchema = new mongoose.Schema(
       enum: ['starter', 'pro', 'ultimate'],
       default: 'starter',
     },
+    // ---- Usage Limit System ----
+    maxUses: {
+      type: Number,
+      default: 1, // Default: single use. Set 0 for unlimited.
+      min: 0,
+    },
+    usedCount: {
+      type: Number,
+      default: 0,
+    },
+    // Legacy boolean kept for backward compatibility (computed from usedCount/maxUses)
     isUsed: {
       type: Boolean,
       default: false,
     },
+    // Track all users who used this code
     usedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -27,6 +39,16 @@ const giftcodeSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    usedByList: [{
+      userId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+      },
+      usedAt: {
+        type: Date,
+        default: Date.now,
+      },
+    }],
   },
   {
     timestamps: true,

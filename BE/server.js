@@ -169,29 +169,35 @@ dbObserver.on('error', (err) => {
 async function startServer() {
   await dbObserver.connect(config.mongoUri);
 
-  // Seed default admin account
+  // Seed default admin account from environment variables
   try {
     const User = require('./models/User');
     const bcrypt = require('bcryptjs');
-    const adminEmail = 'admin@studyrandom.com';
-    const adminUser = await User.findOne({ email: adminEmail });
-    if (!adminUser) {
-      console.log('[Seed] Default Admin user not found. Seeding admin account...');
-      const hashedPassword = await bcrypt.hash('admin123', 12);
-      await User.create({
-        email: adminEmail,
-        password: hashedPassword,
-        displayName: 'Quản trị viên (Admin)',
-        avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
-        authProvider: 'local',
-        role: 'admin',
-        plan: 'premium',
-        premiumTier: 'ultimate',
-        premiumExpiresAt: null, // Admin không bao giờ hết hạn
-        badges: ['PREMIUM_ULTIMATE'],
-        isOnline: false,
-      });
-      console.log('[Seed] Successfully seeded default Admin account: admin@studyrandom.com / admin123');
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminEmail || !adminPassword) {
+      console.warn('[Seed] ADMIN_EMAIL or ADMIN_PASSWORD not set in .env — skipping admin seed.');
+    } else {
+      const adminUser = await User.findOne({ email: adminEmail });
+      if (!adminUser) {
+        console.log('[Seed] Default Admin user not found. Seeding admin account...');
+        const hashedPassword = await bcrypt.hash(adminPassword, 12);
+        await User.create({
+          email: adminEmail,
+          password: hashedPassword,
+          displayName: 'Quản trị viên (Admin)',
+          avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=admin',
+          authProvider: 'local',
+          role: 'admin',
+          plan: 'premium',
+          premiumTier: 'ultimate',
+          premiumExpiresAt: null, // Admin không bao giờ hết hạn
+          badges: ['PREMIUM_ULTIMATE'],
+          isOnline: false,
+        });
+        console.log('[Seed] Successfully seeded default Admin account.');
+      }
     }
     // Đảm bảo tất cả admin đều có gói Ultimate vĩnh viễn
     await User.updateMany(
