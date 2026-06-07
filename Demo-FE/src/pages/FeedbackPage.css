@@ -176,6 +176,7 @@
 .star-btn.active .star-icon,
 .star-btn:hover .star-icon {
   color: #fcc419;
+  fill: #fcc419;
   stroke: #fcc419;
   filter: drop-shadow(0 0 8px rgba(252, 196, 25, 0.6));
 }
@@ -328,5 +329,35 @@
   }
   .success-actions .btn {
     width: 100%;
+  }
+  /* Hide mascots on mobile to avoid blocking content */
+  .feedback-page .lobby-mascot-fixed {
+    display: none;
+  }
+  .stars-wrapper {
+    gap: 8px;
+    justify-content: center;
+  }
+  .star-icon {
+    font-size: 32px;
+  }
+}
+
+@media (max-width: 480px) {
+  .feedback-page {
+    padding: 80px 12px 30px 12px;
+  }
+  .feedback-title {
+    font-size: 24px;
+  }
+  .feedback-card-wrapper {
+    padding: 18px;
+    border-radius: 18px;
+  }
+  .feedback-subtitle {
+    font-size: 14px;
+  }
+  .feedback-section h3 {
+    font-size: 16px;
   }
 }

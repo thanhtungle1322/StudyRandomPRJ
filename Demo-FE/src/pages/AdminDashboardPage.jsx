@@ -36,6 +36,7 @@ export default function AdminDashboardPage() {
   // Giftcode Form States
   const [planId, setPlanId] = useState('starter');
   const [customCode, setCustomCode] = useState('');
+  const [maxUses, setMaxUses] = useState(1);
   const [generating, setGenerating] = useState(false);
   const [copiedCode, setCopiedCode] = useState('');
   
@@ -150,7 +151,7 @@ export default function AdminDashboardPage() {
     setStatusMsg({ type: '', text: '' });
     
     try {
-      const { data } = await api.post('/admin/giftcodes', { planId, code: customCode });
+      const { data } = await api.post('/admin/giftcodes', { planId, code: customCode, maxUses: Number(maxUses) });
       if (data.success) {
         setStatusMsg({ type: 'success', text: data.message });
         setCustomCode('');
@@ -440,6 +441,19 @@ export default function AdminDashboardPage() {
                         <span className="input-tip">Để trống để hệ thống tự động sinh mã ngẫu nhiên cực bảo mật.</span>
                       </div>
 
+                      <div className="form-group">
+                        <label>Giới hạn lượt sử dụng:</label>
+                        <input
+                          type="number"
+                          min="0"
+                          placeholder="1"
+                          className="admin-input"
+                          value={maxUses}
+                          onChange={(e) => setMaxUses(e.target.value)}
+                        />
+                        <span className="input-tip">Nhập 0 để không giới hạn số lượt. Mặc định: 1 lượt.</span>
+                      </div>
+
                       <button type="submit" className="btn btn-primary" disabled={generating}>
                         {generating ? 'Đang tạo...' : 'Tạo Giftcode'}
                       </button>
@@ -463,8 +477,9 @@ export default function AdminDashboardPage() {
                           <tr>
                             <th>Mã Giftcode</th>
                             <th>Gói</th>
+                            <th>Lượt dùng</th>
                             <th>Trạng thái</th>
-                            <th>Người sử dụng</th>
+                            <th>Người sử dụng gần nhất</th>
                             <th>Ngày đổi</th>
                             <th>Ngày tạo</th>
                             <th style={{ textAlign: 'right' }}>Thao tác</th>
@@ -491,10 +506,15 @@ export default function AdminDashboardPage() {
                                 </span>
                               </td>
                               <td>
-                                {g.isUsed ? (
-                                  <span className="status-badge used"><FiCheckCircle /> Đã sử dụng</span>
+                                <span className="usage-count">
+                                  {g.usedCount || 0} / {g.maxUses === 0 ? '∞' : (g.maxUses || 1)}
+                                </span>
+                              </td>
+                              <td>
+                                {g.maxUses > 0 && (g.usedCount || 0) >= g.maxUses ? (
+                                  <span className="status-badge used"><FiCheckCircle /> Đã hết lượt</span>
                                 ) : (
-                                  <span className="status-badge unused">Chưa sử dụng</span>
+                                  <span className="status-badge unused">Còn hiệu lực</span>
                                 )}
                               </td>
                               <td>

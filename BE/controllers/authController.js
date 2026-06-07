@@ -116,11 +116,11 @@ class AuthController {
 
         console.log('[AuthCtrl] Google callback - Success! User:', user._id, user.displayName);
 
+        // SECURITY: Do NOT include 'role' in JWT payload
         const tokenPayload = {
           userId: user._id.toString(),
           displayName: user.displayName,
           email: user.email,
-          role: user.role || 'customer',
         };
 
         const token = jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: '7d' });

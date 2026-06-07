@@ -154,10 +154,16 @@ class AdminController {
    */
   async generateGiftcode(req, res) {
     try {
-      const { planId, code } = req.body;
+      const { planId, code, maxUses } = req.body;
 
       if (planId && !['starter', 'pro', 'ultimate'].includes(planId)) {
         return res.status(400).json({ success: false, message: 'Gói Premium của Giftcode không hợp lệ' });
+      }
+
+      // Validate maxUses
+      const limitUses = maxUses !== undefined ? Number(maxUses) : 1;
+      if (isNaN(limitUses) || limitUses < 0) {
+        return res.status(400).json({ success: false, message: 'Số lượt sử dụng phải là số nguyên >= 0 (0 = không giới hạn)' });
       }
 
       // Generate custom code or random code
@@ -175,11 +181,12 @@ class AdminController {
       const giftcode = await Giftcode.create({
         code: finalCode,
         planId: planId || 'starter',
+        maxUses: limitUses,
       });
 
       res.status(201).json({
         success: true,
-        message: `Đã tạo thành công mã Giftcode: ${finalCode}`,
+        message: `Đã tạo thành công mã Giftcode: ${finalCode} (${limitUses === 0 ? 'Không giới hạn' : limitUses + ' lượt'})`,
         giftcode,
       });
     } catch (error) {

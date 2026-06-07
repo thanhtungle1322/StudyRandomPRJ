@@ -204,12 +204,14 @@
 .table-responsive {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
+  min-width: 700px;
 }
 
 .admin-table th {
@@ -459,6 +461,7 @@
 
 .feedback-stars .star-icon.filled {
   color: #fcc419;
+  fill: #fcc419;
   filter: drop-shadow(0 0 4px rgba(252, 196, 25, 0.5));
 }
 
@@ -495,7 +498,7 @@
 
 .generate-code-form {
   display: grid;
-  grid-template-columns: 1.2fr 1.2fr 0.8fr;
+  grid-template-columns: 1fr 1fr 0.8fr 0.6fr;
   gap: 20px;
   align-items: flex-start;
 }
@@ -640,6 +643,15 @@
   color: #868e96;
 }
 
+.usage-count {
+  display: inline-flex;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: #a78bfa;
+  font-family: monospace;
+}
+
 .no-data-state {
   text-align: center;
   padding: 50px 0;
@@ -669,19 +681,80 @@
 
 @media (max-width: 768px) {
   .admin-page {
-    padding: 90px 16px 40px 16px;
+    padding: 80px 12px 40px 12px;
   }
   .admin-header h1 {
-    font-size: 32px;
+    font-size: 28px;
+  }
+  .admin-subtitle {
+    font-size: 14px;
   }
   .admin-tabs {
     grid-template-columns: 1fr;
   }
+  .admin-tab-btn {
+    font-size: 13px;
+    padding: 12px;
+  }
   .admin-tab-content {
-    padding: 20px 16px;
+    padding: 16px 12px;
+    border-radius: 16px;
   }
   .feedback-stats-grid {
     grid-template-columns: 1fr;
+  }
+  .tab-title-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .tab-title-row h2 {
+    font-size: 18px;
+  }
+  .admin-table th,
+  .admin-table td {
+    padding: 12px 10px;
+    font-size: 12px;
+  }
+  .table-user-info {
+    gap: 8px;
+  }
+  .table-avatar {
+    width: 30px;
+    height: 30px;
+  }
+  .feedback-card-header {
+    flex-direction: column;
+  }
+  .feedback-meta {
+    align-items: flex-start;
+  }
+  .admin-nav-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-page {
+    padding: 75px 8px 30px 8px;
+  }
+  .admin-header h1 {
+    font-size: 24px;
+  }
+  .admin-tab-content {
+    padding: 12px 8px;
+  }
+  .generate-code-card {
+    padding: 16px;
+    border-radius: 14px;
+  }
+  .generate-code-card h3 {
+    font-size: 14px;
+  }
+  .code-text {
+    font-size: 11px;
+    padding: 3px 6px;
   }
 }
 

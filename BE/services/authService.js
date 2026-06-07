@@ -121,11 +121,12 @@ class AuthService {
    * Helper to sign JWT tokens
    */
   generateToken(user) {
+    // SECURITY: Do NOT include 'role' in JWT payload.
+    // Role is always verified from the database in auth middleware.
     const tokenPayload = {
       userId: user._id.toString(),
       displayName: user.displayName,
       email: user.email,
-      role: user.role || 'customer',
     };
     return jwt.sign(tokenPayload, config.jwtSecret, { expiresIn: '7d' });
   }
