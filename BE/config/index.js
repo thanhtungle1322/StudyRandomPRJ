@@ -25,14 +25,21 @@ module.exports = {
   meteredUsername: process.env.METERED_USERNAME || '',
   meteredPassword: process.env.METERED_PASSWORD || '',
 
-  // Parse ra array cho CORS
   get corsOrigins() {
     const urls = this.clientUrl.split(',').map((u) => u.trim());
-    // Trong development, luôn thêm localhost
+    // Trong development, luôn thêm các port localhost thông dụng để tránh lỗi CORS khi đổi port
     if (this.nodeEnv === 'development') {
-      if (!urls.includes('http://localhost:5173')) {
-        urls.push('http://localhost:5173');
-      }
+      const devPorts = ['5173', '5174', '5175', '5176'];
+      devPorts.forEach(port => {
+        const origin = `http://localhost:${port}`;
+        if (!urls.includes(origin)) {
+          urls.push(origin);
+        }
+        const ipOrigin = `http://127.0.0.1:${port}`;
+        if (!urls.includes(ipOrigin)) {
+          urls.push(ipOrigin);
+        }
+      });
     }
     return urls;
   },

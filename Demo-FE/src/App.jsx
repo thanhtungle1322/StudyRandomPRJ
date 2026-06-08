@@ -22,6 +22,7 @@ import AdminDashboardPage from './pages/AdminDashboardPage';
 import StatisticsPage from './pages/StatisticsPage';
 import { FiExternalLink, FiX } from 'react-icons/fi';
 import { getSocket } from './services/socket';
+import { setupAnalytics, logPageView } from './services/analytics';
 
 function ProtectedRoute({ children }) {
   const { isLoggedIn } = useAuth();
@@ -181,6 +182,16 @@ function App() {
   const { isLoggedIn } = useAuth();
   const location = useLocation();
   const [activeSession, setActiveSession] = useState(null);
+
+  // Initialize Google Analytics on mount
+  useEffect(() => {
+    setupAnalytics();
+  }, []);
+
+  // Track page view on route changes
+  useEffect(() => {
+    logPageView(location.pathname);
+  }, [location.pathname]);
 
   useEffect(() => {
     const checkSession = () => {
