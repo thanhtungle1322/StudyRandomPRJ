@@ -273,6 +273,50 @@ class AdminController {
       res.status(500).json({ success: false, message: 'Lỗi khi lưu cấu hình' });
     }
   }
+
+  /**
+   * Get system statistics for real-time dashboard data
+   */
+  async getStats(req, res) {
+    try {
+      const Session = require('../models/Session');
+      const totalUsers = await User.countDocuments();
+      const onlineUsers = await User.countDocuments({ isOnline: true });
+      const premiumUsers = await User.countDocuments({ plan: 'premium' });
+      const totalSessions = await Session.countDocuments();
+      const activeSessions = await Session.countDocuments({ status: 'active' });
+      const totalFeedbacks = await Feedback.countDocuments();
+      const totalGiftcodes = await Giftcode.countDocuments();
+
+      // Phân bổ các gói Premium của người dùng để vẽ biểu đồ
+      const starterCount = await User.countDocuments({ plan: 'premium', premiumTier: 'starter' });
+      const proCount = await User.countDocuments({ plan: 'premium', premiumTier: 'pro' });
+      const ultimateCount = await User.countDocuments({ plan: 'premium', premiumTier: 'ultimate' });
+      const freeCount = Math.max(0, totalUsers - (starterCount + proCount + ultimateCount));
+
+      res.json({
+        success: true,
+        stats: {
+          totalUsers,
+          onlineUsers,
+          premiumUsers,
+          totalSessions,
+          activeSessions,
+          totalFeedbacks,
+          totalGiftcodes,
+          premiumTiers: {
+            starter: starterCount,
+            pro: proCount,
+            ultimate: ultimateCount,
+            free: freeCount,
+          }
+        }
+      });
+    } catch (error) {
+      console.error('[AdminCtrl] Get stats error:', error);
+      res.status(500).json({ success: false, message: 'Lỗi khi lấy số liệu thống kê' });
+    }
+  }
 }
 
 module.exports = new AdminController();

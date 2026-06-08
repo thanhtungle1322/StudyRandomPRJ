@@ -67,4 +67,10 @@ router.get('/settings', adminController.getSettings);
  */
 router.put('/settings', adminController.updateSettings);
 
+/**
+ * GET /api/admin/stats
+ * Lấy số liệu thống kê thực tế của hệ thống
+ */
+router.get('/stats', adminController.getStats);
+
 module.exports = router;

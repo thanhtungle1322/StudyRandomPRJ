@@ -23,6 +23,24 @@ export default function AdminAnalyticsTab() {
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
   const [isDemoMode, setIsDemoMode] = useState(true);
   
+  // Real Database Statistics
+  const [realStats, setRealStats] = useState({
+    totalUsers: 0,
+    onlineUsers: 0,
+    premiumUsers: 0,
+    totalSessions: 0,
+    activeSessions: 0,
+    totalFeedbacks: 0,
+    totalGiftcodes: 0,
+    premiumTiers: {
+      starter: 0,
+      pro: 0,
+      ultimate: 0,
+      free: 0,
+    }
+  });
+  const [loadingRealStats, setLoadingRealStats] = useState(false);
+  
   // Simulated Analytics States (Presentation Mode)
   const [realtimeUsers, setRealtimeUsers] = useState(14);
   const [pageViews, setPageViews] = useState(4829);
@@ -59,6 +77,27 @@ export default function AdminAnalyticsTab() {
     };
     fetchSettings();
   }, []);
+
+  // Fetch Real Stats from backend
+  const fetchRealStats = async () => {
+    setLoadingRealStats(true);
+    try {
+      const { data } = await api.get('/admin/stats');
+      if (data.success) {
+        setRealStats(data.stats);
+      }
+    } catch (err) {
+      console.error('[Stats] Error fetching real stats:', err);
+    } finally {
+      setLoadingRealStats(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isDemoMode) {
+      fetchRealStats();
+    }
+  }, [isDemoMode]);
 
   // Fluctuating data logic for presentation mode
   useEffect(() => {
@@ -147,6 +186,13 @@ export default function AdminAnalyticsTab() {
 
   const areaPoints = `${paddingX},${svgHeight - paddingY} ${points} ${svgWidth - paddingX},${svgHeight - paddingY} Z`;
 
+  // Premium Tier percentages helper
+  const totalTiers = ((realStats.premiumTiers?.free || 0) + (realStats.premiumTiers?.starter || 0) + (realStats.premiumTiers?.pro || 0) + (realStats.premiumTiers?.ultimate || 0)) || 1;
+  const pctFree = Math.round(((realStats.premiumTiers?.free || 0) / totalTiers) * 100);
+  const pctStarter = Math.round(((realStats.premiumTiers?.starter || 0) / totalTiers) * 100);
+  const pctPro = Math.round(((realStats.premiumTiers?.pro || 0) / totalTiers) * 100);
+  const pctUltimate = Math.round(((realStats.premiumTiers?.ultimate || 0) / totalTiers) * 100);
+
   return (
     <div className="analytics-tab-wrapper">
       {/* Settings & Config Bar */}
@@ -202,56 +248,66 @@ export default function AdminAnalyticsTab() {
       <div className="analytics-stats-grid">
         <div className="stat-card-glow realtime">
           <div className="card-header">
-            <span>ĐANG HOẠT ĐỘNG (REAL-TIME)</span>
+            <span>{isDemoMode ? 'ĐANG HOẠT ĐỘNG (REAL-TIME)' : 'TRỰC TUYẾN THỰC TẾ'}</span>
             <span className="pulse-dot"></span>
           </div>
           <div className="card-body">
-            <h3>{isDemoMode ? realtimeUsers : 'N/A'}</h3>
-            <p className="card-desc"><FiActivity /> Số người đang trực tuyến trên web</p>
+            <h3>{isDemoMode ? realtimeUsers : realStats.onlineUsers}</h3>
+            <p className="card-desc">
+              <FiActivity /> {isDemoMode ? 'Số người đang trực tuyến trên web' : 'Người dùng online trên hệ thống'}
+            </p>
           </div>
         </div>
 
         <div className="stat-card-glow">
           <div className="card-header">
-            <span>TỔNG SỐ LƯỢT XEM TRANG</span>
+            <span>{isDemoMode ? 'TỔNG SỐ LƯỢT XEM TRANG' : 'TỔNG THÀNH VIÊN ĐĂNG KÝ'}</span>
             <span className="stat-icon">📄</span>
           </div>
           <div className="card-body">
-            <h3>{isDemoMode ? pageViews.toLocaleString() : 'N/A'}</h3>
-            <p className="card-desc"><FiTrendingUp /> Tăng 12% so với hôm qua</p>
+            <h3>{isDemoMode ? pageViews.toLocaleString() : realStats.totalUsers.toLocaleString()}</h3>
+            <p className="card-desc">
+              <FiTrendingUp /> {isDemoMode ? 'Tăng 12% so với hôm qua' : 'Tài khoản đã tạo trong DB'}
+            </p>
           </div>
         </div>
 
         <div className="stat-card-glow">
           <div className="card-header">
-            <span>THỜI GIAN TRUNG BÌNH PHIÊN</span>
+            <span>{isDemoMode ? 'THỜI GIAN TRUNG BÌNH PHIÊN' : 'NGƯỜI DÙNG PREMIUM (VIP)'}</span>
             <span className="stat-icon">⏱️</span>
           </div>
           <div className="card-body">
-            <h3>{isDemoMode ? avgDuration : 'N/A'}</h3>
-            <p className="card-desc"><FiClock /> Tương tác ghép học cao</p>
+            <h3>{isDemoMode ? avgDuration : realStats.premiumUsers}</h3>
+            <p className="card-desc">
+              <FiClock /> {isDemoMode ? 'Tương tác ghép học cao' : 'Thành viên đã kích hoạt VIP'}
+            </p>
           </div>
         </div>
 
         <div className="stat-card-glow">
           <div className="card-header">
-            <span>TỶ LỆ THOÁT (BOUNCE RATE)</span>
+            <span>{isDemoMode ? 'TỶ LỆ THOÁT (BOUNCE RATE)' : 'ĐÁNH GIÁ & PHẢN HỒI'}</span>
             <span className="stat-icon">📉</span>
           </div>
           <div className="card-body">
-            <h3>{isDemoMode ? bounceRate : 'N/A'}</h3>
-            <p className="card-desc">Chỉ số chuyển đổi phòng tốt</p>
+            <h3>{isDemoMode ? bounceRate : realStats.totalFeedbacks}</h3>
+            <p className="card-desc">
+              {isDemoMode ? 'Chỉ số chuyển đổi phòng tốt' : 'Tổng số phản hồi nhận được'}
+            </p>
           </div>
         </div>
 
         <div className="stat-card-glow premium-stat">
           <div className="card-header">
-            <span>TỔNG SỐ LƯỢT GHÉP CẶP</span>
+            <span>{isDemoMode ? 'TỔNG SỐ LƯỢT GHÉP CẶP' : 'TỔNG PHÒNG HỌC ĐÃ TẠO'}</span>
             <span className="stat-icon">🤝</span>
           </div>
           <div className="card-body">
-            <h3>{isDemoMode ? matchCount : 'N/A'}</h3>
-            <p className="card-desc"><FiTarget /> Tỷ lệ ghép thành công 94.2%</p>
+            <h3>{isDemoMode ? matchCount : realStats.totalSessions}</h3>
+            <p className="card-desc">
+              <FiTarget /> {isDemoMode ? 'Tỷ lệ ghép thành công 94.2%' : `Có ${realStats.activeSessions} phòng đang hoạt động`}
+            </p>
           </div>
         </div>
       </div>
@@ -388,29 +444,50 @@ export default function AdminAnalyticsTab() {
         {/* Left: Traffic Channels (Nguồn truy cập) */}
         <div className="bottom-card glass-card">
           <div className="card-title-row">
-            <h4>Nguồn traffic truy cập (Traffic Acquisition)</h4>
+            <h4>{isDemoMode ? 'Nguồn traffic truy cập (Traffic Acquisition)' : 'Phân bổ gói tài khoản (Premium Tiers)'}</h4>
             <span>Tỷ lệ %</span>
           </div>
-          {isDemoMode ? (
-            <div className="channel-distribution">
-              <div className="distribution-bar">
-                <div className="segment purple" style={{ width: '45%' }} title="Direct: 45%"></div>
-                <div className="segment blue" style={{ width: '30%' }} title="Social: 30%"></div>
-                <div className="segment green" style={{ width: '15%' }} title="Organic Search: 15%"></div>
-                <div className="segment orange" style={{ width: '10%' }} title="Referral: 10%"></div>
-              </div>
-              <div className="channel-legend">
-                <div className="legend-item"><span className="dot purple"></span> Trực tiếp (Direct): 45%</div>
-                <div className="legend-item"><span className="dot blue"></span> Mạng xã hội (Social): 30%</div>
-                <div className="legend-item"><span className="dot green"></span> Tìm kiếm tự nhiên (Organic): 15%</div>
-                <div className="legend-item"><span className="dot orange"></span> Giới thiệu (Referrals): 10%</div>
-              </div>
+          <div className="channel-distribution">
+            <div className="distribution-bar">
+              <div 
+                className="segment purple" 
+                style={{ width: `${isDemoMode ? 45 : pctFree}%` }} 
+                title={isDemoMode ? 'Direct: 45%' : `Free: ${pctFree}%`}
+              ></div>
+              <div 
+                className="segment blue" 
+                style={{ width: `${isDemoMode ? 30 : pctStarter}%` }} 
+                title={isDemoMode ? 'Social: 30%' : `Starter: ${pctStarter}%`}
+              ></div>
+              <div 
+                className="segment green" 
+                style={{ width: `${isDemoMode ? 15 : pctPro}%` }} 
+                title={isDemoMode ? 'Organic Search: 15%' : `Pro: ${pctPro}%`}
+              ></div>
+              <div 
+                className="segment orange" 
+                style={{ width: `${isDemoMode ? 10 : pctUltimate}%` }} 
+                title={isDemoMode ? 'Referral: 10%' : `Ultimate: ${pctUltimate}%`}
+              ></div>
             </div>
-          ) : (
-            <div className="no-real-data">
-              <p>Chưa có dữ liệu nguồn truy cập.</p>
+            <div className="channel-legend">
+              {isDemoMode ? (
+                <>
+                  <div className="legend-item"><span className="dot purple"></span> Trực tiếp (Direct): 45%</div>
+                  <div className="legend-item"><span className="dot blue"></span> Mạng xã hội (Social): 30%</div>
+                  <div className="legend-item"><span className="dot green"></span> Tìm kiếm tự nhiên (Organic): 15%</div>
+                  <div className="legend-item"><span className="dot orange"></span> Giới thiệu (Referrals): 10%</div>
+                </>
+              ) : (
+                <>
+                  <div className="legend-item"><span className="dot purple"></span> Free (Miễn phí): {pctFree}% ({realStats.premiumTiers?.free} người)</div>
+                  <div className="legend-item"><span className="dot blue"></span> Starter (Tháng): {pctStarter}% ({realStats.premiumTiers?.starter} người)</div>
+                  <div className="legend-item"><span className="dot green"></span> Pro (Gói Pro): {pctPro}% ({realStats.premiumTiers?.pro} người)</div>
+                  <div className="legend-item"><span className="dot orange"></span> Ultimate (Tối đa): {pctUltimate}% ({realStats.premiumTiers?.ultimate} người)</div>
+                </>
+              )}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Right: Event Log */}
