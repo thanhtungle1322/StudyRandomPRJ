@@ -34,9 +34,9 @@ export default function PricingPage() {
         }
       } catch {
         setPlans([
-          { id: 'starter', name: 'Starter', price: 5000, durationDays: 30, description: 'Mở rộng giới hạn cơ bản cho việc ôn tập', features: ['15 lượt tìm bạn học / ngày (thay vì 3)', 'Phiên học tối đa 60 phút (thay vì 30)', 'Thời hạn sử dụng: 30 ngày', 'Khung avatar "Starter Spark" hồng lấp lánh', 'Danh hiệu PREMIUM STARTER trong hồ sơ'] },
-          { id: 'pro', name: 'Pro', price: 10000, durationDays: 90, popular: true, description: 'Không giới hạn lượt tìm, phiên học 3 tiếng', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Phiên học tối đa 180 phút (3 tiếng)', 'Thời hạn sử dụng: 90 ngày', 'Khung avatar "Pro Crown" vương miện vàng', 'Danh hiệu PREMIUM PRO trong hồ sơ', 'Ưu tiên ghép đôi nhanh hơn'] },
-          { id: 'ultimate', name: 'Ultimate', price: 15000, durationDays: 365, description: 'Trải nghiệm tối thượng, không giới hạn bất kỳ điều gì', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Không giới hạn thời gian phiên học', 'Thời hạn sử dụng: 365 ngày (1 năm)', 'Khung avatar "Ultimate Cosmic" vũ trụ huyền ảo', 'Danh hiệu PREMIUM ULTIMATE trong hồ sơ', 'Truy cập tính năng beta sớm', 'Hỗ trợ VIP 24/7'] },
+          { id: 'starter', name: 'Starter', price: 30000, durationDays: 30, description: 'Mở rộng giới hạn cơ bản cho việc ôn tập', features: ['15 lượt tìm bạn học / ngày (thay vì 3)', 'Phiên học tối đa 60 phút (thay vì 30)', 'Thời hạn sử dụng: 30 ngày', 'Khung avatar "Starter Spark" hồng lấp lánh', 'Danh hiệu PREMIUM STARTER trong hồ sơ'] },
+          { id: 'pro', name: 'Pro', price: 75000, durationDays: 90, popular: true, description: 'Không giới hạn lượt tìm, phiên học 3 tiếng', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Phiên học tối đa 180 phút (3 tiếng)', 'Thời hạn sử dụng: 90 ngày', 'Khung avatar "Pro Crown" vương miện vàng', 'Danh hiệu PREMIUM PRO trong hồ sơ', 'Ưu tiên ghép đôi nhanh hơn'] },
+          { id: 'ultimate', name: 'Ultimate', price: 150000, durationDays: 365, description: 'Trải nghiệm tối thượng, không giới hạn bất kỳ điều gì', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Không giới hạn thời gian phiên học', 'Thời hạn sử dụng: 365 ngày (1 năm)', 'Khung avatar "Ultimate Cosmic" vũ trụ huyền ảo', 'Danh hiệu PREMIUM ULTIMATE trong hồ sơ', 'Truy cập tính năng beta sớm', 'Hỗ trợ VIP 24/7'] },
         ]);
         setFreeLimits({ dailyMatches: 3, sessionMinutes: 30 });
       } finally {

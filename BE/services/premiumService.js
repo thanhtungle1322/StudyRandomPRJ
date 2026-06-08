@@ -18,7 +18,7 @@ const PREMIUM_PLANS = {
   starter: {
     id: 'starter',
     name: 'Starter',
-    price: 5000,
+    price: 30000,
     description: 'Mở rộng giới hạn cơ bản cho việc ôn tập',
     features: [
       '15 lượt tìm bạn học / ngày (thay vì 3)',
@@ -31,7 +31,7 @@ const PREMIUM_PLANS = {
   pro: {
     id: 'pro',
     name: 'Pro',
-    price: 10000,
+    price: 75000,
     description: 'Không giới hạn lượt tìm, phiên học 3 tiếng',
     features: [
       'Không giới hạn lượt tìm bạn học / ngày',
@@ -46,7 +46,7 @@ const PREMIUM_PLANS = {
   ultimate: {
     id: 'ultimate',
     name: 'Ultimate',
-    price: 15000,
+    price: 150000,
     description: 'Trải nghiệm tối thượng, không giới hạn bất kỳ điều gì',
     features: [
       'Không giới hạn lượt tìm bạn học / ngày',
@@ -147,8 +147,8 @@ class PremiumService {
     const dailyMatchCount = user.lastMatchDate === today ? user.dailyMatchCount : 0;
     const tierLimits = this.getLimitsForTier(tier);
 
-    const dailyMatchesRemaining = tierLimits.dailyMatches === Infinity 
-      ? Infinity 
+    const dailyMatchesRemaining = tierLimits.dailyMatches === Infinity
+      ? Infinity
       : Math.max(0, tierLimits.dailyMatches - dailyMatchCount);
 
     return {
@@ -195,7 +195,7 @@ class PremiumService {
 
     const plan = PREMIUM_PLANS[planId];
     const amount = plan.price;
-    
+
     // Generate unique positive integer orderCode
     const orderCode = Number(String(Date.now()).slice(-6) + Math.floor(Math.random() * 1000).toString().padStart(3, '0'));
 
@@ -216,7 +216,7 @@ class PremiumService {
       try {
         console.log(`[PremiumService] Creating PayOS payment link for user ${userId}, plan ${planId}`);
         const paymentLinkResult = await payos.paymentRequests.create(paymentData);
-        
+
         await Order.create({
           orderCode,
           userId,
@@ -233,20 +233,20 @@ class PremiumService {
         };
       } catch (err) {
         console.error('[PremiumService] Failed to create PayOS link:', err);
-        throw { 
-          status: 400, 
-          message: `Lỗi kết nối PayOS: ${err.message || 'Không thể tạo liên kết thanh toán. Vui lòng kiểm tra lại cấu hình API Keys trên PayOS Dashboard.'}` 
+        throw {
+          status: 400,
+          message: `Lỗi kết nối PayOS: ${err.message || 'Không thể tạo liên kết thanh toán. Vui lòng kiểm tra lại cấu hình API Keys trên PayOS Dashboard.'}`
         };
       }
     } else {
       // Chỉ tự động Mock khi CHƯA KHAI BÁO biến môi trường PayOS ở môi trường development
       if (config.nodeEnv === 'production') {
-        throw { 
-          status: 500, 
-          message: 'Lỗi bảo mật: Cấu hình PayOS chưa hoàn tất hoặc thiếu biến môi trường trên máy chủ Production!' 
+        throw {
+          status: 500,
+          message: 'Lỗi bảo mật: Cấu hình PayOS chưa hoàn tất hoặc thiếu biến môi trường trên máy chủ Production!'
         };
       }
-      
+
       // Create mock transaction in DB and directly activate for easy testing
       await Order.create({
         orderCode,
@@ -465,7 +465,7 @@ class PremiumService {
 
       const orderCode = verifiedData.orderCode;
       const Order = require('../models/Order');
-      
+
       const order = await Order.findOne({ orderCode });
       if (!order) {
         console.error(`[PayOS Webhook] Order not found: ${orderCode}`);
