@@ -128,6 +128,21 @@ app.get('/api/turn-credentials', async (req, res) => {
   }
 });
 
+app.get('/api/settings/ga-id', async (req, res) => {
+  try {
+    const Setting = require('./models/Setting');
+    const gaSetting = await Setting.findOne({ key: 'ga_measurement_id' });
+    const gaId = gaSetting ? gaSetting.value : (process.env.GA_MEASUREMENT_ID || '');
+    res.json({
+      success: true,
+      gaMeasurementId: gaId,
+    });
+  } catch (error) {
+    console.error('[Server] Get GA Measurement ID error:', error);
+    res.status(500).json({ success: false, gaMeasurementId: '' });
+  }
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -204,6 +219,17 @@ async function startServer() {
       { role: 'admin', premiumTier: { $ne: 'ultimate' } },
       { $set: { plan: 'premium', premiumTier: 'ultimate', premiumExpiresAt: null }, $addToSet: { badges: 'PREMIUM_ULTIMATE' } }
     );
+
+    // Tự động seed cấu hình Google Analytics ID mặc định nếu chưa tồn tại
+    const Setting = require('./models/Setting');
+    const gaSetting = await Setting.findOne({ key: 'ga_measurement_id' });
+    if (!gaSetting) {
+      console.log('[Seed] Seeding default Google Analytics ID setting...');
+      await Setting.create({
+        key: 'ga_measurement_id',
+        value: process.env.GA_MEASUREMENT_ID || 'G-TKHQ7EVZ3Y',
+      });
+    }
   } catch (seedError) {
     console.error('[Seed] Failed to seed default Admin account:', seedError.message);
   }

@@ -19,6 +19,7 @@ import {
 } from 'react-icons/fi';
 import backgroundLogin from '../../background/backgroundLogin.png';
 import './AdminDashboardPage.css';
+import AdminAnalyticsTab from '../components/AdminAnalyticsTab';
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
@@ -73,6 +74,9 @@ export default function AdminDashboardPage() {
       } else if (activeTab === 'giftcodes') {
         const { data } = await api.get('/admin/giftcodes');
         if (data.success) setGiftcodes(data.giftcodes);
+      } else if (activeTab === 'analytics') {
+        setLoading(false);
+        return;
       }
     } catch (err) {
       console.error(err);
@@ -246,6 +250,12 @@ export default function AdminDashboardPage() {
             onClick={() => setActiveTab('giftcodes')}
           >
             <FiGift /> Mã Quà Tặng (Giftcode)
+          </button>
+          <button 
+            className={`admin-tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
+            onClick={() => setActiveTab('analytics')}
+          >
+            <span style={{ marginRight: '8px', fontSize: '1.1rem' }}>📊</span> Google Analytics
           </button>
         </div>
 
@@ -549,6 +559,11 @@ export default function AdminDashboardPage() {
                     </div>
                   )}
                 </div>
+              )}
+
+              {/* TAB 4: GOOGLE ANALYTICS */}
+              {activeTab === 'analytics' && (
+                <AdminAnalyticsTab />
               )}
             </>
           )}

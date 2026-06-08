@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Feedback = require('../models/Feedback');
 const Giftcode = require('../models/Giftcode');
+const Setting = require('../models/Setting');
 
 class AdminController {
   /**
@@ -231,6 +232,45 @@ class AdminController {
     } catch (error) {
       console.error('[AdminCtrl] Delete giftcode error:', error);
       res.status(500).json({ success: false, message: 'Lỗi khi xóa mã Giftcode' });
+    }
+  }
+
+  /**
+   * Get setting configs
+   */
+  async getSettings(req, res) {
+    try {
+      const gaSetting = await Setting.findOne({ key: 'ga_measurement_id' });
+      res.json({
+        success: true,
+        settings: {
+          gaMeasurementId: gaSetting ? gaSetting.value : '',
+        },
+      });
+    } catch (error) {
+      console.error('[AdminCtrl] Get settings error:', error);
+      res.status(500).json({ success: false, message: 'Lỗi khi tải cấu hình' });
+    }
+  }
+
+  /**
+   * Update setting configs
+   */
+  async updateSettings(req, res) {
+    try {
+      const { gaMeasurementId } = req.body;
+      await Setting.findOneAndUpdate(
+        { key: 'ga_measurement_id' },
+        { value: gaMeasurementId || '' },
+        { upsert: true, new: true }
+      );
+      res.json({
+        success: true,
+        message: 'Đã cập nhật cấu hình Google Analytics thành công!',
+      });
+    } catch (error) {
+      console.error('[AdminCtrl] Update settings error:', error);
+      res.status(500).json({ success: false, message: 'Lỗi khi lưu cấu hình' });
     }
   }
 }

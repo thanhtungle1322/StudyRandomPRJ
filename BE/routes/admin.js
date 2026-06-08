@@ -55,4 +55,16 @@ router.post('/giftcodes', adminController.generateGiftcode);
  */
 router.delete('/giftcodes/:id', adminController.deleteGiftcode);
 
+/**
+ * GET /api/admin/settings
+ * Lấy cấu hình hệ thống
+ */
+router.get('/settings', adminController.getSettings);
+
+/**
+ * PUT /api/admin/settings
+ * Cập nhật cấu hình hệ thống (ví dụ Google Analytics ID)
+ */
+router.put('/settings', adminController.updateSettings);
+
 module.exports = router;
