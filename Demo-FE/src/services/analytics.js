@@ -2,6 +2,7 @@ import api from './api';
 
 // Cache the measurement ID
 let activeMeasurementId = null;
+let firstPageTracked = false;
 
 /**
  * Dynamically inject Google Analytics scripts into the page
@@ -17,6 +18,7 @@ export function initGA(measurementId) {
   if (existingScript2) existingScript2.remove();
 
   activeMeasurementId = measurementId;
+  firstPageTracked = false; // reset flag on new init
 
   // 1. Inject gtag.js script
   const script1 = document.createElement('script');
@@ -30,11 +32,10 @@ export function initGA(measurementId) {
   script2.id = 'google-analytics-init';
   script2.innerHTML = `
     window.dataLayer = window.dataLayer || [];
-    window.gtag = function(){window.dataLayer.push(arguments);}
-    window.gtag('js', new Date());
-    window.gtag('config', '${measurementId}', {
-      send_page_view: false // We will track page views manually on route changes
-    });
+    function gtag(){window.dataLayer.push(arguments);}
+    window.gtag = gtag;
+    gtag('js', new Date());
+    gtag('config', '${measurementId}');
   `;
   document.head.appendChild(script2);
   
@@ -47,6 +48,13 @@ export function initGA(measurementId) {
  */
 export function logPageView(path) {
   if (typeof window !== 'undefined' && window.gtag && activeMeasurementId) {
+    // Ngăn chặn trùng lặp view đầu tiên do lệnh config của GA đã tự động bắn 1 lần khi load trang.
+    if (!firstPageTracked) {
+      firstPageTracked = true;
+      console.log(`[Google Analytics] Lượt xem trang đầu tiên được xử lý tự động bởi thẻ cấu hình: ${path}`);
+      return;
+    }
+
     window.gtag('event', 'page_view', {
       page_path: path,
       page_title: document.title,
