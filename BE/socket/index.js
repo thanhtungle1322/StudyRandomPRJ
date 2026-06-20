@@ -1,6 +1,8 @@
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
-const matchmaking = require('../services/matchmaking');
+const matchmakingService = require('../services/matchmaking');
+const matchmaking = matchmakingService;
+const { QUICK_MATCH_SUBJECT } = matchmakingService;
 const config = require('../config');
 const User = require('../models/User');
 const Friendship = require('../models/Friendship');
@@ -99,6 +101,66 @@ module.exports = function setupSocket(io) {
     } catch (_) {}
   });
 
+  // Relay sự kiện nới lỏng tiêu chí về đúng client đối tượng
+  matchmaking.on('queue:relaxed', ({ socketId, level }) => {
+    const sock = io.sockets.sockets.get(socketId);
+    if (sock) {
+      sock.emit('queue_relaxed', { level });
+      console.log(`[Socket][Observer] queue:relaxed → socket ${socketId}, level=${level}`);
+    }
+  });
+
+  // Xử lý kết quả ghép lại sau khi nới lỏng tiêu chí (cùng logic với match thông thường)
+  matchmaking.on('match:retry_found', async ({ roomId, user1, user2, subject }) => {
+    console.log(`[Socket][Observer] match:retry_found — Room ${roomId}`);
+    const socket1 = io.sockets.sockets.get(user1.socketId);
+    const socket2 = io.sockets.sockets.get(user2.socketId);
+
+    if (socket1) socket1.join(roomId);
+    if (socket2) socket2.join(roomId);
+
+    const premiumService = require('../services/premiumService');
+
+    // Track daily match count
+    for (const mu of [user1, user2]) {
+      try {
+        const muDb = await User.findById(mu.user.userId);
+        if (muDb) {
+          const limits = premiumService.getLimitsForTier(muDb.premiumTier || 'none');
+          if (limits.dailyMatches !== Infinity) {
+            const today = new Date().toISOString().split('T')[0];
+            if (muDb.lastMatchDate !== today) {
+              muDb.dailyMatchCount = 1;
+              muDb.lastMatchDate = today;
+            } else {
+              muDb.dailyMatchCount += 1;
+            }
+            await muDb.save();
+          }
+        }
+      } catch (_) {}
+    }
+
+    const getSessionLimit = async (uid) => {
+      try {
+        const u = await User.findById(uid);
+        if (!u) return 30;
+        const limits = premiumService.getLimitsForTier(u.premiumTier || 'none');
+        return limits.sessionMinutes === Infinity ? null : limits.sessionMinutes;
+      } catch (_) { return 30; }
+    };
+
+    const user1Limit = await getSessionLimit(user1.user.userId);
+    const user2Limit = await getSessionLimit(user2.user.userId);
+
+    if (socket1) {
+      socket1.emit('matched', { roomId, subject, partner: user2.user, sessionTimeLimit: user1Limit });
+    }
+    if (socket2) {
+      socket2.emit('matched', { roomId, subject, partner: user1.user, sessionTimeLimit: user2Limit });
+    }
+  });
+
   // ================================================================
   // SOCKET CONNECTIONS
   // ================================================================
@@ -129,8 +191,8 @@ module.exports = function setupSocket(io) {
     // MATCHMAKING
     // ========================
 
-    socket.on('join_queue', async ({ subjectId }) => {
-      console.log(`[Socket] ${username} joining queue for ${subjectId}`);
+    socket.on('join_queue', async ({ subjectId, skillLevel = 'any', goal = 'any' }) => {
+      console.log(`[Socket] ${username} joining queue for ${subjectId} [skill=${skillLevel}, goal=${goal}]`);
 
       let dbUser = null;
       // ---- Check free plan limits ----
@@ -158,7 +220,9 @@ module.exports = function setupSocket(io) {
         plan: dbUser ? dbUser.plan : 'free',
         badges: dbUser ? dbUser.badges : [],
         reputation: dbUser ? dbUser.reputation : 5.0,
-        ratingCount: dbUser ? dbUser.ratingCount : 0
+        ratingCount: dbUser ? dbUser.ratingCount : 0,
+        skillLevel,  // Thêm mới: trình độ môn học
+        goal,        // Thêm mới: mục tiêu buổi học
       };
 
       const match = matchmaking.addToQueue(subjectId, socket.id, freshSocketUser);
@@ -235,6 +299,119 @@ module.exports = function setupSocket(io) {
     socket.on('leave_queue', () => {
       matchmaking.removeFromQueue(socket.id);
       socket.emit('queue_left', { message: 'Đã rời hàng đợi' });
+    });
+
+    // ========================
+    // QUICK MATCH (Ghép Nhanh)
+    // ========================
+
+    socket.on('join_quick_queue', async () => {
+      console.log(`[Socket] ${username} joining QUICK queue`);
+
+      let dbUser = null;
+      // ---- Kiểm tra giới hạn lượt ghép (cùng logic với join_queue) ----
+      try {
+        dbUser = await User.findById(userId);
+        const premiumService = require('../services/premiumService');
+        const limitCheck = await premiumService.checkMatchLimit(userId);
+
+        if (!limitCheck.allowed) {
+          socket.emit('match_limit_reached', {
+            message: 'Bạn đã hết lượt tìm bạn học hôm nay. Nâng cấp Premium để có thêm lượt ghép học!',
+            remaining: 0,
+            limit: limitCheck.limit,
+          });
+          return;
+        }
+      } catch (err) {
+        console.error('[Socket] Error checking match limits (quick):', err.message);
+      }
+
+      const freshSocketUser = {
+        userId,
+        username,
+        avatar: dbUser ? dbUser.avatar : avatar,
+        plan: dbUser ? dbUser.plan : 'free',
+        badges: dbUser ? dbUser.badges : [],
+        reputation: dbUser ? dbUser.reputation : 5.0,
+        ratingCount: dbUser ? dbUser.ratingCount : 0,
+        skillLevel: 'any',  // Quick match không dùng filter
+        goal: 'any',
+      };
+
+      // addToQueue sẽ tự bỏ qua relax timer cho QUICK_MATCH_SUBJECT
+      const match = matchmaking.addToQueue(QUICK_MATCH_SUBJECT, socket.id, freshSocketUser);
+
+      if (match) {
+        const { roomId, user1, user2 } = match;
+
+        const socket1 = io.sockets.sockets.get(user1.socketId);
+        const socket2 = io.sockets.sockets.get(user2.socketId);
+
+        if (socket1) socket1.join(roomId);
+        if (socket2) socket2.join(roomId);
+
+        // ---- Tính dailyMatchCount cho cả 2 user ----
+        const premiumService = require('../services/premiumService');
+        for (const mu of [user1, user2]) {
+          try {
+            const muDb = await User.findById(mu.user.userId);
+            if (muDb) {
+              const limits = premiumService.getLimitsForTier(muDb.premiumTier || 'none');
+              if (limits.dailyMatches !== Infinity) {
+                const today = new Date().toISOString().split('T')[0];
+                if (muDb.lastMatchDate !== today) {
+                  muDb.dailyMatchCount = 1;
+                  muDb.lastMatchDate = today;
+                } else {
+                  muDb.dailyMatchCount += 1;
+                }
+                await muDb.save();
+              }
+            }
+          } catch (_) {}
+        }
+
+        // ---- Lấy giới hạn thời gian phiên ----
+        const getSessionLimit = async (uid) => {
+          try {
+            const u = await User.findById(uid);
+            if (!u) return 30;
+            const limits = premiumService.getLimitsForTier(u.premiumTier || 'none');
+            return limits.sessionMinutes === Infinity ? null : limits.sessionMinutes;
+          } catch (_) { return 30; }
+        };
+
+        const user1Limit = await getSessionLimit(user1.user.userId);
+        const user2Limit = await getSessionLimit(user2.user.userId);
+
+        if (socket1) {
+          socket1.emit('matched', {
+            roomId,
+            subject: QUICK_MATCH_SUBJECT,   // FE sẽ hiển thị thành "Học Tự Do"
+            partner: user2.user,
+            sessionTimeLimit: user1Limit,
+            isQuickMatch: true,
+          });
+        }
+        if (socket2) {
+          socket2.emit('matched', {
+            roomId,
+            subject: QUICK_MATCH_SUBJECT,
+            partner: user1.user,
+            sessionTimeLimit: user2Limit,
+            isQuickMatch: true,
+          });
+        }
+
+        console.log(`[Socket] Quick room ${roomId} created for ${user1.user.username} & ${user2.user.username}`);
+      } else {
+        socket.emit('waiting', {
+          message: 'Đang tìm bạn học...',
+          queueStats: matchmaking.getQueueStats(),
+          isQuickMatch: true,
+        });
+      }
     });
 
     // ========================

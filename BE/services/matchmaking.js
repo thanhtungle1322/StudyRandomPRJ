@@ -3,6 +3,10 @@ const EventEmitter = require('events');
 const config = require('../config');
 const Session = require('../models/Session');
 
+// Hằng số đặc biệt cho chế độ Ghép Nhanh (không cần chọn môn)
+const QUICK_MATCH_SUBJECT = '__quick__';
+module.exports.QUICK_MATCH_SUBJECT = QUICK_MATCH_SUBJECT;
+
 /**
  * MatchmakingService - Observer Pattern
  * 
@@ -21,25 +25,26 @@ const Session = require('../models/Session');
 class MatchmakingService extends EventEmitter {
   constructor() {
     super();
-    // Hàng đợi: key = subjectId, value = array of { socketId, user }
+    // Hàng đợi: key = subjectId, value = array of { socketId, user, joinedAt }
     this.queues = {};
     // Phòng học đang hoạt động: key = roomId, value = room object
     this.activeRooms = {};
     // Auto-disconnect timers: key = roomId, value = setTimeout ID
     this.disconnectTimers = {};
+    // Relax timers: key = socketId, value = { t1: TimeoutID, t2: TimeoutID }
+    this.relaxTimers = {};
   }
 
   /**
    * Thêm user vào hàng đợi theo môn học
    */
   addToQueue(subjectId, socketId, user) {
+    // Tự động xóa socket khỏi hàng đợi cũ (hoặc môn học khác) trước khi thêm mới
+    this.removeFromQueue(socketId);
+
     if (!this.queues[subjectId]) {
       this.queues[subjectId] = [];
     }
-
-    // Kiểm tra socket đã trong queue chưa
-    const existingSocket = this.queues[subjectId].find((q) => q.socketId === socketId);
-    if (existingSocket) return null;
 
     // === FIX: Chặn cùng 1 userId vào queue 2 lần (VD: mở 2 tab/2 máy) ===
     const existingUser = this.queues[subjectId].find((q) => q.user.userId === user.userId);
@@ -48,11 +53,17 @@ class MatchmakingService extends EventEmitter {
       return null;
     }
 
-    this.queues[subjectId].push({ socketId, user });
-    console.log(`[Matchmaking] ${user.username} joined queue for ${subjectId}. Queue size: ${this.queues[subjectId].length}`);
+    const entry = { socketId, user, joinedAt: Date.now() };
+    this.queues[subjectId].push(entry);
+    console.log(`[Matchmaking] ${user.username} joined queue for ${subjectId} [skill=${user.skillLevel||'any'}, goal=${user.goal||'any'}]. Queue size: ${this.queues[subjectId].length}`);
 
     this.emit('user:queued', { subjectId, socketId, user });
     this.emit('stats:updated', { queueStats: this.getQueueStats() });
+
+    // Quick match không cần relax timer (đã ghép bất kỳ ai từ đầu)
+    if (subjectId !== QUICK_MATCH_SUBJECT) {
+      this._startRelaxTimers(subjectId, socketId);
+    }
 
     return this.tryMatch(subjectId);
   }
@@ -68,6 +79,8 @@ class MatchmakingService extends EventEmitter {
       if (this.queues[subjectId].length < before) removed = true;
     }
     if (removed) {
+      // Huỷ relax timers khi user rời queue
+      this._clearRelaxTimers(socketId);
       this.emit('user:dequeued', { socketId });
       this.emit('stats:updated', { queueStats: this.getQueueStats() });
     }
@@ -76,44 +89,115 @@ class MatchmakingService extends EventEmitter {
   /**
    * Thử ghép đôi 2 user cùng môn
    */
+  /**
+   * Tính điểm phù hợp giữa 2 user trong queue
+   * Score cao = phù hợp hơn → được ghép ưu tiên
+   */
+  _calculateMatchScore(entry1, entry2) {
+    const u1 = entry1.user;
+    const u2 = entry2.user;
+
+    // Xác định mức độ nới lỏng dựa trên thời gian chờ của người chờ lâu hơn
+    const waitTime = Math.max(
+      Date.now() - (entry1.joinedAt || Date.now()),
+      Date.now() - (entry2.joinedAt || Date.now())
+    );
+    const relaxLevel = waitTime > 120000 ? 2 : waitTime > 60000 ? 1 : 0;
+
+    let score = 100; // base score
+
+    // ---- Skill Level (Trình độ) ----
+    const s1 = u1.skillLevel || 'any';
+    const s2 = u2.skillLevel || 'any';
+    if (s1 === s2) {
+      // Khớp chính xác trình độ (bao gồm cả khi cả hai cùng chọn 'any')
+      score += 50;
+    } else {
+      // Lệch trình độ (bao gồm cả khi một bên chọn 'any' và bên kia chọn cụ thể)
+      if (relaxLevel >= 2) {
+        // Đã nới lỏng hoàn toàn do chờ lâu
+        score += 0;
+      } else {
+        // Chưa nới lỏng -> phạt cực nặng để tránh ghép ngay
+        score += relaxLevel >= 1 ? -80 : -150;
+      }
+    }
+
+    // ---- Session Goal (Mục tiêu buổi học) ----
+    const g1 = u1.goal || 'any';
+    const g2 = u2.goal || 'any';
+    if (g1 === g2) {
+      // Khớp chính xác mục tiêu (bao gồm cả khi cả hai cùng chọn 'any')
+      score += 30;
+    } else {
+      // Lệch mục tiêu
+      if (relaxLevel >= 1) {
+        score += 0;
+      } else {
+        score += -30;
+      }
+    }
+
+    // ---- Reputation Proximity (+20 điểm) ----
+    const repDiff = Math.abs((u1.reputation || 5) - (u2.reputation || 5));
+    score += Math.max(0, 20 - repDiff * 5);
+
+    return score;
+  }
+
   tryMatch(subjectId) {
     if (!this.queues[subjectId] || this.queues[subjectId].length < 2) {
       return null;
     }
 
-    // Select the first user in the queue
+    // Lấy người đầu tiên trong queue
     const user1 = this.queues[subjectId].shift();
-    
+
     // === FIX: Loại bỏ tất cả entries cùng userId với user1 (phòng trường hợp race condition) ===
     this.queues[subjectId] = this.queues[subjectId].filter(q => q.user.userId !== user1.user.userId);
 
     if (this.queues[subjectId].length === 0) {
       // Không còn ai khác để ghép → đưa user1 lại vào queue
-      this.queues[subjectId].push(user1);
+      this.queues[subjectId].unshift(user1);
       return null;
     }
 
-    // Dynamically find a partner with the closest reputation score to user1 to ensure high compatibility
+    // Tìm ứng viên có điểm phù hợp cao nhất
+    let bestScore = -Infinity;
     let bestPartnerIndex = 0;
-    let minRepDiff = Infinity;
-    const u1Rep = user1.user.reputation !== undefined ? user1.user.reputation : 5.0;
 
     for (let i = 0; i < this.queues[subjectId].length; i++) {
       const candidate = this.queues[subjectId][i];
       // === FIX: Bỏ qua nếu cùng userId (chống ghép với chính mình) ===
       if (candidate.user.userId === user1.user.userId) continue;
-      const u2Rep = candidate.user.reputation !== undefined 
-        ? candidate.user.reputation 
-        : 5.0;
-      const diff = Math.abs(u1Rep - u2Rep);
-      if (diff < minRepDiff) {
-        minRepDiff = diff;
+
+      const score = this._calculateMatchScore(user1, candidate);
+      if (score > bestScore) {
+        bestScore = score;
         bestPartnerIndex = i;
       }
     }
 
+    // Xác định ngưỡng điểm tối thiểu theo thời gian chờ
+    const waitTime1 = Date.now() - (user1.joinedAt || Date.now());
+    const isFullyRelaxed = waitTime1 > 120000;
+    const MIN_SCORE = isFullyRelaxed ? -Infinity : 50; // Nếu đã chờ >120s → ghép bất kỳ ai
+
+    if (bestScore < MIN_SCORE) {
+      // Chưa tìm được partner phù hợp → đưa user1 lại vào đầu queue
+      this.queues[subjectId].unshift(user1);
+      console.log(`[Matchmaking] 🕐 No suitable match for ${user1.user.username} (bestScore=${bestScore}, min=${MIN_SCORE}). Waiting...`);
+      return null;
+    }
+
     // Extract the matched partner from the queue
     const user2 = this.queues[subjectId].splice(bestPartnerIndex, 1)[0];
+
+    // Huỷ relax timers cho cả 2 user đã ghép
+    this._clearRelaxTimers(user1.socketId);
+    this._clearRelaxTimers(user2.socketId);
+
+    console.log(`[Matchmaking] 🎯 Score=${bestScore} | skill: ${user1.user.skillLevel||'any'}↔${user2.user.skillLevel||'any'} | goal: ${user1.user.goal||'any'}↔${user2.user.goal||'any'}`);
 
     const roomId = crypto.randomUUID();
 
@@ -340,6 +424,62 @@ class MatchmakingService extends EventEmitter {
       } catch (err) {
         console.error(`[Matchmaking] Error refunding user ${userId}:`, err.message);
       }
+    }
+  }
+
+  // ========================
+  // RELAX TIMERS
+  // ========================
+
+  /**
+   * Bắt đầu 2 timer relax cho user:
+   *  - t1 (60s): nới lỏng filter goal → thử ghép lại
+   *  - t2 (120s): nới lỏng hoàn toàn → thử ghép lại
+   */
+  _startRelaxTimers(subjectId, socketId) {
+    this._clearRelaxTimers(socketId);
+
+    const t1 = setTimeout(() => {
+      // Kiểm tra user vẫn còn trong queue
+      const stillInQueue = this.queues[subjectId]?.some(q => q.socketId === socketId);
+      if (!stillInQueue) return;
+
+      console.log(`[Matchmaking] ⏳ Relax Level 1 for socket ${socketId} (60s wait)`);
+      this.emit('queue:relaxed', { socketId, level: 1 });
+
+      // Thử ghép lại với tiêu chí nới lỏng
+      const match = this.tryMatch(subjectId);
+      if (match) {
+        // Socket layer sẽ xử lý emit 'matched' như bình thường
+        this.emit('match:retry_found', match);
+      }
+    }, 60000);
+
+    const t2 = setTimeout(() => {
+      const stillInQueue = this.queues[subjectId]?.some(q => q.socketId === socketId);
+      if (!stillInQueue) return;
+
+      console.log(`[Matchmaking] ⏳ Relax Level 2 for socket ${socketId} (120s wait)`);
+      this.emit('queue:relaxed', { socketId, level: 2 });
+
+      // Thử ghép lại — lúc này isFullyRelaxed = true, ghép với bất kỳ ai
+      const match = this.tryMatch(subjectId);
+      if (match) {
+        this.emit('match:retry_found', match);
+      }
+    }, 120000);
+
+    this.relaxTimers[socketId] = { t1, t2 };
+  }
+
+  /**
+   * Huỷ relax timers của một socket
+   */
+  _clearRelaxTimers(socketId) {
+    if (this.relaxTimers[socketId]) {
+      clearTimeout(this.relaxTimers[socketId].t1);
+      clearTimeout(this.relaxTimers[socketId].t2);
+      delete this.relaxTimers[socketId];
     }
   }
 

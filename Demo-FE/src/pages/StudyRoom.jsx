@@ -291,6 +291,7 @@ export default function StudyRoom({ propRoomId }) {
     python: 'Lập trình Python', react: 'React / Frontend', database: 'Cơ sở dữ liệu',
     algorithm: 'Thuật toán', physics: 'Vật lý', triet: 'Triết học',
     lichsu: 'Lịch sử', diali: 'Địa lí',
+    '__quick__': 'Học Tự Do 🎯',  // Chế độ Ghép Nhanh không theo môn học
   };
 
   const addSystemMessage = useCallback((text) => {
