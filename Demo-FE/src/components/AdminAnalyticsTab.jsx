@@ -44,8 +44,8 @@ export default function AdminAnalyticsTab() {
   // Simulated Analytics States (Presentation Mode)
   const [realtimeUsers, setRealtimeUsers] = useState(14);
   const [pageViews, setPageViews] = useState(4829);
-  const [avgDuration, setAvgDuration] = useState('12m 45s');
-  const [bounceRate, setBounceRate] = useState('24.8%');
+  const [avgDuration] = useState('12m 45s');
+  const [bounceRate] = useState('24.8%');
   const [matchCount, setMatchCount] = useState(382);
   
   // Real-time scrolling events log
@@ -194,7 +194,7 @@ export default function AdminAnalyticsTab() {
   const pctUltimate = Math.round(((realStats.premiumTiers?.ultimate || 0) / totalTiers) * 100);
 
   return (
-    <div className="analytics-tab-wrapper">
+    <div className="analytics-tab-wrapper" aria-busy={loadingRealStats}>
       {/* Settings & Config Bar */}
       <div className="analytics-settings-row">
         <div className="analytics-mode-toggle" onClick={() => setIsDemoMode(!isDemoMode)}>

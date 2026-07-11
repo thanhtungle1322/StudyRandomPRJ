@@ -4,15 +4,9 @@ import { FiUsers, FiCrosshair, FiMail, FiPlusCircle, FiBarChart2, FiAlertCircle,
 import { FaCircle } from 'react-icons/fa';
 import { getSocket, connectSocket } from '../services/socket';
 import api from '../services/api';
-import backgroundDashboard from '../../background/backgroundDashboard.png';
+import { SUBJECTS } from '../data/subjects';
+import backgroundDashboard from '../../background/backgroundDashboard.webp';
 import './FriendsPage.css';
-
-const subjectNames = {
-  math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
-  python: 'Lập trình Python', react: 'React / Frontend', database: 'Cơ sở dữ liệu',
-  algorithm: 'Thuật toán', physics: 'Vật lý', triet: 'Triết học',
-  lichsu: 'Lịch sử', diali: 'Địa lí',
-};
 
 export default function FriendsPage() {
   const navigate = useNavigate();
@@ -25,32 +19,49 @@ export default function FriendsPage() {
   const [activeTab, setActiveTab] = useState('friends'); // 'friends' hoặc 'pending'
   const [pendingRequests, setPendingRequests] = useState([]);
   const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingError, setPendingError] = useState('');
 
   // Search states
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [actionStatus, setActionStatus] = useState({}); // { [userId]: 'sending' | 'sent' | 'error' }
 
-  const handleSearchUsers = async (val) => {
-    setSearchQuery(val);
-    if (!val.trim()) {
+  useEffect(() => {
+    const query = searchQuery.trim();
+    if (query.length < 2) {
       setSearchResults([]);
-      return;
+      setSearchLoading(false);
+      setSearchError('');
+      return undefined;
     }
 
-    setSearchLoading(true);
-    try {
-      const { data } = await api.get(`/users/search?q=${encodeURIComponent(val)}`);
-      if (data.success) {
-        setSearchResults(data.users);
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      setSearchError('');
+      try {
+        const { data } = await api.get(`/users/search?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (data.success) setSearchResults(data.users);
+      } catch (err) {
+        if (err.code !== 'ERR_CANCELED') {
+          console.error('Failed to search users:', err);
+          setSearchResults([]);
+          setSearchError('Không thể tìm người dùng lúc này.');
+        }
+      } finally {
+        if (!controller.signal.aborted) setSearchLoading(false);
       }
-    } catch (err) {
-      console.error('Failed to search users:', err);
-    } finally {
-      setSearchLoading(false);
-    }
-  };
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [searchQuery]);
 
   const handleSendFriendRequest = async (recipientId) => {
     setActionStatus((prev) => ({ ...prev, [recipientId]: 'sending' }));
@@ -91,12 +102,14 @@ export default function FriendsPage() {
   const fetchPendingRequests = useCallback(async () => {
     try {
       setPendingLoading(true);
+      setPendingError('');
       const { data } = await api.get('/friends/pending');
       if (data.success) {
         setPendingRequests(data.requests);
       }
     } catch (err) {
       console.error('Failed to fetch pending requests:', err);
+      setPendingError('Không thể tải lời mời kết bạn');
     } finally {
       setPendingLoading(false);
     }
@@ -210,6 +223,8 @@ export default function FriendsPage() {
     return 'offline';
   };
 
+  const activeError = activeTab === 'friends' ? error : pendingError;
+
   return (
     <div className="friends-page" style={{ backgroundImage: `url(${backgroundDashboard})` }}>
       <div className="friends-overlay" />
@@ -226,72 +241,39 @@ export default function FriendsPage() {
           {/* Friend list */}
           <div className="friends-list">
             {/* Tab Selector */}
-            <div className="friends-tabs" style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '8px' }}>
+            <div className="friends-tabs" role="tablist" aria-label="Danh sách bạn bè">
               <button 
                 className={`tab-btn ${activeTab === 'friends' ? 'active' : ''}`}
                 onClick={() => setActiveTab('friends')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: activeTab === 'friends' ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  padding: '8px 16px',
-                  borderBottom: activeTab === 'friends' ? '2px solid #ffffff' : '2px solid transparent',
-                  transition: 'all 0.3s ease'
-                }}
+                role="tab"
+                aria-selected={activeTab === 'friends'}
               >
                 Bạn bè ({friends.length})
               </button>
               <button 
                 className={`tab-btn ${activeTab === 'pending' ? 'active' : ''}`}
                 onClick={() => setActiveTab('pending')}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: activeTab === 'pending' ? '#ffffff' : 'rgba(255,255,255,0.6)',
-                  fontSize: '16px',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  padding: '8px 16px',
-                  borderBottom: activeTab === 'pending' ? '2px solid #ffffff' : '2px solid transparent',
-                  position: 'relative',
-                  transition: 'all 0.3s ease'
-                }}
+                role="tab"
+                aria-selected={activeTab === 'pending'}
               >
                 Lời mời kết bạn
                 {pendingRequests.length > 0 && (
-                  <span style={{
-                    position: 'absolute',
-                    top: '-4px',
-                    right: '-4px',
-                    background: '#ff6b6b',
-                    color: 'white',
-                    borderRadius: '50%',
-                    width: '18px',
-                    height: '18px',
-                    fontSize: '10px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontWeight: 'bold'
-                  }}>
+                  <span className="friends-tab-badge">
                     {pendingRequests.length}
                   </span>
                 )}
               </button>
             </div>
 
-            {loading && (
+            {(activeTab === 'friends' ? loading : pendingLoading) && (
               <div className="friends-loading">
-                <FiLoader className="spin-icon" /> Đang tải dữ liệu...
+                <FiLoader className="app-spin" /> Đang tải dữ liệu...
               </div>
             )}
 
-            {error && (
+            {activeError && (
               <div className="friends-error">
-                <FiAlertCircle /> {error}
+                <FiAlertCircle /> {activeError}
                 <button onClick={activeTab === 'friends' ? fetchFriends : fetchPendingRequests} className="btn-retry">Thử lại</button>
               </div>
             )}
@@ -362,7 +344,7 @@ export default function FriendsPage() {
                           }}
                         >
                           <option value="" disabled>Chọn môn học...</option>
-                          {Object.entries(subjectNames).map(([id, name]) => (
+                          {SUBJECTS.map(({ id, name }) => (
                             <option key={id} value={id}>{name}</option>
                           ))}
                         </select>
@@ -380,7 +362,7 @@ export default function FriendsPage() {
                         onClick={() => setShowSubjectPicker(friend.user._id)}
                       >
                         {invitingId === friend.user._id ? (
-                          <><FiLoader className="spin-icon" /> Đang mời...</>
+                          <><FiLoader className="app-spin" /> Đang mời...</>
                         ) : (
                           <><FiMail /> Mời học</>
                         )}
@@ -400,7 +382,7 @@ export default function FriendsPage() {
             })}
 
             {/* Pending Requests Tab Content */}
-            {activeTab === 'pending' && !loading && !error && pendingRequests.length === 0 && (
+            {activeTab === 'pending' && !pendingLoading && !error && pendingRequests.length === 0 && (
               <div className="friends-empty">
                 <span className="friends-empty-icon">🔔</span>
                 <h3>Không có lời mời nào</h3>
@@ -408,7 +390,7 @@ export default function FriendsPage() {
               </div>
             )}
 
-            {activeTab === 'pending' && !loading && pendingRequests.map((req) => {
+            {activeTab === 'pending' && !pendingLoading && pendingRequests.map((req) => {
               const reqAvatarSrc = req.requester.avatar 
                 || `https://api.dicebear.com/7.x/avataaars/svg?seed=${req.requester.displayName}`;
               return (
@@ -464,7 +446,8 @@ export default function FriendsPage() {
                 className="input-field"
                 placeholder="VD: Nguyễn Văn A..."
                 value={searchQuery}
-                onChange={(e) => handleSearchUsers(e.target.value)}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Tìm người dùng"
                 style={{ width: '100%', marginBottom: '16px' }}
               />
 
@@ -472,13 +455,13 @@ export default function FriendsPage() {
               <div className="search-results-list" style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '280px', overflowY: 'auto' }}>
                 {searchLoading && (
                   <div style={{ textAlign: 'center', padding: '10px', fontSize: '13px', opacity: 0.6 }}>
-                    <FiLoader className="spin-icon animate-spin" /> Đang tìm kiếm...
+                    <FiLoader className="app-spin" /> Đang tìm kiếm...
                   </div>
                 )}
 
                 {!searchLoading && searchQuery.trim() && searchResults.length === 0 && (
                   <div style={{ textAlign: 'center', padding: '10px', fontSize: '13px', opacity: 0.6 }}>
-                    Không tìm thấy người dùng nào.
+                    {searchError || 'Không tìm thấy người dùng nào.'}
                   </div>
                 )}
 
@@ -514,7 +497,7 @@ export default function FriendsPage() {
                             onClick={() => handleSendFriendRequest(usr._id)}
                           >
                             {status === 'sending' ? (
-                              <FiLoader className="spin-icon animate-spin" />
+                              <FiLoader className="app-spin" />
                             ) : (
                               <><FiPlusCircle /> Kết bạn</>
                             )}

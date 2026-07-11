@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '../context/auth-context';
 import {
   FiClock, FiSearch, FiZap, FiAward, FiUser,
 } from 'react-icons/fi';
 import { FaTrophy, FaFire, FaMedal, FaStar } from 'react-icons/fa';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import backgroundLogin from '../../background/backgroundLogin.webp';
+import api from '../services/api';
 import './LeaderboardPage.css';
 
 export default function LeaderboardPage() {
@@ -12,29 +13,34 @@ export default function LeaderboardPage() {
 
   const [allUsers, setAllUsers]     = useState([]);
   const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState('');
   const [sortBy, setSortBy]         = useState('totalStudyMinutes');
   const [searchQuery, setSearchQuery] = useState('');
 
+  const fetchLeaderboard = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await api.get('/users/leaderboard', {
+        params: { sortBy: 'totalStudyMinutes', limit: 100 },
+      });
+      if (!data.success) throw new Error(data.message || 'Không thể tải bảng xếp hạng');
+      setAllUsers(data.data);
+    } catch (err) {
+      console.error('Failed to fetch leaderboard:', err);
+      setError('Không thể tải bảng xếp hạng. Vui lòng kiểm tra kết nối và thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   /* ---- Fetch once on mount ---- */
   useEffect(() => {
-    const fetchLeaderboard = async () => {
-      setLoading(true);
-      try {
-        const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-        const res  = await fetch(`${apiUrl}/users/leaderboard?sortBy=totalStudyMinutes&limit=100`);
-        const data = await res.json();
-        if (data.success) setAllUsers(data.data);
-      } catch (err) {
-        console.error('Failed to fetch leaderboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchLeaderboard();
     if (refreshUser) {
       refreshUser();
     }
-  }, [refreshUser]);
+  }, [fetchLeaderboard, refreshUser]);
 
   /* ---- Client-side sort + search ---- */
   const displayUsers = useMemo(() => {
@@ -190,6 +196,12 @@ export default function LeaderboardPage() {
             <div className="lb-loading">
               <div className="lb-spinner" />
               Đang tải bảng xếp hạng...
+            </div>
+          ) : error ? (
+            <div className="lb-error" role="alert">
+              <FiAward className="lb-empty-icon" />
+              <p>{error}</p>
+              <button type="button" className="lb-retry-btn" onClick={fetchLeaderboard}>Thử lại</button>
             </div>
           ) : displayUsers.length === 0 ? (
             <div className="lb-empty">

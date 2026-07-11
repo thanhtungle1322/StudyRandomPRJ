@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
 import api from '../services/api';
+import { getSubjectName } from '../data/subjects';
 import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck, FiTv, FiPlay, FiPause, FiRotateCcw, FiCoffee, FiTarget, FiEdit3 } from 'react-icons/fi';
 import { FaCircle } from 'react-icons/fa';
 import WhiteboardPanel from '../components/WhiteboardPanel';
@@ -30,7 +31,7 @@ export default function StudyRoom({ propRoomId }) {
 
   const [isMuted, setIsMuted] = useState(true);
   const [isVideoOff, setIsVideoOff] = useState(true);
-  const [showChat, setShowChat] = useState(true);
+  const [showChat, setShowChat] = useState(() => window.innerWidth > 900);
   const [showWhiteboard, setShowWhiteboard] = useState(false);
   const [whiteboardHasBeenOpened, setWhiteboardHasBeenOpened] = useState(false);
   const [partnerHasVideo, setPartnerHasVideo] = useState(false);
@@ -52,7 +53,8 @@ export default function StudyRoom({ propRoomId }) {
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
-  const [sessionStartTime] = useState(Date.now());
+  const [reviewError, setReviewError] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   // Trạng thái kết bạn với partner
   const [friendStatus, setFriendStatus] = useState('none');
@@ -151,16 +153,12 @@ export default function StudyRoom({ propRoomId }) {
     
     try {
       console.log('[WebRTC] Đang xin cấp TURN Server Token từ Backend...');
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      const response = await fetch(`${apiUrl}/turn-credentials`);
-      
-      if (response.ok) {
-        turnServers = await response.json();
-        if (turnServers.length > 0) {
-          console.log('[WebRTC] Đã được Backend cấp TURN Token thành công (Thời hạn 1h) 😎');
-        } else {
-          console.warn('[WebRTC] Backend trả về rỗng. Chưa cấu hình METERED_API_KEY ở Backend?');
-        }
+      const response = await api.get('/turn-credentials');
+      turnServers = Array.isArray(response.data) ? response.data : [];
+      if (turnServers.length > 0) {
+        console.log('[WebRTC] Đã được Backend cấp TURN Token thành công.');
+      } else {
+        console.warn('[WebRTC] Backend chưa cung cấp TURN server; tiếp tục với STUN.');
       }
     } catch (error) {
       console.error('[WebRTC] Không thể kết nối tới Backend để lấy Token:', error);
@@ -232,7 +230,7 @@ export default function StudyRoom({ propRoomId }) {
     };
 
     return pc;
-  }, [roomId]);
+  }, [getIceServers, roomId]);
 
   // Bắt đầu handshake WebRTC — chỉ bên "caller" tạo offer
   const startWebRTC = useCallback(async () => {
@@ -267,7 +265,7 @@ export default function StudyRoom({ propRoomId }) {
     } else {
       console.log('[WebRTC] I am the callee, waiting for offer...');
     }
-  }, [createPeerConnection, partner, roomId, user.id]);
+  }, [createPeerConnection, partner, roomId, user]);
 
   // Cập nhật refs để socket handlers dùng (tránh stale closures)
   useEffect(() => { startWebRTCRef.current = startWebRTC; }, [startWebRTC]);
@@ -285,14 +283,6 @@ export default function StudyRoom({ propRoomId }) {
   const PhoneOffIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7 2 2 0 0 1 1.72 2v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.42 19.42 0 0 1-3.33-2.67m-2.67-3.34a19.79 19.79 0 0 1-3.07-8.63A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91" /><line x1="22" x2="2" y1="2" y2="22" /></svg>;
   const MessageIcon = () => <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m3 21 1.9-5.7a8.5 8.5 0 1 1 3.8 3.8z" /></svg>;
   const WarningIcon = () => <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z" /></svg>;
-
-  const subjectNames = {
-    math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
-    python: 'Lập trình Python', react: 'React / Frontend', database: 'Cơ sở dữ liệu',
-    algorithm: 'Thuật toán', physics: 'Vật lý', triet: 'Triết học',
-    lichsu: 'Lịch sử', diali: 'Địa lí',
-    '__quick__': 'Học Tự Do 🎯',  // Chế độ Ghép Nhanh không theo môn học
-  };
 
   const addSystemMessage = useCallback((text) => {
     setMessages((prev) => [
@@ -650,7 +640,7 @@ export default function StudyRoom({ propRoomId }) {
   };
 
   // Kích hoạt/Tắt chế độ Picture-in-Picture (Hình trong hình)
-  const handlePiP = async () => {
+  const handlePiP = useCallback(async () => {
     try {
       // 1. Kiểm tra và sử dụng Document Picture-in-Picture API (Google Meet Style)
       if ('documentPictureInPicture' in window) {
@@ -688,7 +678,7 @@ export default function StudyRoom({ propRoomId }) {
             const style = pipWindow.document.createElement('style');
             style.textContent = cssRules;
             pipWindow.document.head.appendChild(style);
-          } catch (e) {
+          } catch {
             const link = pipWindow.document.createElement('link');
             if (styleSheet.href) {
               link.rel = 'stylesheet';
@@ -751,7 +741,7 @@ export default function StudyRoom({ propRoomId }) {
     } catch (err) {
       console.warn('[PiP] Lỗi kích hoạt Picture-in-Picture:', err.message);
     }
-  };
+  }, [navigate, partnerCameraOff, roomId]);
 
   // Tự động kích hoạt Picture-in-Picture khi người dùng ẩn tab/thu nhỏ trình duyệt
   useEffect(() => {
@@ -774,7 +764,7 @@ export default function StudyRoom({ propRoomId }) {
               await handlePiP();
               return;
             }
-          } catch (e) {
+          } catch {
             console.warn('[Auto PiP] Không thể tự động mở Document PiP, chuyển hướng sang Video PiP...');
           }
 
@@ -797,7 +787,7 @@ export default function StudyRoom({ propRoomId }) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [partnerCameraOff, isDocumentPiPActive]);
+  }, [partnerCameraOff, isDocumentPiPActive, handlePiP]);
 
   // Lắng nghe thay đổi Route để gửi thông báo Trạng thái Tạm xa (user_temp_away) / Quay lại (user_back)
   useEffect(() => {
@@ -827,7 +817,7 @@ export default function StudyRoom({ propRoomId }) {
       addSystemMessage('Đã kết nối lại thành công!');
 
       const socket = getSocket();
-      socket.emit('join_room', { roomId, user });
+      socket.emit('join_room', { roomId });
 
       // Reset WebRTC và khởi động lại để tạo PeerConnection mới
       if (peerConnectionRef.current) {
@@ -853,37 +843,53 @@ export default function StudyRoom({ propRoomId }) {
     };
   }, [roomId, addSystemMessage]);
 
+  const creditStudyTime = useCallback(async () => {
+    if (!user) return;
+    try {
+      await api.post('/users/study-time', { roomId });
+    } catch (error) {
+      if (error.response?.status !== 400) {
+        console.error('Failed to submit study time', error);
+      }
+    }
+  }, [roomId, user]);
+
   useEffect(() => {
     const socket = connectSocket();
+    const ownedHandlers = [];
+    const onSocket = (event, handler) => {
+      socket.on(event, handler);
+      ownedHandlers.push([event, handler]);
+    };
 
     socket.emit('join_room', { roomId });
     socket.emit('user_back', { roomId });
     socket.emit('camera_status', { roomId, isVideoOff });
 
-    socket.on('new_message', (msg) => {
+    onSocket('new_message', (msg) => {
       setMessages((prev) => [...prev, msg]);
     });
 
-    socket.on('partner_camera_status', (data) => {
+    onSocket('partner_camera_status', (data) => {
       setPartnerCameraOff(data.isVideoOff);
     });
 
-    socket.on('partner_temp_away', (data) => {
+    onSocket('partner_temp_away', (data) => {
       setPartnerTempAway(true);
       addSystemMessage(data.message || 'Bạn học đang tạm thời chuyển trang...');
     });
 
-    socket.on('partner_back', (data) => {
+    onSocket('partner_back', (data) => {
       setPartnerTempAway(false);
       addSystemMessage(data.message || 'Bạn học đã quay lại!');
     });
 
-    socket.on('partner_left', (data) => {
+    onSocket('partner_left', (data) => {
       setPartnerLeft(true);
       addSystemMessage(data.message || 'Bạn học đã rời phòng');
     });
 
-    socket.on('partner_reconnected', (data) => {
+    onSocket('partner_reconnected', (data) => {
       setPartnerLeft(false);
       setAutoDisconnectWarning(null);
       setCountdown(0);
@@ -894,7 +900,7 @@ export default function StudyRoom({ propRoomId }) {
       addSystemMessage(data.message || 'Bạn học đã kết nối lại!');
     });
 
-    socket.on('auto_disconnect_warning', (data) => {
+    onSocket('auto_disconnect_warning', (data) => {
       setAutoDisconnectWarning(data.message);
       setCountdown(data.countdown / 1000);
 
@@ -910,7 +916,7 @@ export default function StudyRoom({ propRoomId }) {
       }, 1000);
     });
 
-    socket.on('auto_disconnect_cancelled', (data) => {
+    onSocket('auto_disconnect_cancelled', (data) => {
       setAutoDisconnectWarning(null);
       setCountdown(0);
       if (countdownRef.current) {
@@ -920,7 +926,7 @@ export default function StudyRoom({ propRoomId }) {
       addSystemMessage(data.message || 'Auto-disconnect đã hủy');
     });
 
-    socket.on('room_auto_closed', (data) => {
+    onSocket('room_auto_closed', async (data) => {
       setAutoDisconnectWarning(null);
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
@@ -929,10 +935,19 @@ export default function StudyRoom({ propRoomId }) {
       localStorage.removeItem('activeStudySession');
       window.dispatchEvent(new Event('storage'));
       addSystemMessage(data.message || 'Phòng đã tự động đóng');
+      await creditStudyTime();
       setTimeout(() => navigate('/lobby'), 2000);
     });
 
-    socket.on('room_data', (room) => {
+    onSocket('session_time_limit_reached', async (data) => {
+      localStorage.removeItem('activeStudySession');
+      window.dispatchEvent(new Event('storage'));
+      addSystemMessage(`Phiên học đã đạt giới hạn ${data.limitMinutes} phút của gói hiện tại.`);
+      await creditStudyTime();
+      setTimeout(() => navigate('/lobby'), 1800);
+    });
+
+    onSocket('room_data', (room) => {
       setSubject(room.subject);
       if (room.messages) setMessages(room.messages);
 
@@ -952,22 +967,22 @@ export default function StudyRoom({ propRoomId }) {
       }, 2000);
     });
 
-    socket.on('room_error', () => {
+    onSocket('room_error', () => {
       navigate('/lobby');
     });
 
-    socket.on('disconnect', () => {
+    onSocket('disconnect', () => {
       setConnected(false);
     });
 
-    socket.on('connect', () => {
+    onSocket('connect', () => {
       setConnected(true);
       setReconnecting(false);
-      socket.emit('join_room', { roomId, user });
+      socket.emit('join_room', { roomId });
     });
 
     // === FRIEND STATUS UPDATES ===
-    socket.on('friend:request_accepted', (data) => {
+    onSocket('friend:request_accepted', (data) => {
       const partnerId = partner?.userId || partner?.id || partner?._id;
       if (data.friend?._id === partnerId) {
         setFriendStatus('accepted');
@@ -975,7 +990,7 @@ export default function StudyRoom({ propRoomId }) {
       }
     });
 
-    socket.on('friend:request_received', (data) => {
+    onSocket('friend:request_received', (data) => {
       const partnerId = partner?.userId || partner?.id || partner?._id;
       if (data.requester?._id === partnerId) {
         setFriendStatus('pending_received');
@@ -985,7 +1000,7 @@ export default function StudyRoom({ propRoomId }) {
     });
 
     // === WEBRTC SIGNALING ===
-    socket.on('webrtc_offer', async ({ offer }) => {
+    onSocket('webrtc_offer', async ({ offer }) => {
       try {
         console.log('[WebRTC] Received offer, creating answer...');
         let pc = peerConnectionRef.current;
@@ -993,6 +1008,12 @@ export default function StudyRoom({ propRoomId }) {
           pc = await createPCRef.current();
         }
         if (!pc) return;
+        if (pc.signalingState === 'have-local-offer') {
+          await pc.setLocalDescription({ type: 'rollback' });
+        } else if (pc.signalingState !== 'stable') {
+          console.debug(`[WebRTC] Ignoring offer in ${pc.signalingState} state`);
+          return;
+        }
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
@@ -1013,11 +1034,15 @@ export default function StudyRoom({ propRoomId }) {
       }
     });
 
-    socket.on('webrtc_answer', async ({ answer }) => {
+    onSocket('webrtc_answer', async ({ answer }) => {
       try {
         console.log('[WebRTC] Received answer');
         if (peerConnectionRef.current) {
           const pc = peerConnectionRef.current;
+          if (pc.signalingState !== 'have-local-offer') {
+            console.debug(`[WebRTC] Ignoring stale answer in ${pc.signalingState} state`);
+            return;
+          }
           await pc.setRemoteDescription(new RTCSessionDescription(answer));
 
           // Process queued ICE candidates
@@ -1035,7 +1060,7 @@ export default function StudyRoom({ propRoomId }) {
       }
     });
 
-    socket.on('webrtc_ice_candidate', async ({ candidate }) => {
+    onSocket('webrtc_ice_candidate', async ({ candidate }) => {
       try {
         const pc = peerConnectionRef.current;
         if (pc && pc.remoteDescription) {
@@ -1050,31 +1075,14 @@ export default function StudyRoom({ propRoomId }) {
     });
 
     return () => {
-      socket.off('new_message');
-      socket.off('partner_left');
-      socket.off('partner_reconnected');
-      socket.off('auto_disconnect_warning');
-      socket.off('auto_disconnect_cancelled');
-      socket.off('room_auto_closed');
-      socket.off('room_data');
-      socket.off('room_error');
-      socket.off('disconnect');
-      socket.off('connect');
-      socket.off('webrtc_offer');
-      socket.off('webrtc_answer');
-      socket.off('webrtc_ice_candidate');
-      socket.off('friend:request_accepted');
-      socket.off('friend:request_received');
-      socket.off('partner_temp_away');
-      socket.off('partner_back');
-      socket.off('partner_camera_status');
+      ownedHandlers.forEach(([event, handler]) => socket.off(event, handler));
 
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
       }
       socket.emit('user_temp_away', { roomId });
     };
-  }, [roomId, navigate, user, addSystemMessage, partner]);
+  }, [roomId, navigate, user, addSystemMessage, partner, isVideoOff, creditStudyTime]);
 
   const sendMessage = (e) => {
     e.preventDefault();
@@ -1100,17 +1108,7 @@ export default function StudyRoom({ propRoomId }) {
   };
 
   const handleFinalLeave = async () => {
-    try {
-      // Tính toán thời gian học
-      const studyMinutes = Math.floor((Date.now() - sessionStartTime) / 60000);
-      if (studyMinutes > 0 && user) {
-        await api.post('/users/study-time', {
-          minutes: studyMinutes
-        });
-      }
-    } catch (e) {
-      console.error('Failed to submit study time', e);
-    }
+    await creditStudyTime();
 
     const socket = getSocket();
     socket.emit('leave_room', { roomId });
@@ -1120,19 +1118,24 @@ export default function StudyRoom({ propRoomId }) {
   };
 
   const submitReview = async () => {
+    setReviewError('');
+    setReviewSubmitting(true);
     try {
       if (partner) {
         await api.post('/users/review', {
-          reviewerId: user.id || user.userId || user.dbId || user._id,
           revieweeId: partner.id || partner.userId || partner.dbId || partner._id,
-          sessionId: roomId, // Using roomId as sessionId for MVP simplicity
+          roomId,
           rating: reviewRating,
           comment: reviewComment
         });
       }
     } catch (e) {
       console.error('Failed to submit review', e);
+      setReviewError(e.response?.data?.message || 'Không thể gửi đánh giá. Vui lòng thử lại hoặc chọn Bỏ qua.');
+      setReviewSubmitting(false);
+      return;
     }
+    setReviewSubmitting(false);
     handleFinalLeave();
   };
 
@@ -1158,12 +1161,6 @@ export default function StudyRoom({ propRoomId }) {
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
 
-  const isOwnMessage = (msg) => {
-    if (msg.isSystem) return false;
-    if (msg.userId && user?.id) return msg.userId === user.id;
-    return msg.user?.id === user?.id;
-  };
-
   return (
     <div className="study-room">
       <div className="room-header">
@@ -1171,7 +1168,7 @@ export default function StudyRoom({ propRoomId }) {
           <div className="room-info">
             <h2>Phòng Học</h2>
             <span className="room-subject-badge">
-              <FiBook style={{ color: '#845ef7' }} /> {subjectNames[subject] || subject}
+              <FiBook style={{ color: '#845ef7' }} /> {getSubjectName(subject)}{subject === '__quick__' ? ' 🎯' : ''}
             </span>
           </div>
           {/* Add Friend Button */}
@@ -1642,7 +1639,7 @@ export default function StudyRoom({ propRoomId }) {
             <button
               className={`control-btn ${showChat ? 'active' : ''}`}
               onClick={() => setShowChat(!showChat)}
-              title="Mở Chat"
+              title={showChat ? 'Đóng Chat' : 'Mở Chat'}
             >
               <MessageIcon />
             </button>
@@ -1661,10 +1658,10 @@ export default function StudyRoom({ propRoomId }) {
 
         {/* Chat Area (Sidebar) */}
         {showChat && (
-          <div className="chat-sidebar glass-card">
+          <aside className="chat-sidebar glass-card" aria-label="Tin nhắn trong cuộc gọi">
             <div className="chat-header">
               <h3>💬 Tin nhắn trong cuộc gọi</h3>
-              <button className="close-chat-btn" onClick={() => setShowChat(false)}>✕</button>
+              <button className="close-chat-btn" onClick={() => setShowChat(false)} aria-label="Đóng chat">✕</button>
             </div>
 
             <div className="chat-messages">
@@ -1729,28 +1726,32 @@ export default function StudyRoom({ propRoomId }) {
                 Gửi ➤
               </button>
             </form>
-          </div>
+          </aside>
         )}
       </div>
 
       {/* Review Modal */}
       {showReviewModal && (
-        <div className="permission-overlay animate-fade-in">
-          <div className="permission-popup glass-card review-modal">
-            <h2 style={{ marginBottom: '16px' }}>Đánh giá buổi học</h2>
+        <div className="permission-overlay animate-fade-in" role="presentation">
+          <div className="permission-popup glass-card review-modal" role="dialog" aria-modal="true" aria-labelledby="review-title">
+            <h2 id="review-title" style={{ marginBottom: '16px' }}>Đánh giá buổi học</h2>
             <p style={{ marginBottom: '24px', opacity: 0.8 }}>
               Hãy đánh giá thái độ học tập của <strong>{partner?.username}</strong> nhé!
             </p>
             
             <div className="rating-stars" style={{ display: 'flex', justifyContent: 'center', gap: '10px', fontSize: '32px', marginBottom: '20px' }}>
               {[1, 2, 3, 4, 5].map((star) => (
-                <span 
+                <button
+                  type="button"
                   key={star} 
+                  className="rating-star-button"
                   style={{ cursor: 'pointer', color: star <= reviewRating ? '#fadb14' : '#e8e8e8' }}
                   onClick={() => setReviewRating(star)}
+                  aria-label={`${star} sao`}
+                  aria-pressed={star === reviewRating}
                 >
                   ★
-                </span>
+                </button>
               ))}
             </div>
 
@@ -1759,15 +1760,18 @@ export default function StudyRoom({ propRoomId }) {
               placeholder="Nhận xét (không bắt buộc)..." 
               value={reviewComment}
               onChange={(e) => setReviewComment(e.target.value)}
+              maxLength={500}
               rows={3}
               style={{ width: '100%', marginBottom: '20px', resize: 'none' }}
             />
 
+            {reviewError && <p className="review-error" role="alert">{reviewError}</p>}
+
             <div className="permission-actions">
-              <button className="btn btn-primary" onClick={submitReview}>
-                Gửi đánh giá & Rời phòng
+              <button className="btn btn-primary" onClick={submitReview} disabled={reviewSubmitting}>
+                {reviewSubmitting ? 'Đang gửi...' : 'Gửi đánh giá & Rời phòng'}
               </button>
-              <button className="btn btn-secondary" onClick={handleFinalLeave}>
+              <button className="btn btn-secondary" onClick={handleFinalLeave} disabled={reviewSubmitting}>
                 Bỏ qua
               </button>
             </div>

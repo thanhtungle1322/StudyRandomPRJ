@@ -8,7 +8,7 @@ class ProfileService {
   /**
    * Update profile display name, avatar, and Discord-like decoration details
    */
-  async updateProfile(userId, { displayName, avatar, nickname, bio, interests, themeColor, themeGradient, banner, badges }) {
+  async updateProfile(userId, { displayName, avatar, nickname, bio, interests, themeColor, themeGradient, banner }) {
     const updates = {};
 
     if (displayName !== undefined) {
@@ -43,7 +43,10 @@ class ProfileService {
       if (!Array.isArray(interests)) {
         throw { status: 400, message: 'Sở thích phải là một mảng' };
       }
-      updates.interests = interests.map(i => i.trim()).filter(Boolean);
+      if (interests.length > 10 || interests.some((interest) => typeof interest !== 'string' || interest.trim().length > 30)) {
+        throw { status: 400, message: 'Chỉ được lưu tối đa 10 sở thích, mỗi sở thích không quá 30 ký tự' };
+      }
+      updates.interests = interests.map((interest) => interest.trim()).filter(Boolean);
     }
 
     if (themeColor !== undefined) {
@@ -56,13 +59,6 @@ class ProfileService {
 
     if (banner !== undefined) {
       updates.banner = banner;
-    }
-
-    if (badges !== undefined) {
-      if (!Array.isArray(badges)) {
-        throw { status: 400, message: 'Danh hiệu phải là một mảng' };
-      }
-      updates.badges = badges;
     }
 
     if (Object.keys(updates).length === 0) {

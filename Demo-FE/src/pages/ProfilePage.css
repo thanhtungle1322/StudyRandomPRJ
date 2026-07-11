@@ -2,6 +2,23 @@
    Profile Personalization Styling - Premium Discord-like Theme & Editor Layout
    ========================================================================== */
 
+.profile-page {
+  align-items: flex-start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 64px;
+}
+
+.profile-page .login-card {
+  background: rgba(15, 18, 36, 0.9);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 16px 48px rgba(5, 8, 20, 0.35);
+}
+
+.profile-page .login-header p {
+  color: #cbd5e1 !important;
+}
+
 .profile-editor-container {
   display: grid;
   grid-template-columns: 1.2fr 0.8fr;
@@ -35,6 +52,7 @@
 /* live preview card */
 .live-preview-card {
   width: 320px;
+  max-width: 100%;
   background: #18191c;
   border-radius: 12px;
   overflow: hidden;
@@ -162,22 +180,22 @@
 }
 
 /* Custom contrast improvements for ProfilePage forms on dark background */
-.login-card.glass-card .input-group label {
+.profile-page .login-card.glass-card .input-group label {
   color: #e3e5e8 !important;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.login-card.glass-card h3 {
+.profile-page .login-card.glass-card h3 {
   color: #ffffff !important;
 }
 
-.login-card.glass-card .input-field {
+.profile-page .login-card.glass-card .input-field {
   background: rgba(255, 255, 255, 0.9) !important;
   color: #1c1c1e !important;
   border-color: rgba(255, 255, 255, 0.1) !important;
 }
 
-.login-card.glass-card .input-field:focus {
+.profile-page .login-card.glass-card .input-field:focus {
   background: #ffffff !important;
   border-color: #845ef7 !important;
   box-shadow: 0 0 0 4px rgba(132, 94, 247, 0.2) !important;

@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FiAlertOctagon, FiCheckCircle, FiAlertCircle, FiTrash2, FiHelpCircle, FiEdit3, FiSlash, FiArrowLeft, FiFrown } from 'react-icons/fi';
+import api from '../services/api';
 import './StaticPages.css';
 
 export default function ReportPage() {
   const [reportType, setReportType] = useState('');
   const [description, setDescription] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
   const reportTypes = [
     { id: 'spam', icon: <FiTrash2 />, label: 'Spam / Quảng cáo', desc: 'Người dùng gửi tin nhắn rác' },
@@ -16,9 +19,22 @@ export default function ReportPage() {
     { id: 'other', icon: <FiHelpCircle />, label: 'Khác', desc: 'Vấn đề khác' },
   ];
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSubmitted(true);
+    setSubmitting(true);
+    setError('');
+    try {
+      const { data } = await api.post('/reports', {
+        category: reportType,
+        description,
+      });
+      if (!data.success) throw new Error(data.message || 'Không thể gửi báo cáo');
+      setSubmitted(true);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || requestError.message || 'Không thể gửi báo cáo');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -70,6 +86,7 @@ export default function ReportPage() {
                         reportType === type.id ? 'selected' : ''
                       }`}
                       onClick={() => setReportType(type.id)}
+                      aria-pressed={reportType === type.id}
                     >
                       <span className="report-type-label">{type.icon} {type.label}</span>
                       <span className="report-type-desc">{type.desc}</span>
@@ -79,24 +96,28 @@ export default function ReportPage() {
               </div>
 
               <div className="input-group">
-                <label htmlFor="report-desc">Mô tả chi tiết (tuỳ chọn):</label>
+                <label htmlFor="report-desc">Mô tả chi tiết *</label>
                 <textarea
                   id="report-desc"
                   className="input-field report-textarea"
                   placeholder="Mô tả thêm về vấn đề bạn gặp phải..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
+                  minLength={10}
+                  maxLength={1000}
                   rows={4}
                 />
               </div>
+
+              {error && <div className="report-error" role="alert"><FiAlertCircle /> {error}</div>}
 
               <div className="report-actions">
                 <button
                   type="submit"
                   className="btn btn-danger btn-lg"
-                  disabled={!reportType}
+                  disabled={!reportType || description.trim().length < 10 || submitting}
                 >
-                  <FiAlertOctagon /> Gửi Báo Cáo
+                  {submitting ? <><span className="app-spinner" aria-hidden="true" /> Đang gửi...</> : <><FiAlertOctagon /> Gửi Báo Cáo</>}
                 </button>
                 <Link to="/lobby" className="btn btn-secondary btn-lg">
                   Huỷ
@@ -105,11 +126,10 @@ export default function ReportPage() {
             </form>
           )}
 
-          <div className="static-notice glass-card" style={{ marginTop: 32 }}>
+          <div className="static-notice glass-card report-privacy-note">
             <span><FiAlertCircle style={{ color: '#ff922b' }} /></span>
             <p>
-              <strong>Tính năng đang phát triển.</strong> Hệ thống báo cáo sẽ được 
-              kết nối với hệ thống quản trị trong phiên bản tiếp theo.
+              <strong>Thông tin được bảo mật.</strong> Báo cáo được lưu để quản trị viên xem xét và không hiển thị công khai.
             </p>
           </div>
         </div>

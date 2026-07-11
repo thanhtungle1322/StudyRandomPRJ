@@ -92,6 +92,84 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+.route-loading {
+  min-height: min(60vh, 560px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.route-loading-icon {
+  width: 22px;
+  height: 22px;
+  animation: route-loading-spin 0.9s linear infinite;
+}
+
+@keyframes route-loading-spin {
+  to { transform: rotate(360deg); }
+}
+
+.app-spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: app-spinner-rotate 0.7s linear infinite;
+}
+
+.app-spin {
+  animation: app-spinner-rotate 0.8s linear infinite;
+}
+
+@keyframes app-spinner-rotate {
+  to { transform: rotate(360deg); }
+}
+
+.page-mascot {
+  position: fixed;
+  z-index: 1;
+  width: clamp(110px, 11vw, 170px);
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  object-fit: contain;
+  filter: drop-shadow(0 8px 16px rgba(0, 0, 0, 0.18));
+  animation: page-mascot-float 4s ease-in-out infinite;
+}
+
+.page-mascot-left { left: 4px; top: 100px; }
+.page-mascot-right { right: 4px; bottom: 16px; animation-delay: 1.2s; }
+.page-mascot-center-right { right: 7vw; top: 42%; width: clamp(90px, 9vw, 140px); animation-delay: 0.6s; }
+
+@keyframes page-mascot-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+:where(a, button, input, textarea, select, [tabindex]):focus-visible {
+  outline: 3px solid #91a7ff;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-loading-icon,
+  .app-spinner,
+  .app-spin,
+  .page-mascot {
+    animation: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .page-mascot { display: none; }
+}
+
 #root {
   min-height: 100vh;
   display: flex;

@@ -72,7 +72,6 @@ class AuthService {
 
     user.isOnline = true;
     user.lastSeen = new Date();
-    user.totalSessions += 1;
     await user.save();
 
     const token = this.generateToken(user);

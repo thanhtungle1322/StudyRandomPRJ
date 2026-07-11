@@ -7,6 +7,7 @@ const { Server } = require('socket.io');
 const cors = require('cors');
 const config = require('./config');
 const dbObserver = require('./config/db');
+const { authenticateToken } = require('./middleware/auth');
 
 const authRoutes = require('./routes/auth');
 const subjectsRoutes = require('./routes/subjects');
@@ -16,6 +17,7 @@ const friendsRoutes = require('./routes/friends');
 const premiumRoutes = require('./routes/premium');
 const adminRoutes = require('./routes/admin');
 const feedbackRoutes = require('./routes/feedback');
+const reportsRoutes = require('./routes/reports');
 
 const setupSocket = require('./socket');
 
@@ -54,6 +56,14 @@ const authLimiter = rateLimit({
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
 
+const turnCredentialsLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 30,
+  message: { success: false, message: 'Quá nhiều yêu cầu TURN. Vui lòng thử lại sau.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use('/api/auth', authRoutes);
 app.use('/api/subjects', subjectsRoutes);
 app.use('/api/profile', profileRoutes);
@@ -62,9 +72,10 @@ app.use('/api/friends', friendsRoutes);
 app.use('/api/premium', premiumRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/api/reports', reportsRoutes);
 
 // Cấp TURN Server credentials động cho WebRTC (Dùng Secret/Static Key bảo mật)
-app.get('/api/turn-credentials', async (req, res) => {
+app.get('/api/turn-credentials', turnCredentialsLimiter, authenticateToken, async (req, res) => {
   try {
     const secretKey = config.meteredApiKey;
     const domain = config.meteredDomain;
@@ -132,7 +143,8 @@ app.get('/api/settings/ga-id', async (req, res) => {
   try {
     const Setting = require('./models/Setting');
     const gaSetting = await Setting.findOne({ key: 'ga_measurement_id' });
-    const gaId = gaSetting ? gaSetting.value : (process.env.GA_MEASUREMENT_ID || '');
+    const configuredGaId = gaSetting ? gaSetting.value : (process.env.GA_MEASUREMENT_ID || '');
+    const gaId = /^G-[A-Z0-9]{4,20}$/.test(configuredGaId) ? configuredGaId : '';
     res.json({
       success: true,
       gaMeasurementId: gaId,
@@ -242,7 +254,7 @@ async function startServer() {
   ║     Port: ${config.port}                         ║
   ║     Env: ${config.nodeEnv}                 ║
   ║     Client: ${config.clientUrl}       ║
-  ║     MongoDB: ${config.mongoUri}  ║
+  ║     MongoDB: connected                   ║
   ╚══════════════════════════════════════════╝
       `);
     });

@@ -1,17 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../services/api';
 import { FaGraduationCap, FaGoogle } from 'react-icons/fa';
 import { FiAlertTriangle, FiLock } from 'react-icons/fi';
 import './LoginPage.css';
 
-import bgLogin from '/background/backgroundLogin.png';
-import mascot1 from '/background/mascot1.png';
-import mascot2 from '/background/mascot2.png';
-import mascot3 from '/background/mascot3.png';
+import bgLogin from '../../background/backgroundLogin.webp';
+import mascot1 from '../../background/mascot1.png';
+import mascot2 from '../../background/mascot2.png';
+import mascot3 from '../../background/mascot3.png';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -25,12 +25,11 @@ export default function LoginPage() {
   // Xóa password field khi component unmount
   // → ngăn Chrome detect 'password đã dùng' khi navigate đi
   useEffect(() => {
+    const passwordInput = passwordRef.current;
     return () => {
-      if (passwordRef.current) {
-        passwordRef.current.value = '';
+      if (passwordInput) {
+        passwordInput.value = '';
       }
-      setPassword('');
-      setEmail('');
     };
   }, []);
 
@@ -66,8 +65,8 @@ export default function LoginPage() {
   };
 
   const handleGoogleLogin = () => {
-    const baseUrl = API_URL.replace('/api', '');
-    window.location.href = `${baseUrl}/api/auth/google`;
+    const apiOrigin = new URL(API_URL, window.location.origin).origin;
+    window.location.href = `${apiOrigin}/api/auth/google`;
   };
 
   return (
@@ -133,7 +132,7 @@ export default function LoginPage() {
             >
               {loading ? (
                 <>
-                  <span className="spinner"></span>
+                  <span className="app-spinner" aria-hidden="true"></span>
                   Đang đăng nhập...
                 </>
               ) : (

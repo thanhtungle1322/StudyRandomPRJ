@@ -1,23 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiX, FiCheck, FiBookOpen } from 'react-icons/fi';
-import { useNotifications } from '../context/NotificationProvider';
+import { useNotifications } from '../context/notification-context';
 import { getSocket } from '../services/socket';
+import { getSubjectName } from '../data/subjects';
 import './InvitationToast.css';
-
-const subjectNames = {
-  math: 'Toán học',
-  nodejs: 'Lập trình NodeJS',
-  english: 'Tiếng Anh',
-  python: 'Lập trình Python',
-  react: 'React / Frontend',
-  database: 'Cơ sở dữ liệu',
-  algorithm: 'Thuật toán',
-  physics: 'Vật lý',
-  triet: 'Triết học',
-  lichsu: 'Lịch sử',
-  diali: 'Địa lí',
-};
 
 export default function InvitationToast() {
   const navigate = useNavigate();
@@ -34,6 +21,7 @@ export default function InvitationToast() {
           state: {
             subject: data.subject,
             partner: data.partner,
+            sessionTimeLimit: data.sessionTimeLimit,
           },
         });
       }
@@ -47,9 +35,6 @@ export default function InvitationToast() {
     const socket = getSocket();
     socket.emit('room:invite_respond', {
       invitationId: invitation.id,
-      inviterSocketId: invitation.inviterSocketId,
-      inviterId: invitation.from?._id,
-      subject: invitation.subject,
       action,
     });
     removeNotification(invitation.id);
@@ -73,7 +58,7 @@ export default function InvitationToast() {
     const name = invitation.from?.displayName || invitation.from?.username || 'Người dùng';
     const avatarSrc = invitation.from?.avatar
       || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`;
-    const subjectLabel = subjectNames[invitation.subject] || invitation.subject || 'môn học';
+    const subjectLabel = getSubjectName(invitation.subject);
 
     return (
       <div className="invitation-toast">

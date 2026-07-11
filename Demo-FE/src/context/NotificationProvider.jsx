@@ -1,15 +1,17 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { useAuth } from './AuthContext';
-import { getSocket, connectSocket } from '../services/socket';
-
-const NotificationContext = createContext(null);
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from './auth-context';
+import { connectSocket } from '../services/socket';
+import { NotificationContext } from './notification-context';
 
 export function NotificationProvider({ children }) {
   const { isLoggedIn } = useAuth();
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn) {
+      setNotifications([]);
+      return undefined;
+    }
 
     const socket = connectSocket();
 
@@ -21,7 +23,7 @@ export function NotificationProvider({ children }) {
         from: data.requester,
         createdAt: data.createdAt || new Date(),
         read: false,
-      }, ...prev]);
+      }, ...prev.filter((notification) => notification.id !== data.friendshipId)].slice(0, 50));
     };
 
     // Lời mời kết bạn được chấp nhận
@@ -32,7 +34,7 @@ export function NotificationProvider({ children }) {
         from: data.friend,
         createdAt: new Date(),
         read: false,
-      }, ...prev]);
+      }, ...prev.filter((notification) => notification.id !== `accepted_${data.friendshipId}`)].slice(0, 50));
     };
 
     // Nhận lời mời vào phòng học
@@ -42,10 +44,10 @@ export function NotificationProvider({ children }) {
         type: 'room_invitation',
         from: data.inviter,
         subject: data.subject,
-        inviterSocketId: data.socketId,
+        expiresAt: data.expiresAt,
         createdAt: new Date(),
         read: false,
-      }, ...prev]);
+      }, ...prev.filter((notification) => notification.id !== data.invitationId)].slice(0, 50));
     };
 
     socket.on('friend:request_received', handleFriendRequest);
@@ -67,6 +69,12 @@ export function NotificationProvider({ children }) {
     setNotifications([]);
   }, []);
 
+  const markAllRead = useCallback(() => {
+    setNotifications((previous) => previous.map((notification) => (
+      notification.read ? notification : { ...notification, read: true }
+    )));
+  }, []);
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const pendingFriendRequests = notifications.filter(n => n.type === 'friend_request');
@@ -75,19 +83,9 @@ export function NotificationProvider({ children }) {
   return (
     <NotificationContext.Provider value={{
       notifications, pendingFriendRequests, roomInvitations,
-      unreadCount, removeNotification, clearAll,
+      unreadCount, removeNotification, clearAll, markAllRead,
     }}>
       {children}
     </NotificationContext.Provider>
   );
 }
-
-export function useNotifications() {
-  const context = useContext(NotificationContext);
-  if (!context) {
-    throw new Error('useNotifications must be used within NotificationProvider');
-  }
-  return context;
-}
-
-export default NotificationContext;

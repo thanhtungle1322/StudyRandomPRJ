@@ -45,8 +45,8 @@ class UserController {
   async updateStudyTime(req, res) {
     try {
       const userId = req.user.userId;
-      const { minutes } = req.body;
-      const data = await userService.updateStudyTime(userId, minutes);
+      const { roomId } = req.body;
+      const data = await userService.updateStudyTime(userId, roomId);
       
       res.json({
         success: true,

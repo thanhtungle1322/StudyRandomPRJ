@@ -242,7 +242,7 @@
 }
 
 /* Responsive */
-@media (max-width: 480px) {
+@media (max-width: 768px) {
   .notification-dropdown {
     position: fixed;
     top: 60px;

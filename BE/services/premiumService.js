@@ -1,6 +1,8 @@
 const User = require('../models/User');
+const Order = require('../models/Order');
 const { PayOS } = require('@payos/node');
 const config = require('../config');
+const { TIER_LEVELS } = require('../dtos/premiumDto');
 
 let payos;
 if (config.payosClientId && config.payosApiKey && config.payosChecksumKey) {
@@ -39,7 +41,6 @@ const PREMIUM_PLANS = {
       'Thời hạn sử dụng: 90 ngày',
       'Khung avatar "Pro Crown" vương miện vàng',
       'Danh hiệu PREMIUM PRO trong hồ sơ',
-      'Ưu tiên ghép đôi nhanh hơn',
     ],
     popular: true,
   },
@@ -54,8 +55,6 @@ const PREMIUM_PLANS = {
       'Thời hạn sử dụng: 365 ngày (1 năm)',
       'Khung avatar "Ultimate Cosmic" vũ trụ huyền ảo',
       'Danh hiệu PREMIUM ULTIMATE trong hồ sơ',
-      'Truy cập tính năng beta sớm',
-      'Hỗ trợ VIP 24/7',
     ],
   },
 };
@@ -73,8 +72,17 @@ const TIER_DURATION_DAYS = {
 };
 
 const PREMIUM_BADGES = ['PREMIUM_STARTER', 'PREMIUM_PRO', 'PREMIUM_ULTIMATE'];
+const ORDER_PROCESSING_LEASE_MS = 15 * 1000;
 
 class PremiumService {
+  constructor(options = {}) {
+    this.User = options.UserModel || User;
+    this.Order = options.OrderModel || Order;
+    this.payos = options.payosClient === undefined ? payos : options.payosClient;
+    this.now = options.now || (() => new Date());
+    this.sleep = options.sleep || ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
+  }
+
   get PREMIUM_PLANS() { return PREMIUM_PLANS; }
   get FREE_LIMITS() { return FREE_LIMITS; }
   get TIER_DURATION_DAYS() { return TIER_DURATION_DAYS; }
@@ -134,7 +142,7 @@ class PremiumService {
    * Get premium status of user
    */
   async getPremiumStatus(userId) {
-    let user = await User.findById(userId);
+    let user = await this.User.findById(userId);
     if (!user) {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
@@ -177,7 +185,7 @@ class PremiumService {
       throw { status: 400, message: 'Gói không hợp lệ' };
     }
 
-    let user = await User.findById(userId);
+    let user = await this.User.findById(userId);
     if (!user) {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
@@ -196,43 +204,80 @@ class PremiumService {
     const plan = PREMIUM_PLANS[planId];
     const amount = plan.price;
 
-    // Generate unique positive integer orderCode
-    const orderCode = Number(String(Date.now()).slice(-6) + Math.floor(Math.random() * 1000).toString().padStart(3, '0'));
-
     const returnUrl = `${config.clientUrl.split(',')[0].trim()}/payment-success`;
     const cancelUrl = `${config.clientUrl.split(',')[0].trim()}/pricing`;
-
+    const order = await this._reservePendingOrder(userId, planId, amount);
     const paymentData = {
-      orderCode,
+      orderCode: order.orderCode,
       amount,
       description: `StudyRandom ${plan.name}`,
       returnUrl,
       cancelUrl,
     };
 
-    const Order = require('../models/Order');
+    if (this.payos) {
+      if (order.checkoutUrl) {
+        return { usePayOS: true, checkoutUrl: order.checkoutUrl, orderCode: order.orderCode, reused: true };
+      }
 
-    if (payos) {
       try {
-        console.log(`[PremiumService] Creating PayOS payment link for user ${userId}, plan ${planId}`);
-        const paymentLinkResult = await payos.paymentRequests.create(paymentData);
+        const claimTime = this.now();
+        const checkoutClaim = await this.Order.findOneAndUpdate(
+          {
+            _id: order._id,
+            status: 'pending',
+            checkoutUrl: { $exists: false },
+            $or: [
+              { checkoutCreatingAt: { $exists: false } },
+              { checkoutCreatingAt: { $lt: new Date(claimTime.getTime() - 30_000) } },
+            ],
+          },
+          { $set: { checkoutCreatingAt: claimTime } },
+          { new: true }
+        );
 
-        await Order.create({
-          orderCode,
-          userId,
-          planId,
-          amount,
-          status: 'pending',
-          checkoutUrl: paymentLinkResult.checkoutUrl,
-        });
+        if (!checkoutClaim) {
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await this.sleep(100);
+            const latestOrder = await this.Order.findOne({ _id: order._id });
+            if (latestOrder?.checkoutUrl) {
+              return {
+                usePayOS: true,
+                checkoutUrl: latestOrder.checkoutUrl,
+                orderCode: latestOrder.orderCode,
+                reused: true,
+              };
+            }
+            if (!latestOrder || latestOrder.status !== 'pending') break;
+          }
+          throw { status: 409, message: 'Liên kết thanh toán đang được tạo, vui lòng thử lại sau giây lát.' };
+        }
+
+        console.log(`[PremiumService] Creating PayOS payment link for user ${userId}, plan ${planId}`);
+        const paymentLinkResult = await this.payos.paymentRequests.create(paymentData);
+        await this.Order.updateOne(
+          { _id: order._id, status: 'pending', checkoutCreatingAt: claimTime },
+          {
+            $set: { checkoutUrl: paymentLinkResult.checkoutUrl },
+            $unset: { checkoutCreatingAt: 1 },
+          }
+        );
 
         return {
           usePayOS: true,
           checkoutUrl: paymentLinkResult.checkoutUrl,
-          orderCode,
+          orderCode: order.orderCode,
         };
       } catch (err) {
+        await this.Order.updateOne(
+          { _id: order._id, status: 'pending', checkoutUrl: { $exists: false } },
+          {
+            $set: { status: 'cancelled', fulfillmentError: err.message || 'Checkout creation failed' },
+            $unset: { checkoutCreatingAt: 1, activePurchaseKey: 1 },
+          }
+        ).catch(() => { });
         console.error('[PremiumService] Failed to create PayOS link:', err);
+        if (err?.status) throw err;
         throw {
           status: 400,
           message: `Lỗi kết nối PayOS: ${err.message || 'Không thể tạo liên kết thanh toán. Vui lòng kiểm tra lại cấu hình API Keys trên PayOS Dashboard.'}`
@@ -248,15 +293,60 @@ class PremiumService {
       }
 
       // Create mock transaction in DB and directly activate for easy testing
-      await Order.create({
-        orderCode,
-        userId,
-        planId,
-        amount,
-        status: 'completed',
-      });
-      return this.purchasePremiumDirect(userId, planId);
+      const result = await this._fulfillOrder(order.orderCode, { expectedUserId: userId });
+      return {
+        usePayOS: false,
+        message: `Chúc mừng! Bạn đã nâng cấp thành công lên gói ${plan.name} (${TIER_DURATION_DAYS[planId]} ngày)!`,
+        ...result,
+      };
     }
+  }
+
+  async _reservePendingOrder(userId, planId, amount) {
+    const activePurchaseKey = userId.toString();
+    const existingOrder = await this.Order.findOne({
+      userId,
+      status: { $in: ['pending', 'processing'] },
+    });
+    if (existingOrder) {
+      if (existingOrder.planId !== planId) {
+        throw { status: 409, message: 'Bạn đang có một giao dịch Premium khác chưa hoàn tất.' };
+      }
+      if (!existingOrder.activePurchaseKey) {
+        await this.Order.updateOne(
+          { _id: existingOrder._id, activePurchaseKey: { $exists: false } },
+          { $set: { activePurchaseKey } }
+        ).catch(() => { });
+      }
+      return existingOrder;
+    }
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      const orderCode = Number(
+        String(Date.now()).slice(-6) +
+        Math.floor(Math.random() * 1000).toString().padStart(3, '0')
+      );
+      try {
+        return await this.Order.create({
+          orderCode,
+          userId,
+          planId,
+          amount,
+          status: 'pending',
+          activePurchaseKey,
+        });
+      } catch (error) {
+        if (error?.code !== 11000) throw error;
+        const concurrentOrder = await this.Order.findOne({ activePurchaseKey });
+        if (concurrentOrder) {
+          if (concurrentOrder.planId !== planId) {
+            throw { status: 409, message: 'Bạn đang có một giao dịch Premium khác chưa hoàn tất.' };
+          }
+          return concurrentOrder;
+        }
+      }
+    }
+    throw { status: 503, message: 'Không thể tạo mã đơn hàng duy nhất, vui lòng thử lại' };
   }
 
   /**
@@ -264,7 +354,7 @@ class PremiumService {
    */
   async purchasePremiumDirect(userId, planId) {
     const plan = PREMIUM_PLANS[planId];
-    const user = await User.findById(userId);
+    const user = await this.User.findById(userId);
     if (!user) {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
@@ -378,75 +468,215 @@ class PremiumService {
   /**
    * Verify order code directly by calling PayOS API or resolving mock transaction
    */
-  async verifyOrder(orderCode) {
-    const Order = require('../models/Order');
-    const order = await Order.findOne({ orderCode: Number(orderCode) });
+  async verifyOrder(orderCode, expectedUserId) {
+    const numericOrderCode = Number(orderCode);
+    const order = await this.Order.findOne({ orderCode: numericOrderCode });
     if (!order) {
       throw { status: 404, message: 'Không tìm thấy đơn hàng' };
     }
-
-    if (order.status === 'completed') {
-      return { success: true, message: 'Đơn hàng đã được thanh toán thành công trước đó!', planId: order.planId };
+    if (expectedUserId && order.userId.toString() !== expectedUserId.toString()) {
+      throw { status: 403, message: 'Bạn không có quyền xác minh đơn hàng này' };
     }
 
-    if (payos) {
+    if (order.status === 'completed') {
+      await this.Order.updateOne({ _id: order._id }, { $unset: { activePurchaseKey: 1 } });
+      return {
+        success: true,
+        message: 'Đơn hàng đã được thanh toán thành công trước đó!',
+        planId: order.planId,
+        legacyCompletion: !order.fulfilledAt,
+      };
+    }
+
+    if (this.payos) {
       try {
         console.log(`[PremiumService] Calling PayOS to verify order: ${orderCode}`);
-        const paymentInfo = await payos.paymentRequests.get(orderCode);
+        const paymentInfo = await this.payos.paymentRequests.get(numericOrderCode);
         console.log(`[PremiumService] PayOS actual order status: ${paymentInfo.status}`);
 
         if (paymentInfo.status === 'PAID') {
-          order.status = 'completed';
-          await order.save();
-
-          const user = await User.findById(order.userId);
-          if (user) {
-            const now = new Date();
-            const durationDays = TIER_DURATION_DAYS[order.planId] || 30;
-            user.plan = 'premium';
-            user.premiumTier = order.planId;
-            user.premiumPurchasedAt = now;
-            user.premiumExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-            const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
-            if (badgeMap[order.planId] && !user.badges.includes(badgeMap[order.planId])) {
-              user.badges.push(badgeMap[order.planId]);
-            }
-            await user.save();
-          }
-
-          return { success: true, message: 'Thanh toán thành công! Gói Premium của bạn đã được kích hoạt. 🎉', planId: order.planId };
+          return this._fulfillOrder(numericOrderCode, {
+            expectedUserId,
+            paidAmount: paymentInfo.amount,
+          });
         } else if (paymentInfo.status === 'CANCELLED') {
-          order.status = 'cancelled';
-          await order.save();
+          await this.Order.updateOne(
+            { _id: order._id, status: 'pending' },
+            {
+              $set: { status: 'cancelled' },
+              $unset: { activePurchaseKey: 1, checkoutCreatingAt: 1 },
+            }
+          );
           throw { status: 400, message: 'Giao dịch đã bị hủy bỏ.' };
         } else {
           return { success: false, status: paymentInfo.status, message: 'Giao dịch đang chờ thanh toán.' };
         }
       } catch (err) {
         console.error('[PremiumService] Error verifying order with PayOS:', err);
-        throw { status: 500, message: 'Lỗi khi xác minh giao dịch với PayOS' };
+        if (err?.status) throw err;
+        throw { status: 502, message: 'Lỗi khi xác minh giao dịch với PayOS' };
       }
     } else {
-      // Simulated activation
-      order.status = 'completed';
-      await order.save();
+      return this._fulfillOrder(numericOrderCode, { expectedUserId });
+    }
+  }
 
-      const user = await User.findById(order.userId);
-      if (user) {
-        const now = new Date();
-        const durationDays = TIER_DURATION_DAYS[order.planId] || 30;
-        user.plan = 'premium';
-        user.premiumTier = order.planId;
-        user.premiumPurchasedAt = now;
-        user.premiumExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-        const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
-        if (badgeMap[order.planId] && !user.badges.includes(badgeMap[order.planId])) {
-          user.badges.push(badgeMap[order.planId]);
-        }
+  _applyPremiumEntitlement(user, planId, now) {
+    const currentTier = user.premiumTier || 'none';
+    const currentExpiry = user.premiumExpiresAt ? new Date(user.premiumExpiresAt) : null;
+    const currentPlanActive = user.plan === 'premium' && (!currentExpiry || currentExpiry > now);
+    if (currentPlanActive && (TIER_LEVELS[currentTier] || 0) >= TIER_LEVELS[planId]) {
+      return { granted: false, result: 'superseded' };
+    }
+
+    const durationDays = TIER_DURATION_DAYS[planId] || 30;
+    user.plan = 'premium';
+    user.premiumTier = planId;
+    user.premiumPurchasedAt = now;
+    user.premiumExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    user.badges = (user.badges || []).filter((badge) => !PREMIUM_BADGES.includes(badge));
+    const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
+    user.badges.push(badgeMap[planId]);
+    return { granted: true, result: 'granted' };
+  }
+
+  async _persistPremiumEntitlement(userId, planId, now) {
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const user = await this.User.findById(userId);
+      if (!user) throw { status: 404, message: 'Không tìm thấy user của đơn hàng' };
+
+      const entitlement = this._applyPremiumEntitlement(user, planId, now);
+      if (!entitlement.granted) return { user, entitlement };
+
+      try {
         await user.save();
+        return { user, entitlement };
+      } catch (error) {
+        if (error?.name !== 'VersionError' || attempt === 2) throw error;
+      }
+    }
+    throw { status: 409, message: 'Quyền lợi đang được cập nhật, vui lòng thử lại' };
+  }
+
+  async _fulfillOrder(orderCode, { expectedUserId, paidAmount } = {}) {
+    const numericOrderCode = Number(orderCode);
+    if (!Number.isSafeInteger(numericOrderCode) || numericOrderCode <= 0) {
+      throw { status: 400, message: 'Mã đơn hàng không hợp lệ' };
+    }
+
+    let order = await this.Order.findOne({ orderCode: numericOrderCode });
+    if (!order) throw { status: 404, message: 'Không tìm thấy đơn hàng' };
+    if (expectedUserId && order.userId.toString() !== expectedUserId.toString()) {
+      throw { status: 403, message: 'Bạn không có quyền xác minh đơn hàng này' };
+    }
+
+    const plan = PREMIUM_PLANS[order.planId];
+    if (!plan || order.amount !== plan.price) {
+      throw { status: 409, message: 'Thông tin đơn hàng không khớp bảng giá' };
+    }
+    if (paidAmount !== undefined && Number(paidAmount) !== order.amount) {
+      throw { status: 409, message: 'Số tiền thanh toán không khớp đơn hàng' };
+    }
+    if (order.status === 'cancelled') {
+      throw { status: 400, message: 'Giao dịch đã bị hủy bỏ' };
+    }
+    if (order.status === 'completed') {
+      await this.Order.updateOne({ _id: order._id }, { $unset: { activePurchaseKey: 1 } });
+      return {
+        success: true,
+        message: 'Đơn hàng đã được xử lý trước đó',
+        planId: order.planId,
+        legacyCompletion: !order.fulfilledAt,
+      };
+    }
+
+    const claimTime = this.now();
+    let claimFilter;
+    if (order.status === 'processing') {
+      const processingAt = order.processingAt ? new Date(order.processingAt) : null;
+      const leaseAge = processingAt ? claimTime.getTime() - processingAt.getTime() : Infinity;
+      if (leaseAge < ORDER_PROCESSING_LEASE_MS) {
+        return {
+          success: false,
+          status: 'PROCESSING',
+          message: 'Đơn hàng đang được xử lý, vui lòng đợi trong giây lát.',
+          retryAfterMs: Math.max(500, ORDER_PROCESSING_LEASE_MS - leaseAge),
+        };
+      }
+      claimFilter = { _id: order._id, status: 'processing' };
+      if (processingAt) claimFilter.processingAt = order.processingAt;
+    } else if (order.status === 'pending') {
+      claimFilter = { _id: order._id, status: 'pending' };
+    } else {
+      throw { status: 409, message: 'Trạng thái đơn hàng không thể xử lý' };
+    }
+
+    order = await this.Order.findOneAndUpdate(
+      claimFilter,
+      {
+        $set: { status: 'processing', processingAt: claimTime },
+        $unset: { fulfillmentError: 1 },
+      },
+      { new: true }
+    );
+    if (!order) {
+      const latest = await this.Order.findOne({ orderCode: numericOrderCode });
+      if (latest?.status === 'completed' && latest.fulfilledAt) {
+        return { success: true, message: 'Đơn hàng đã được xử lý trước đó', planId: latest.planId };
+      }
+      if (latest?.status === 'processing') {
+        return { success: false, status: 'PROCESSING', message: 'Đơn hàng đang được xử lý, vui lòng thử lại.' };
+      }
+      throw { status: 409, message: 'Không thể giữ quyền xử lý đơn hàng' };
+    }
+
+    let entitlementSaved = false;
+    try {
+      const now = this.now();
+      const { user, entitlement } = await this._persistPremiumEntitlement(order.userId, order.planId, now);
+      entitlementSaved = true;
+
+      const completion = await this.Order.updateOne(
+        { _id: order._id, status: 'processing' },
+        {
+          $set: {
+            status: 'completed',
+            fulfilledAt: now,
+            fulfillmentResult: entitlement.result,
+          },
+          $unset: { processingAt: 1, fulfillmentError: 1, activePurchaseKey: 1, checkoutCreatingAt: 1 },
+        }
+      );
+      if (completion?.matchedCount === 0) {
+        throw { status: 503, message: 'Không thể hoàn tất trạng thái đơn hàng' };
       }
 
-      return { success: true, message: 'Xác minh thành công! Gói Premium đã được kích hoạt. 🎉', planId: order.planId };
+      return {
+        success: true,
+        message: entitlement.granted
+          ? 'Thanh toán thành công! Gói Premium của bạn đã được kích hoạt.'
+          : 'Thanh toán đã ghi nhận; quyền lợi cao hơn hiện tại được giữ nguyên.',
+        planId: order.planId,
+        premiumTier: user.premiumTier,
+        premiumExpiresAt: user.premiumExpiresAt,
+        entitlementGranted: entitlement.granted,
+      };
+    } catch (error) {
+      if (!entitlementSaved) {
+        await this.Order.updateOne(
+          { _id: order._id, status: 'processing' },
+          {
+            $set: { status: 'pending', fulfillmentError: error.message || 'Fulfillment failed' },
+            $unset: { processingAt: 1 },
+          }
+        ).catch(() => {});
+      } else {
+        await this.Order.updateOne(
+          { _id: order._id, status: 'processing' },
+          { $set: { fulfillmentError: error.message || 'Order finalization failed' } }
+        ).catch(() => {});
+      }
+      throw error;
     }
   }
 
@@ -454,48 +684,17 @@ class PremiumService {
    * Process webhook request sent by PayOS
    */
   async handleWebhook(webhookBody) {
-    if (!payos) {
+    if (!this.payos) {
       console.warn('[PayOS Webhook] Received but PayOS client is not configured.');
       return { success: false, message: 'PayOS not configured' };
     }
 
     try {
-      const verifiedData = payos.webhooks.verify(webhookBody);
-      console.log('[PayOS Webhook] Verified webhook payload data:', verifiedData);
-
-      const orderCode = verifiedData.orderCode;
-      const Order = require('../models/Order');
-
-      const order = await Order.findOne({ orderCode });
-      if (!order) {
-        console.error(`[PayOS Webhook] Order not found: ${orderCode}`);
-        return { success: false, message: 'Order not found' };
+      const verifiedData = await this.payos.webhooks.verify(webhookBody);
+      if (webhookBody.success !== true || webhookBody.code !== '00') {
+        return { success: true, message: 'Webhook acknowledged without fulfillment' };
       }
-
-      if (order.status === 'completed') {
-        return { success: true, message: 'Already processed' };
-      }
-
-      order.status = 'completed';
-      await order.save();
-
-      const user = await User.findById(order.userId);
-      if (user) {
-        const now = new Date();
-        const durationDays = TIER_DURATION_DAYS[order.planId] || 30;
-        user.plan = 'premium';
-        user.premiumTier = order.planId;
-        user.premiumPurchasedAt = now;
-        user.premiumExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
-        const badgeMap = { starter: 'PREMIUM_STARTER', pro: 'PREMIUM_PRO', ultimate: 'PREMIUM_ULTIMATE' };
-        if (badgeMap[order.planId] && !user.badges.includes(badgeMap[order.planId])) {
-          user.badges.push(badgeMap[order.planId]);
-        }
-        await user.save();
-        console.log(`[PayOS Webhook] Upgraded user ${user.displayName} to Premium successfully!`);
-      }
-
-      return { success: true };
+      return this._fulfillOrder(verifiedData.orderCode, { paidAmount: verifiedData.amount });
     } catch (err) {
       console.error('[PayOS Webhook] Verification error:', err);
       throw { status: 400, message: 'Invalid signature or payload' };
@@ -534,6 +733,57 @@ class PremiumService {
       sessionMinutes: limits.sessionMinutes,
     };
   }
+
+  async consumeMatchQuota(userId) {
+    let user = await this.User.findById(userId);
+    if (!user) throw { status: 404, message: 'Không tìm thấy user' };
+    user = await this.checkAndExpirePremium(user);
+
+    const limits = this.getLimitsForTier(user.premiumTier || 'none');
+    if (limits.dailyMatches === Infinity) {
+      return { allowed: true, consumed: false, user, limits };
+    }
+
+    const today = this.now().toISOString().split('T')[0];
+    await this.User.updateOne(
+      { _id: userId, lastMatchDate: { $ne: today } },
+      { $set: { lastMatchDate: today, dailyMatchCount: 0 } }
+    );
+    const updatedUser = await this.User.findOneAndUpdate(
+      {
+        _id: userId,
+        lastMatchDate: today,
+        dailyMatchCount: { $lt: limits.dailyMatches },
+      },
+      { $inc: { dailyMatchCount: 1 } },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return { allowed: false, consumed: false, user, limits };
+    }
+    return { allowed: true, consumed: true, user: updatedUser, limits };
+  }
+
+  async refundMatchQuota(userId) {
+    const today = this.now().toISOString().split('T')[0];
+    const user = await this.User.findOneAndUpdate(
+      {
+        _id: userId,
+        lastMatchDate: today,
+        dailyMatchCount: { $gt: 0 },
+      },
+      { $inc: { dailyMatchCount: -1 } },
+      { new: true }
+    );
+    return {
+      refunded: Boolean(user),
+      dailyMatchCount: user?.dailyMatchCount,
+      user,
+    };
+  }
 }
 
-module.exports = new PremiumService();
+const premiumService = new PremiumService();
+premiumService.PremiumService = PremiumService;
+module.exports = premiumService;

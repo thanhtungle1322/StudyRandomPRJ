@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../services/api';
 import { 
   FiUsers, 
@@ -17,7 +17,7 @@ import {
   FiArrowLeft,
   FiAward
 } from 'react-icons/fi';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import backgroundLogin from '../../background/backgroundLogin.webp';
 import './AdminDashboardPage.css';
 import AdminAnalyticsTab from '../components/AdminAnalyticsTab';
 
@@ -54,7 +54,7 @@ export default function AdminDashboardPage() {
     }
   }, [user, navigate]);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       if (activeTab === 'users') {
@@ -84,13 +84,13 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
     if (user && user.role === 'admin') {
       fetchData();
     }
-  }, [activeTab, user]);
+  }, [user, fetchData]);
 
   // User Actions
   const handleToggleRole = async (userId, currentRole) => {
@@ -263,7 +263,7 @@ export default function AdminDashboardPage() {
         <div className="admin-tab-content glass-card animate-fade-in-up">
           {loading ? (
             <div className="admin-loading">
-              <div className="spinner"></div>
+              <span className="app-spinner" aria-hidden="true"></span>
               <p>Đang tải dữ liệu...</p>
             </div>
           ) : (

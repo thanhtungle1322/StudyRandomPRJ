@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Feedback = require('../models/Feedback');
 const Giftcode = require('../models/Giftcode');
 const Setting = require('../models/Setting');
+const { disconnectUserSockets } = require('../socket');
 
 class AdminController {
   /**
@@ -120,6 +121,8 @@ class AdminController {
       if (!user) {
         return res.status(404).json({ success: false, message: 'Không tìm thấy người dùng' });
       }
+
+      disconnectUserSockets(id);
 
       res.json({
         success: true,
@@ -259,9 +262,13 @@ class AdminController {
   async updateSettings(req, res) {
     try {
       const { gaMeasurementId } = req.body;
+      const normalizedGaId = typeof gaMeasurementId === 'string' ? gaMeasurementId.trim().toUpperCase() : '';
+      if (normalizedGaId && !/^G-[A-Z0-9]{4,20}$/.test(normalizedGaId)) {
+        return res.status(400).json({ success: false, message: 'Google Analytics Measurement ID không hợp lệ' });
+      }
       await Setting.findOneAndUpdate(
         { key: 'ga_measurement_id' },
-        { value: gaMeasurementId || '' },
+        { value: normalizedGaId },
         { upsert: true, new: true }
       );
       res.json({

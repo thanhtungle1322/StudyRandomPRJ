@@ -3,6 +3,7 @@ import api from './api';
 // Cache the measurement ID
 let activeMeasurementId = null;
 let firstPageTracked = false;
+const GA_MEASUREMENT_ID_PATTERN = /^G-[A-Z0-9]{4,20}$/;
 
 /**
  * Dynamically inject Google Analytics scripts into the page
@@ -10,36 +11,32 @@ let firstPageTracked = false;
  */
 export function initGA(measurementId) {
   if (!measurementId || typeof window === 'undefined') return;
+  const normalizedMeasurementId = measurementId.trim().toUpperCase();
+  if (!GA_MEASUREMENT_ID_PATTERN.test(normalizedMeasurementId)) {
+    console.error('[Analytics] Invalid Google Analytics Measurement ID');
+    return;
+  }
   
   // Clean up existing scripts if ID changes or is re-initialized
   const existingScript1 = document.getElementById('google-analytics-script');
-  const existingScript2 = document.getElementById('google-analytics-init');
   if (existingScript1) existingScript1.remove();
-  if (existingScript2) existingScript2.remove();
 
-  activeMeasurementId = measurementId;
+  activeMeasurementId = normalizedMeasurementId;
   firstPageTracked = false; // reset flag on new init
 
   // 1. Inject gtag.js script
   const script1 = document.createElement('script');
   script1.id = 'google-analytics-script';
   script1.async = true;
-  script1.src = `https://www.googletagmanager.com/gtag/js?id=${measurementId}`;
+  script1.src = `https://www.googletagmanager.com/gtag/js?id=${normalizedMeasurementId}`;
   document.head.appendChild(script1);
 
-  // 2. Initialize dataLayer and gtag function
-  const script2 = document.createElement('script');
-  script2.id = 'google-analytics-init';
-  script2.innerHTML = `
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){window.dataLayer.push(arguments);}
-    window.gtag = gtag;
-    gtag('js', new Date());
-    gtag('config', '${measurementId}');
-  `;
-  document.head.appendChild(script2);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = window.gtag || function gtag() { window.dataLayer.push(arguments); };
+  window.gtag('js', new Date());
+  window.gtag('config', normalizedMeasurementId);
   
-  console.log(`[Google Analytics] Initialized with ID: ${measurementId}`);
+  console.log(`[Google Analytics] Initialized with ID: ${normalizedMeasurementId}`);
 }
 
 /**

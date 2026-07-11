@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
+    "optimize:images": "node scripts/optimize-images.mjs",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -27,6 +28,10 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.19",
     "globals": "^16.0.0",
+    "sharp": "^0.35.3",
     "vite": "^6.3.5"
+  },
+  "overrides": {
+    "lodash-es": "4.18.1"
   }
 }

@@ -1,7 +1,7 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
-
-const AuthContext = createContext(null);
+import { disconnectSocket } from '../services/socket';
+import { AuthContext } from './auth-context';
 
 const STORAGE_KEY_USER = 'studyrandom_user_v2';
 const STORAGE_KEY_TOKEN = 'studyrandom_token_v2';
@@ -40,6 +40,33 @@ export function AuthProvider({ children }) {
     }
     return t || null;
   });
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!token) {
+      setUser(null);
+      setAuthReady(true);
+      return undefined;
+    }
+
+    setAuthReady(false);
+    api.get('/auth/me')
+      .then((response) => {
+        if (!cancelled && response.data.success) setUser(response.data.user);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setUser(null);
+          setToken(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setAuthReady(true);
+      });
+
+    return () => { cancelled = true; };
+  }, [token]);
 
   useEffect(() => {
     if (user) {
@@ -60,12 +87,31 @@ export function AuthProvider({ children }) {
   const login = useCallback((userData, authToken) => {
     setUser(userData);
     setToken(authToken);
+    setAuthReady(true);
   }, []);
 
   const logout = useCallback(() => {
+    disconnectSocket();
+    localStorage.removeItem('activeStudySession');
+    window.dispatchEvent(new Event('storage'));
     setUser(null);
     setToken(null);
+    setAuthReady(true);
   }, []);
+
+  useEffect(() => {
+    window.addEventListener('studyrandom:auth-expired', logout);
+    const handleStorageLogout = (event) => {
+      if ([STORAGE_KEY_TOKEN, STORAGE_KEY_TOKEN_OLD].includes(event.key) && !event.newValue) {
+        logout();
+      }
+    };
+    window.addEventListener('storage', handleStorageLogout);
+    return () => {
+      window.removeEventListener('studyrandom:auth-expired', logout);
+      window.removeEventListener('storage', handleStorageLogout);
+    };
+  }, [logout]);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -79,18 +125,16 @@ export function AuthProvider({ children }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, refreshUser, isLoggedIn: !!user }}>
+    <AuthContext.Provider value={{
+      user,
+      token,
+      login,
+      logout,
+      refreshUser,
+      authReady,
+      isLoggedIn: authReady && Boolean(user && token),
+    }}>
       {children}
     </AuthContext.Provider>
   );
 }
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
-
-export default AuthContext;

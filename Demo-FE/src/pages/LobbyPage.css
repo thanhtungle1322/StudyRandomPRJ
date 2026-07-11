@@ -453,7 +453,7 @@
 }
 
 /* Đảm bảo icon đổi sang màu trắng khi được chọn */
-.criteria-btn.selected .btn-icon {
+.criteria-btn.selected .criteria-icon {
   color: #fff;
 }
 
@@ -465,9 +465,13 @@
 }
 
 /* Icon bên trong criteria button */
-.btn-icon {
+.criteria-icon {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
   font-size: 14px;
   transition: color .2s ease;
 }
@@ -788,6 +792,14 @@
   max-width: 360px;
   animation: toastSlideIn .4s cubic-bezier(.16,1,.3,1) forwards;
 }
+
+.lobby-error-toast {
+  border-color: rgba(224, 49, 49, 0.35);
+}
+
+.lobby-error-toast .toast-icon {
+  color: #ff8787;
+}
 @keyframes toastSlideIn {
   from { transform: translateX(120%) scale(.9); opacity: 0; }
   to   { transform: translateX(0) scale(1); opacity: 1; }
@@ -833,7 +845,7 @@
   .search-modal { padding: 32px 18px; }
   .lobby-refund-toast { top: auto; bottom: 20px; right: 12px; left: 12px; max-width: none; }
   .right-section { padding: 13px 14px; }
-  .criteria-btn { padding: 5px 10px; font-size: 11px; }
+  .criteria-btn { min-height: 40px; padding: 7px 10px; font-size: 11px; }
   .lobby-quick-actions { margin-top: 12px; gap: 8px; }
   .lobby-quick-card { padding: 14px 16px; gap: 12px; }
   .quick-card-icon { width: 38px; height: 38px; font-size: 17px; border-radius: 10px; }

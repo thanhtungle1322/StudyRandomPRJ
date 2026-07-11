@@ -130,7 +130,7 @@
 .preview-user-info h4 {
   font-size: 18px;
   font-weight: 800;
-  color: #ffffff;
+  color: #1e293b;
   margin-bottom: 4px;
 }
 
@@ -151,7 +151,7 @@
 .preview-card-right h5 {
   font-size: 14px;
   font-weight: 800;
-  color: #cbd5e1;
+  color: #475569;
   margin-bottom: 10px;
 }
 
@@ -613,13 +613,13 @@
 .giftcode-title-wrapper h3 {
   font-size: 16px;
   font-weight: 800;
-  color: #ffffff;
+  color: #1e293b;
   margin-bottom: 2px;
 }
 
 .giftcode-title-wrapper p {
   font-size: 13px;
-  color: #cbd5e1;
+  color: #5a4a7a;
   font-weight: 600;
   line-height: 1.4;
 }

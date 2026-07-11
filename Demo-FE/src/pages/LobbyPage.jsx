@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import { connectSocket, getSocket } from '../services/socket';
 import api from '../services/api';
+import { SUBJECTS } from '../data/subjects';
 import {
   FiSearch, FiBook, FiCrosshair, FiUsers, FiAlertOctagon, FiX,
   FiZap, FiDatabase, FiGlobe, FiCpu, FiStar, FiBarChart2, FiCheck,
@@ -15,7 +16,7 @@ import {
   FaCalculator, FaNodeJs, FaReact, FaPython, FaDna,
   FaJava, FaGraduationCap,
 } from 'react-icons/fa';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import backgroundLogin from '../../background/backgroundLogin.webp';
 import mascot1 from '../../background/mascot1.png';
 import mascot2 from '../../background/mascot2.png';
 import './LobbyPage.css';
@@ -258,13 +259,16 @@ export default function LobbyPage() {
   const [premiumStatus, setPremiumStatus] = useState(null);
   const [limitReached, setLimitReached] = useState(false);
   const [refundNotification, setRefundNotification] = useState(null);
+  const [queueError, setQueueError] = useState('');
 
   useEffect(() => {
     const fetchStatus = async () => {
       try {
         const { data } = await api.get('/premium/status');
         if (data.success) setPremiumStatus(data);
-      } catch (_) {}
+      } catch (error) {
+        console.error('[Lobby] Failed to load premium status:', error);
+      }
     };
     fetchStatus();
   }, []);
@@ -274,57 +278,9 @@ export default function LobbyPage() {
       try {
         const { data } = await api.get('/subjects');
         if (data.success) setSubjects(data.subjects);
-      } catch (err) {
-        setSubjects([
-          // Phổ thông — STEM
-          { id: 'math',      name: 'Toán học' },
-          { id: 'physics',   name: 'Vật lý' },
-          { id: 'hoa',       name: 'Hóa học' },
-          { id: 'sinh',      name: 'Sinh học' },
-          { id: 'tinhoc',    name: 'Tin học' },
-          // Phổ thông — Ngôn ngữ / Xã hội
-          { id: 'english',   name: 'Tiếng Anh' },
-          { id: 'van',       name: 'Ngữ văn' },
-          { id: 'lichsu',    name: 'Lịch sử' },
-          { id: 'diali',     name: 'Địa lí' },
-          { id: 'gdcd',      name: 'GDCD' },
-          // Lập trình
-          { id: 'python',    name: 'Python' },
-          { id: 'nodejs',    name: 'NodeJS' },
-          { id: 'react',     name: 'React' },
-          { id: 'database',  name: 'Cơ sở dữ liệu' },
-          { id: 'algorithm', name: 'Thuật toán' },
-          { id: 'java',      name: 'Java' },
-          { id: 'csharp',    name: 'C#' },
-          { id: 'cpp',       name: 'C/C++' },
-          { id: 'flutter',   name: 'Flutter' },
-          { id: 'ai',        name: 'AI / ML' },
-          { id: 'mang_may_tinh', name: 'Mạng máy tính' },
-          { id: 'an_toan_thong_tin', name: 'An toàn thông tin' },
-          // Đại học
-          { id: 'triet',     name: 'Triết học' },
-          { id: 'kinh_te',   name: 'Kinh tế' },
-          { id: 'tam_ly',    name: 'Tâm lý học' },
-          { id: 'ke_toan',   name: 'Kế toán' },
-          { id: 'phap_luat', name: 'Pháp luật' },
-          { id: 'marketing', name: 'Marketing' },
-          { id: 'quan_tri',  name: 'Quản trị kinh doanh' },
-          { id: 'xa_hoi_hoc', name: 'Xã hội học' },
-          { id: 'luat_dai_cuong', name: 'Luật đại cương' },
-          // Ngoại ngữ
-          { id: 'tieng_anh_gt', name: 'Tiếng Anh giao tiếp' },
-          { id: 'tieng_trung',  name: 'Tiếng Trung' },
-          { id: 'tieng_nhat',   name: 'Tiếng Nhật' },
-          { id: 'tieng_han',    name: 'Tiếng Hàn' },
-          // Y dược
-          { id: 'giai_phau',    name: 'Giải phẫu học' },
-          { id: 'duoc_ly',      name: 'Dược lý học' },
-          { id: 'dinh_duong',   name: 'Dinh dưỡng học' },
-          // Thiết kế
-          { id: 'graphic_design', name: 'Thiết kế đồ họa' },
-          { id: 'ux_ui',          name: 'Thiết kế UX/UI' },
-          { id: 'nhiep_anh',      name: 'Nhiếp ảnh cơ bản' },
-        ]);
+      } catch (error) {
+        console.error('[Lobby] Failed to load subjects; using local fallback:', error);
+        setSubjects(SUBJECTS);
       }
     };
     fetchSubjects();
@@ -332,39 +288,64 @@ export default function LobbyPage() {
 
   useEffect(() => {
     const socket = connectSocket();
-    socket.on('matched', (data) => {
+    let notificationTimer;
+    const handleMatched = (data) => {
       setSearching(false); setSearchTime(0); setRelaxLevel(0);
       setQuickSearching(false); setQuickSearchTime(0);
       navigate(`/room/${data.roomId}`, {
         state: { partner: data.partner, subject: data.subject, sessionTimeLimit: data.sessionTimeLimit }
       });
-    });
-    socket.on('waiting', (data) => {
+    };
+    const handleWaiting = (data) => {
       if (data.queueStats) setQueueStats(data.queueStats);
-      // waiting cho cả quick và normal mode - stats được xử lý qua queue_stats broadcast
-    });
-    socket.on('queue_left', () => { setSearching(false); setSearchTime(0); setRelaxLevel(0); setQuickSearching(false); setQuickSearchTime(0); });
-    socket.on('queue_stats', (stats) => setQueueStats(stats));
-    socket.on('queue_relaxed', (data) => { setRelaxLevel(data.level); });
-    socket.on('match_limit_reached', () => {
+    };
+    const handleQueueLeft = () => {
+      setSearching(false); setSearchTime(0); setRelaxLevel(0);
+      setQuickSearching(false); setQuickSearchTime(0);
+    };
+    const handleQueueStats = (stats) => setQueueStats(stats);
+    const handleQueueRelaxed = (data) => setRelaxLevel(data.level);
+    const handleLimitReached = () => {
       setSearching(false); setSearchTime(0); setRelaxLevel(0);
       setQuickSearching(false); setQuickSearchTime(0);
       setLimitReached(true);
-    });
-    socket.on('match_refunded', (data) => {
+    };
+    const handleMatchRefunded = (data) => {
       setRefundNotification(data.message);
-      setTimeout(() => setRefundNotification(null), 8000);
+      clearTimeout(notificationTimer);
+      notificationTimer = setTimeout(() => setRefundNotification(null), 8000);
       setPremiumStatus(prev => {
         if (!prev || prev.isPremium) return prev;
         return { ...prev, limits: { ...prev.limits, dailyMatchesUsed: data.dailyMatchCount, dailyMatchesRemaining: data.remaining } };
       });
-    });
+    };
+    const handleQueueError = (data) => {
+      handleQueueLeft();
+      setQueueError(data.message || 'Không thể tìm bạn học lúc này.');
+      clearTimeout(notificationTimer);
+      notificationTimer = setTimeout(() => setQueueError(''), 8000);
+    };
+
+    socket.on('matched', handleMatched);
+    socket.on('waiting', handleWaiting);
+    socket.on('queue_left', handleQueueLeft);
+    socket.on('queue_stats', handleQueueStats);
+    socket.on('queue_relaxed', handleQueueRelaxed);
+    socket.on('match_limit_reached', handleLimitReached);
+    socket.on('match_refunded', handleMatchRefunded);
+    socket.on('queue_error', handleQueueError);
     const interval = setInterval(() => socket.emit('get_queue_stats'), 5000);
     return () => {
       clearInterval(interval);
-      socket.off('matched'); socket.off('waiting'); socket.off('queue_left');
-      socket.off('queue_stats'); socket.off('match_limit_reached');
-      socket.off('match_refunded'); socket.off('queue_relaxed');
+      clearTimeout(notificationTimer);
+      socket.off('matched', handleMatched);
+      socket.off('waiting', handleWaiting);
+      socket.off('queue_left', handleQueueLeft);
+      socket.off('queue_stats', handleQueueStats);
+      socket.off('match_limit_reached', handleLimitReached);
+      socket.off('match_refunded', handleMatchRefunded);
+      socket.off('queue_relaxed', handleQueueRelaxed);
+      socket.off('queue_error', handleQueueError);
     };
   }, [navigate]);
 
@@ -497,6 +478,17 @@ export default function LobbyPage() {
         </div>
       )}
 
+      {queueError && (
+        <div className="lobby-refund-toast lobby-error-toast animate-fade-in" role="alert">
+          <FiAlertOctagon className="toast-icon" />
+          <div className="toast-content">
+            <h3>Chưa thể ghép cặp</h3>
+            <p>{queueError}</p>
+          </div>
+          <button className="toast-close" onClick={() => setQueueError('')} aria-label="Đóng thông báo"><FiX /></button>
+        </div>
+      )}
+
       {/* Mascots */}
       <div className="lobby-mascot-fixed lobby-mascot-left"><img src={mascot1} alt="" /></div>
       <div className="lobby-mascot-fixed lobby-mascot-right"><img src={mascot2} alt="" /></div>
@@ -564,7 +556,7 @@ export default function LobbyPage() {
               <div className="limit-icon">🔒</div>
               <h2>Hết lượt tìm bạn học!</h2>
               <p className="limit-desc">Bạn đã dùng hết <strong>{premiumStatus?.limits?.dailyMatches || 3} lượt</strong> miễn phí hôm nay.</p>
-              <p className="limit-hint">Nâng cấp Premium — mua 1 lần dùng vĩnh viễn!</p>
+              <p className="limit-hint">Nâng cấp Premium để tăng lượt ghép và thời lượng phiên học.</p>
               <div className="limit-actions">
                 <Link to="/pricing" className="btn-find-partner" style={{ textDecoration: 'none' }}><FiStar /> Xem gói Premium</Link>
                 <button onClick={() => setLimitReached(false)} className="btn-cancel-search" style={{ marginTop: 8 }}><FiX /> Đóng</button>
@@ -641,7 +633,7 @@ export default function LobbyPage() {
                 </div>
               </div>
               <h2 className="quick-search-title">Ghép Nhanh...</h2>
-              <p className="search-subject">Hệ thống đang kết nối bạn với bất kỳ ai online</p>
+              <p className="search-subject">Hệ thống đang kết nối bạn với người đang chờ Ghép Nhanh</p>
               <p className="search-time">{formatTime(quickSearchTime)}</p>
               <div className="smart-queue-stats">
                 <div className="smart-queue-stat-row">
@@ -745,7 +737,7 @@ export default function LobbyPage() {
                           disabled={searching}
                           title={opt.desc}
                         >
-                          <span className="btn-icon">{opt.icon}</span>
+                          <span className="criteria-icon">{opt.icon}</span>
                           {opt.label}
                         </button>
                       ))}
@@ -766,7 +758,7 @@ export default function LobbyPage() {
                           disabled={searching}
                           title={opt.desc}
                         >
-                          <span className="btn-icon">{opt.icon}</span>
+                          <span className="criteria-icon">{opt.icon}</span>
                           {opt.label}
                         </button>
                       ))}
@@ -807,7 +799,7 @@ export default function LobbyPage() {
             <div className="quick-match-content">
               <h2 className="quick-match-title">Ghép Nhanh</h2>
               <p className="quick-match-desc">
-                Kết nối ngay với bất kỳ ai đang online —<br />
+                Kết nối với người đang chờ Ghép Nhanh —<br />
                 không cần chọn môn, không cần tiêu chí.
               </p>
 
@@ -822,15 +814,15 @@ export default function LobbyPage() {
                 <div className="quick-info-card">
                   <FiZap className="qi-icon" />
                   <div>
-                    <span className="qi-number">&lt;1s</span>
-                    <span className="qi-label">nếu có người</span>
+                    <span className="qi-number">Ngay</span>
+                    <span className="qi-label">khi có người</span>
                   </div>
                 </div>
                 <div className="quick-info-card">
                   <FiHeart className="qi-icon" />
                   <div>
-                    <span className="qi-number">Miễn phí</span>
-                    <span className="qi-label">cho tất cả</span>
+                    <span className="qi-number">1 lượt</span>
+                    <span className="qi-label">theo gói của bạn</span>
                   </div>
                 </div>
               </div>
