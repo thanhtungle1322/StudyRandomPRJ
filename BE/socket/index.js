@@ -2,13 +2,121 @@ const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const matchmakingService = require('../services/matchmaking');
 const matchmaking = matchmakingService;
-const { QUICK_MATCH_SUBJECT } = matchmakingService;
+const { MatchmakingError, QUICK_MATCH_SUBJECT } = matchmakingService;
 const config = require('../config');
 const User = require('../models/User');
 const Friendship = require('../models/Friendship');
+const premiumService = require('../services/premiumService');
 
 const userSockets = new Map(); // socketId -> userId (existing)
 const userSocketsReverse = new Map(); // userId -> Set<socketId> (new - for targeting specific users)
+const pendingUserSocketsReverse = new Map();
+const revokedUserIds = new Set();
+let socketServer = null;
+
+function trackPendingSocket(userId, socket) {
+  if (!pendingUserSocketsReverse.has(userId)) pendingUserSocketsReverse.set(userId, new Set());
+  pendingUserSocketsReverse.get(userId).add(socket);
+}
+
+function untrackPendingSocket(userId, socket) {
+  const sockets = pendingUserSocketsReverse.get(userId);
+  if (!sockets) return;
+  sockets.delete(socket);
+  if (sockets.size === 0) pendingUserSocketsReverse.delete(userId);
+}
+
+function disconnectUserSockets(userId) {
+  revokedUserIds.add(userId);
+  const pendingSockets = [...(pendingUserSocketsReverse.get(userId) || [])];
+  pendingSockets.forEach((socket) => {
+    socket.data = socket.data || {};
+    socket.data.accountRevoked = true;
+  });
+  const socketIds = userSocketsReverse.get(userId);
+  const sockets = socketServer && socketIds ? [...socketIds]
+    .map((socketId) => socketServer.sockets.sockets.get(socketId))
+    .filter(Boolean) : [];
+  sockets.forEach((socket) => {
+    socket.emit('account_revoked', { message: 'Tài khoản của bạn đã bị xóa.' });
+    socket.disconnect(true);
+  });
+  return sockets.length + pendingSockets.length;
+}
+
+function getLiveInvitationSockets(io, inviterSocketId, accepterSocket) {
+  const inviterSocket = io.sockets.sockets.get(inviterSocketId);
+  const currentAccepterSocket = io.sockets.sockets.get(accepterSocket.id);
+  if (
+    !inviterSocket?.connected ||
+    !accepterSocket.connected ||
+    currentAccepterSocket !== accepterSocket
+  ) {
+    return null;
+  }
+  return { inviterSocket, accepterSocket };
+}
+
+class RoomInvitationError extends Error {
+  constructor(code, message) {
+    super(message);
+    this.name = 'RoomInvitationError';
+    this.code = code;
+  }
+}
+
+class RoomInvitationStore {
+  constructor({ ttlMs = 60_000, maxSize = 10_000, now = Date.now } = {}) {
+    this.ttlMs = ttlMs;
+    this.maxSize = maxSize;
+    this.now = now;
+    this.invitations = new Map();
+  }
+
+  _pruneExpired() {
+    const now = this.now();
+    for (const [invitationId, invitation] of this.invitations) {
+      if (invitation.expiresAt <= now) this.invitations.delete(invitationId);
+    }
+  }
+
+  create(data) {
+    this._pruneExpired();
+    if (this.invitations.size >= this.maxSize) {
+      const oldestId = this.invitations.keys().next().value;
+      this.invitations.delete(oldestId);
+    }
+    const invitation = {
+      ...data,
+      invitationId: crypto.randomUUID(),
+      expiresAt: this.now() + this.ttlMs,
+    };
+    this.invitations.set(invitation.invitationId, invitation);
+    return invitation;
+  }
+
+  consume(invitationId, recipientId) {
+    const invitation = this.invitations.get(invitationId);
+    if (!invitation) {
+      throw new RoomInvitationError('INVITATION_NOT_FOUND', 'Lời mời không tồn tại hoặc đã được sử dụng');
+    }
+    if (invitation.expiresAt <= this.now()) {
+      this.invitations.delete(invitationId);
+      throw new RoomInvitationError('INVITATION_EXPIRED', 'Lời mời đã hết hạn');
+    }
+    if (invitation.recipientId !== recipientId) {
+      throw new RoomInvitationError('INVITATION_FORBIDDEN', 'Lời mời này không dành cho bạn');
+    }
+    this.invitations.delete(invitationId);
+    return invitation;
+  }
+
+  removeByInviterSocket(socketId) {
+    for (const [invitationId, invitation] of this.invitations) {
+      if (invitation.inviterSocketId === socketId) this.invitations.delete(invitationId);
+    }
+  }
+}
 
 function emitToUser(io, userId, event, data) {
   const socketIds = userSocketsReverse.get(userId);
@@ -21,7 +129,140 @@ function emitToUser(io, userId, event, data) {
   }
 }
 
-module.exports = function setupSocket(io) {
+function enqueueOrReject(socket, subjectId, user) {
+  try {
+    return { accepted: true, match: matchmaking.addToQueue(subjectId, socket.id, user) };
+  } catch (error) {
+    const isValidationError = error instanceof MatchmakingError;
+    if (!isValidationError) {
+      console.error('[Matchmaking] Queue error:', error);
+    }
+    socket.emit('queue_error', {
+      code: isValidationError ? error.code : 'QUEUE_ERROR',
+      message: isValidationError ? error.message : 'Không thể tham gia hàng đợi lúc này',
+    });
+    return { accepted: false, match: null };
+  }
+}
+
+function getAuthorizedRoom(socket, roomId, requireJoined = false) {
+  if (typeof roomId !== 'string' || !roomId) return null;
+  const room = matchmaking.getRoom(roomId);
+  if (!room || !matchmaking.isRoomParticipant(roomId, socket.userId)) return null;
+  if (requireJoined && (
+    !socket.rooms.has(roomId) ||
+    !matchmaking.isConnectedRoomParticipant(roomId, socket.userId, socket.id)
+  )) {
+    return null;
+  }
+  return room;
+}
+
+async function refundQuotaReservations(quotaService, reservations) {
+  await Promise.allSettled(
+    reservations
+      .filter((reservation) => reservation.consumed)
+      .map((reservation) => quotaService.refundMatchQuota(reservation.userId))
+  );
+}
+
+async function reserveMatchQuotas(quotaService, userIds) {
+  const settled = await Promise.allSettled(
+    userIds.map((userId) => quotaService.consumeMatchQuota(userId))
+  );
+  const results = settled.map((result) => (
+    result.status === 'fulfilled'
+      ? result.value
+      : { allowed: false, consumed: false, error: result.reason }
+  ));
+  const reservations = results.map((result, index) => ({
+    userId: userIds[index],
+    consumed: Boolean(result.consumed),
+  }));
+  const failureIndex = settled.findIndex((result, index) => (
+    result.status === 'rejected' || !results[index].allowed
+  ));
+
+  if (failureIndex !== -1) {
+    await refundQuotaReservations(quotaService, reservations);
+    return { allowed: false, failureIndex, results, reservations };
+  }
+  return { allowed: true, failureIndex: -1, results, reservations };
+}
+
+function setupSocket(io) {
+  socketServer = io;
+  const roomInvitations = new RoomInvitationStore();
+
+  const deliverMatch = async ({ roomId, user1, user2, subject }) => {
+    const socket1 = io.sockets.sockets.get(user1.socketId);
+    const socket2 = io.sockets.sockets.get(user2.socketId);
+    if (!socket1 || !socket2) {
+      matchmaking.discardRoom(roomId, 'socket_missing');
+      const connectedSocket = socket1 || socket2;
+      connectedSocket?.emit('queue_error', {
+        code: 'PARTNER_DISCONNECTED',
+        message: 'Bạn học vừa mất kết nối. Vui lòng tìm lại.',
+      });
+      return false;
+    }
+
+    const quotaReservation = await reserveMatchQuotas(premiumService, [
+      user1.user.userId,
+      user2.user.userId,
+    ]);
+    if (!quotaReservation.allowed) {
+      const deniedIndex = quotaReservation.failureIndex;
+      matchmaking.discardRoom(roomId, 'quota_rejected');
+      [socket1, socket2].forEach((matchedSocket, index) => {
+        const failedResult = quotaReservation.results[deniedIndex];
+        const quotaDenied = index === deniedIndex && !failedResult.error;
+        matchedSocket.emit(quotaDenied ? 'match_limit_reached' : 'queue_error', {
+          code: quotaDenied ? 'MATCH_LIMIT_REACHED' : (index === deniedIndex ? 'QUOTA_ERROR' : 'PARTNER_LIMIT_REACHED'),
+          message: quotaDenied
+            ? 'Bạn đã hết lượt tìm bạn học hôm nay.'
+            : (index === deniedIndex ? 'Không thể giữ lượt ghép. Vui lòng thử lại.' : 'Bạn học chưa thể ghép lúc này. Vui lòng tìm lại.'),
+          remaining: 0,
+          limit: quotaReservation.results[index].limits?.dailyMatches,
+        });
+      });
+      return false;
+    }
+
+    const currentSocket1 = io.sockets.sockets.get(user1.socketId);
+    const currentSocket2 = io.sockets.sockets.get(user2.socketId);
+    if (!currentSocket1 || !currentSocket2 || !matchmaking.getRoom(roomId)) {
+      await refundQuotaReservations(premiumService, quotaReservation.reservations);
+      matchmaking.discardRoom(roomId, 'socket_missing');
+      return false;
+    }
+    matchmaking.setQuotaReservations(roomId, quotaReservation.reservations);
+
+    currentSocket1.join(roomId);
+    currentSocket2.join(roomId);
+    const isQuickMatch = subject === QUICK_MATCH_SUBJECT;
+    const limits = quotaReservation.results.map((result) => (
+      result.limits.sessionMinutes === Infinity ? null : result.limits.sessionMinutes
+    ));
+    matchmaking.setSessionTimeLimit(roomId, limits);
+
+    currentSocket1.emit('matched', {
+      roomId,
+      subject,
+      partner: user2.user,
+      sessionTimeLimit: limits[0],
+      isQuickMatch,
+    });
+    currentSocket2.emit('matched', {
+      roomId,
+      subject,
+      partner: user1.user,
+      sessionTimeLimit: limits[1],
+      isQuickMatch,
+    });
+    console.log(`[Socket] Room ${roomId} delivered to ${user1.user.username} & ${user2.user.username}`);
+    return true;
+  };
 
   io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
@@ -30,15 +271,24 @@ module.exports = function setupSocket(io) {
     }
     try {
       const decoded = jwt.verify(token, config.jwtSecret);
+      if (revokedUserIds.has(decoded.userId)) return next(new Error('Account no longer exists'));
       socket.userId = decoded.userId;
       socket.username = decoded.displayName;
+      socket.tokenExpiresAt = decoded.exp ? decoded.exp * 1000 : null;
+      trackPendingSocket(decoded.userId, socket);
       
       // Fetch avatar tươi mới trực tiếp từ database vì JWT token giờ là lightweight (không chứa avatar Base64)
-      const user = await User.findById(decoded.userId).select('avatar');
-      socket.userAvatar = user ? user.avatar : '';
+      const user = await User.findById(decoded.userId).select('displayName avatar');
+      if (!user || revokedUserIds.has(decoded.userId) || socket.data?.accountRevoked) {
+        untrackPendingSocket(decoded.userId, socket);
+        return next(new Error('Account no longer exists'));
+      }
+      socket.username = user.displayName;
+      socket.userAvatar = user.avatar || '';
       
       next();
     } catch (err) {
+      if (socket.userId) untrackPendingSocket(socket.userId, socket);
       next(new Error('Invalid token'));
     }
   });
@@ -79,6 +329,16 @@ module.exports = function setupSocket(io) {
     });
   });
 
+  matchmaking.on('room:time_limit_reached', ({ roomId, room, limitMinutes }) => {
+    room.users.forEach((participant) => {
+      const participantSocket = io.sockets.sockets.get(participant.socketId);
+      if (participantSocket) {
+        participantSocket.emit('session_time_limit_reached', { roomId, limitMinutes });
+        participantSocket.leave(roomId);
+      }
+    });
+  });
+
   matchmaking.on('stats:updated', ({ queueStats }) => {
     io.emit('queue_stats', queueStats);
   });
@@ -111,54 +371,10 @@ module.exports = function setupSocket(io) {
   });
 
   // Xử lý kết quả ghép lại sau khi nới lỏng tiêu chí (cùng logic với match thông thường)
-  matchmaking.on('match:retry_found', async ({ roomId, user1, user2, subject }) => {
+  matchmaking.on('match:retry_found', async (match) => {
+    const { roomId } = match;
     console.log(`[Socket][Observer] match:retry_found — Room ${roomId}`);
-    const socket1 = io.sockets.sockets.get(user1.socketId);
-    const socket2 = io.sockets.sockets.get(user2.socketId);
-
-    if (socket1) socket1.join(roomId);
-    if (socket2) socket2.join(roomId);
-
-    const premiumService = require('../services/premiumService');
-
-    // Track daily match count
-    for (const mu of [user1, user2]) {
-      try {
-        const muDb = await User.findById(mu.user.userId);
-        if (muDb) {
-          const limits = premiumService.getLimitsForTier(muDb.premiumTier || 'none');
-          if (limits.dailyMatches !== Infinity) {
-            const today = new Date().toISOString().split('T')[0];
-            if (muDb.lastMatchDate !== today) {
-              muDb.dailyMatchCount = 1;
-              muDb.lastMatchDate = today;
-            } else {
-              muDb.dailyMatchCount += 1;
-            }
-            await muDb.save();
-          }
-        }
-      } catch (_) {}
-    }
-
-    const getSessionLimit = async (uid) => {
-      try {
-        const u = await User.findById(uid);
-        if (!u) return 30;
-        const limits = premiumService.getLimitsForTier(u.premiumTier || 'none');
-        return limits.sessionMinutes === Infinity ? null : limits.sessionMinutes;
-      } catch (_) { return 30; }
-    };
-
-    const user1Limit = await getSessionLimit(user1.user.userId);
-    const user2Limit = await getSessionLimit(user2.user.userId);
-
-    if (socket1) {
-      socket1.emit('matched', { roomId, subject, partner: user2.user, sessionTimeLimit: user1Limit });
-    }
-    if (socket2) {
-      socket2.emit('matched', { roomId, subject, partner: user1.user, sessionTimeLimit: user2Limit });
-    }
+    await deliverMatch(match);
   });
 
   // ================================================================
@@ -169,6 +385,15 @@ module.exports = function setupSocket(io) {
     const userId = socket.userId;
     const username = socket.username;
     const avatar = socket.userAvatar;
+    const authExpiryTimer = socket.tokenExpiresAt
+      ? setTimeout(() => socket.disconnect(true), Math.max(0, socket.tokenExpiresAt - Date.now()))
+      : null;
+
+    untrackPendingSocket(userId, socket);
+    if (revokedUserIds.has(userId) || socket.data?.accountRevoked) {
+      socket.disconnect(true);
+      return;
+    }
 
     console.log(`[Socket] User connected: ${username} (${socket.id})`);
 
@@ -225,69 +450,12 @@ module.exports = function setupSocket(io) {
         goal,        // Thêm mới: mục tiêu buổi học
       };
 
-      const match = matchmaking.addToQueue(subjectId, socket.id, freshSocketUser);
+      const queueResult = enqueueOrReject(socket, subjectId, freshSocketUser);
+      if (!queueResult.accepted) return;
+      const { match } = queueResult;
 
       if (match) {
-        const { roomId, user1, user2, subject } = match;
-
-        const socket1 = io.sockets.sockets.get(user1.socketId);
-        const socket2 = io.sockets.sockets.get(user2.socketId);
-
-        if (socket1) socket1.join(roomId);
-        if (socket2) socket2.join(roomId);
-
-        // ---- Track daily match count for both users ----
-        const premiumService = require('../services/premiumService');
-        for (const mu of [user1, user2]) {
-          try {
-            const muDb = await User.findById(mu.user.userId);
-            if (muDb) {
-              const limits = premiumService.getLimitsForTier(muDb.premiumTier || 'none');
-              if (limits.dailyMatches !== Infinity) {
-                const today = new Date().toISOString().split('T')[0];
-                if (muDb.lastMatchDate !== today) {
-                  muDb.dailyMatchCount = 1;
-                  muDb.lastMatchDate = today;
-                } else {
-                  muDb.dailyMatchCount += 1;
-                }
-                await muDb.save();
-              }
-            }
-          } catch (_) {}
-        }
-
-        // ---- Get session time limits ----
-        const getSessionLimit = async (uid) => {
-          try {
-            const u = await User.findById(uid);
-            if (!u) return 30;
-            const limits = premiumService.getLimitsForTier(u.premiumTier || 'none');
-            return limits.sessionMinutes === Infinity ? null : limits.sessionMinutes;
-          } catch (_) { return 30; }
-        };
-
-        const user1Limit = await getSessionLimit(user1.user.userId);
-        const user2Limit = await getSessionLimit(user2.user.userId);
-
-        if (socket1) {
-          socket1.emit('matched', {
-            roomId,
-            subject,
-            partner: user2.user,
-            sessionTimeLimit: user1Limit,
-          });
-        }
-        if (socket2) {
-          socket2.emit('matched', {
-            roomId,
-            subject,
-            partner: user1.user,
-            sessionTimeLimit: user2Limit,
-          });
-        }
-
-        console.log(`[Socket] Room ${roomId} created for ${user1.user.username} & ${user2.user.username}`);
+        await deliverMatch(match);
       } else {
         socket.emit('waiting', {
           message: 'Đang tìm bạn học phù hợp...',
@@ -340,71 +508,12 @@ module.exports = function setupSocket(io) {
       };
 
       // addToQueue sẽ tự bỏ qua relax timer cho QUICK_MATCH_SUBJECT
-      const match = matchmaking.addToQueue(QUICK_MATCH_SUBJECT, socket.id, freshSocketUser);
+      const queueResult = enqueueOrReject(socket, QUICK_MATCH_SUBJECT, freshSocketUser);
+      if (!queueResult.accepted) return;
+      const { match } = queueResult;
 
       if (match) {
-        const { roomId, user1, user2 } = match;
-
-        const socket1 = io.sockets.sockets.get(user1.socketId);
-        const socket2 = io.sockets.sockets.get(user2.socketId);
-
-        if (socket1) socket1.join(roomId);
-        if (socket2) socket2.join(roomId);
-
-        // ---- Tính dailyMatchCount cho cả 2 user ----
-        const premiumService = require('../services/premiumService');
-        for (const mu of [user1, user2]) {
-          try {
-            const muDb = await User.findById(mu.user.userId);
-            if (muDb) {
-              const limits = premiumService.getLimitsForTier(muDb.premiumTier || 'none');
-              if (limits.dailyMatches !== Infinity) {
-                const today = new Date().toISOString().split('T')[0];
-                if (muDb.lastMatchDate !== today) {
-                  muDb.dailyMatchCount = 1;
-                  muDb.lastMatchDate = today;
-                } else {
-                  muDb.dailyMatchCount += 1;
-                }
-                await muDb.save();
-              }
-            }
-          } catch (_) {}
-        }
-
-        // ---- Lấy giới hạn thời gian phiên ----
-        const getSessionLimit = async (uid) => {
-          try {
-            const u = await User.findById(uid);
-            if (!u) return 30;
-            const limits = premiumService.getLimitsForTier(u.premiumTier || 'none');
-            return limits.sessionMinutes === Infinity ? null : limits.sessionMinutes;
-          } catch (_) { return 30; }
-        };
-
-        const user1Limit = await getSessionLimit(user1.user.userId);
-        const user2Limit = await getSessionLimit(user2.user.userId);
-
-        if (socket1) {
-          socket1.emit('matched', {
-            roomId,
-            subject: QUICK_MATCH_SUBJECT,   // FE sẽ hiển thị thành "Học Tự Do"
-            partner: user2.user,
-            sessionTimeLimit: user1Limit,
-            isQuickMatch: true,
-          });
-        }
-        if (socket2) {
-          socket2.emit('matched', {
-            roomId,
-            subject: QUICK_MATCH_SUBJECT,
-            partner: user1.user,
-            sessionTimeLimit: user2Limit,
-            isQuickMatch: true,
-          });
-        }
-
-        console.log(`[Socket] Quick room ${roomId} created for ${user1.user.username} & ${user2.user.username}`);
+        await deliverMatch(match);
       } else {
         socket.emit('waiting', {
           message: 'Đang tìm bạn học...',
@@ -419,6 +528,10 @@ module.exports = function setupSocket(io) {
     // ========================
 
     socket.on('send_message', ({ roomId, message }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) {
+        socket.emit('room_error', { message: 'Bạn không có quyền gửi tin nhắn vào phòng này' });
+        return;
+      }
       if (typeof message !== 'string' || message.trim().length === 0 || message.length > 5000) {
         return;
       }
@@ -440,30 +553,29 @@ module.exports = function setupSocket(io) {
     // ========================
 
     socket.on('join_room', ({ roomId }) => {
-      const room = matchmaking.getRoom(roomId);
-      if (room) {
-        socket.join(roomId);
-
-        matchmaking.cancelAutoDisconnect(roomId);
-
-        const existingUser = room.users.find(
-          (u) => u.user.userId === userId
-        );
-        if (existingUser) {
-          existingUser.socketId = socket.id;
-        }
-
-        socket.emit('room_data', room);
-
-        socket.to(roomId).emit('partner_reconnected', {
-          message: 'Bạn học đã kết nối lại!',
-        });
-      } else {
+      const room = getAuthorizedRoom(socket, roomId);
+      if (!room) {
         socket.emit('room_error', { message: 'Phòng không tồn tại hoặc đã đóng' });
+        return;
       }
+
+      const reconnectResult = matchmaking.reconnectUser(roomId, userId, socket.id);
+      if (!reconnectResult) {
+        socket.emit('room_error', { message: 'Bạn không phải thành viên của phòng này' });
+        return;
+      }
+
+      const previousSocket = io.sockets.sockets.get(reconnectResult.previousSocketId);
+      if (previousSocket && previousSocket.id !== socket.id) previousSocket.leave(roomId);
+      socket.join(roomId);
+      socket.emit('room_data', reconnectResult.room);
+      socket.to(roomId).emit('partner_reconnected', {
+        message: 'Bạn học đã kết nối lại!',
+      });
     });
 
     socket.on('leave_room', ({ roomId }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) return;
       socket.leave(roomId);
       const result = matchmaking.removeUserFromRoom(socket.id);
       if (result && result.remaining) {
@@ -474,12 +586,14 @@ module.exports = function setupSocket(io) {
     });
 
     socket.on('user_temp_away', ({ roomId }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) return;
       socket.to(roomId).emit('partner_temp_away', {
         message: 'Bạn học đang tạm thời chuyển trang...',
       });
     });
 
     socket.on('user_back', ({ roomId }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) return;
       socket.to(roomId).emit('partner_back', {
         message: 'Bạn học đã quay lại!',
       });
@@ -491,28 +605,28 @@ module.exports = function setupSocket(io) {
 
     // Relay bản vẽ từ user này sang partner trong cùng phòng
     socket.on('whiteboard:update', ({ roomId, elements, appState }) => {
-      if (roomId && socket.rooms.has(roomId)) {
+      if (getAuthorizedRoom(socket, roomId, true)) {
         socket.to(roomId).emit('whiteboard:update', { elements, appState });
       }
     });
 
     // Khi user mở whiteboard, yêu cầu partner gửi state hiện tại
     socket.on('whiteboard:request_sync', ({ roomId }) => {
-      if (roomId && socket.rooms.has(roomId)) {
+      if (getAuthorizedRoom(socket, roomId, true)) {
         socket.to(roomId).emit('whiteboard:send_sync');
       }
     });
 
     // Partner gửi lại toàn bộ state khi được yêu cầu sync
     socket.on('whiteboard:sync_response', ({ roomId, elements, appState }) => {
-      if (roomId && socket.rooms.has(roomId)) {
+      if (getAuthorizedRoom(socket, roomId, true)) {
         socket.to(roomId).emit('whiteboard:sync_response', { elements, appState });
       }
     });
 
     // Xóa bảng có chủ ý — event riêng để phân biệt với broadcast rỗng do init
     socket.on('whiteboard:clear', ({ roomId }) => {
-      if (roomId && socket.rooms.has(roomId)) {
+      if (getAuthorizedRoom(socket, roomId, true)) {
         socket.to(roomId).emit('whiteboard:clear');
       }
     });
@@ -522,7 +636,7 @@ module.exports = function setupSocket(io) {
     // ========================
     socket.on('pomodoro:action', (data) => {
       const { roomId } = data;
-      if (roomId && socket.rooms.has(roomId)) {
+      if (getAuthorizedRoom(socket, roomId, true)) {
         console.log(`[Pomodoro] Relaying action in room ${roomId} from ${socket.id}`);
         socket.to(roomId).emit('pomodoro:action', data);
       }
@@ -530,7 +644,7 @@ module.exports = function setupSocket(io) {
 
     socket.on('media_state_change', (data) => {
       const { roomId } = data;
-      if (roomId) {
+      if (getAuthorizedRoom(socket, roomId, true)) {
         console.log(`[Media] Relaying state change in room ${roomId} from ${socket.id}`);
         socket.to(roomId).emit('media_state_change', data);
       }
@@ -541,20 +655,24 @@ module.exports = function setupSocket(io) {
     // ========================
 
     socket.on('webrtc_offer', ({ roomId, offer }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) return;
       console.log(`[WebRTC] Relaying offer in room ${roomId} from ${socket.id}`);
       socket.to(roomId).emit('webrtc_offer', { offer });
     });
 
     socket.on('webrtc_answer', ({ roomId, answer }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) return;
       console.log(`[WebRTC] Relaying answer in room ${roomId} from ${socket.id}`);
       socket.to(roomId).emit('webrtc_answer', { answer });
     });
 
     socket.on('webrtc_ice_candidate', ({ roomId, candidate }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) return;
       socket.to(roomId).emit('webrtc_ice_candidate', { candidate, senderId: socket.id });
     });
 
     socket.on('camera_status', ({ roomId, isVideoOff }) => {
+      if (!getAuthorizedRoom(socket, roomId, true)) return;
       socket.to(roomId).emit('partner_camera_status', { isVideoOff });
     });
 
@@ -664,6 +782,18 @@ module.exports = function setupSocket(io) {
     // Mời bạn bè vào phòng học
     socket.on('room:invite', async ({ friendId, subject }) => {
       try {
+        if (typeof friendId !== 'string' || friendId === userId) {
+          socket.emit('room:invite_error', { message: 'Người nhận lời mời không hợp lệ' });
+          return;
+        }
+        if (!config.subjects.some((item) => item.id === subject)) {
+          socket.emit('room:invite_error', { message: 'Môn học không hợp lệ' });
+          return;
+        }
+        if (!userSocketsReverse.has(friendId)) {
+          socket.emit('room:invite_error', { message: 'Bạn học hiện không online' });
+          return;
+        }
         console.log(`[Room:invite] userId=${userId}, friendId=${friendId}, subject=${subject}`);
         // Verify they are friends
         const friendship = await Friendship.findOne({
@@ -682,21 +812,26 @@ module.exports = function setupSocket(io) {
         }
 
         const inviterUser = await User.findById(userId).select('displayName avatar');
-        const invitationId = crypto.randomUUID();
+        const invitation = roomInvitations.create({
+          inviterId: userId,
+          inviterSocketId: socket.id,
+          recipientId: friendId,
+          subject,
+        });
 
         // Send invitation to friend
         emitToUser(io, friendId, 'room:invitation_received', {
-          invitationId,
+          invitationId: invitation.invitationId,
           inviter: {
             _id: userId,
             displayName: inviterUser?.displayName || username,
             avatar: inviterUser?.avatar || avatar,
           },
           subject,
-          socketId: socket.id,
+          expiresAt: invitation.expiresAt,
         });
 
-        socket.emit('room:invite_sent', { invitationId, friendId, subject });
+        socket.emit('room:invite_sent', { invitationId: invitation.invitationId, friendId, subject });
       } catch (err) {
         console.error('[Room] Error inviting:', err.message);
         socket.emit('room:invite_error', { message: 'Lỗi mời vào phòng' });
@@ -704,20 +839,36 @@ module.exports = function setupSocket(io) {
     });
 
     // Phản hồi lời mời vào phòng
-    socket.on('room:invite_respond', async ({ invitationId, inviterSocketId, inviterId, subject, action }) => {
+    socket.on('room:invite_respond', async ({ invitationId, action }) => {
       try {
+        if (!['accept', 'reject'].includes(action)) {
+          throw new RoomInvitationError('INVALID_ACTION', 'Phản hồi lời mời không hợp lệ');
+        }
+        const invitation = roomInvitations.consume(invitationId, userId);
+        const { inviterSocketId, inviterId, subject } = invitation;
+
         if (action === 'accept') {
           // Create direct room
-          const inviterSocket = io.sockets.sockets.get(inviterSocketId);
+          let liveSockets = getLiveInvitationSockets(io, inviterSocketId, socket);
 
-          if (!inviterSocket) {
+          if (!liveSockets) {
             socket.emit('room:invite_error', { message: 'Người mời đã offline' });
             return;
           }
 
-          // Fetch fresh avatars dynamically to guarantee synchronization
-          const dbInviter = await User.findById(inviterId).select('avatar');
-          const dbAccepter = await User.findById(userId).select('avatar');
+          // Fetch current plan limits and profile data before creating the room.
+          const [inviterStatus, accepterStatus, dbInviter, dbAccepter] = await Promise.all([
+            premiumService.getPremiumStatus(inviterId),
+            premiumService.getPremiumStatus(userId),
+            User.findById(inviterId).select('avatar'),
+            User.findById(userId).select('avatar'),
+          ]);
+          liveSockets = getLiveInvitationSockets(io, inviterSocketId, socket);
+          if (!liveSockets || !dbInviter || !dbAccepter) {
+            if (socket.connected) socket.emit('room:invite_error', { message: 'Lời mời đã hết hiệu lực do kết nối thay đổi' });
+            return;
+          }
+          const { inviterSocket } = liveSockets;
           const freshInviterAvatar = dbInviter ? dbInviter.avatar : inviterSocket.userAvatar;
           const freshAccepterAvatar = dbAccepter ? dbAccepter.avatar : avatar;
 
@@ -731,6 +882,11 @@ module.exports = function setupSocket(io) {
           };
 
           const { roomId } = matchmaking.createDirectRoom(subject, inviterUserData, accepterUserData);
+          const directLimits = [
+            inviterStatus.limits.sessionMinutes,
+            accepterStatus.limits.sessionMinutes,
+          ];
+          matchmaking.setSessionTimeLimit(roomId, directLimits);
 
           // Both join the socket room
           socket.join(roomId);
@@ -745,6 +901,7 @@ module.exports = function setupSocket(io) {
             roomId,
             subject,
             partner: accepterInfo,
+            sessionTimeLimit: directLimits[0] === Infinity ? null : directLimits[0],
           });
 
           socket.emit('room:invitation_accepted', {
@@ -752,6 +909,7 @@ module.exports = function setupSocket(io) {
             roomId,
             subject,
             partner: inviterInfo,
+            sessionTimeLimit: directLimits[1] === Infinity ? null : directLimits[1],
           });
         } else {
           // Rejected
@@ -763,7 +921,10 @@ module.exports = function setupSocket(io) {
         }
       } catch (err) {
         console.error('[Room] Error responding to invite:', err.message);
-        socket.emit('room:invite_error', { message: 'Lỗi phản hồi lời mời' });
+        socket.emit('room:invite_error', {
+          code: err instanceof RoomInvitationError ? err.code : 'INVITATION_ERROR',
+          message: err instanceof RoomInvitationError ? err.message : 'Lỗi phản hồi lời mời',
+        });
       }
     });
 
@@ -772,6 +933,7 @@ module.exports = function setupSocket(io) {
     // ========================
 
     socket.on('disconnect', async (reason) => {
+      if (authExpiryTimer) clearTimeout(authExpiryTimer);
       console.log(`[Socket] User disconnected: ${username} (${socket.id}, reason: ${reason})`);
 
       userSockets.delete(socket.id);
@@ -783,14 +945,8 @@ module.exports = function setupSocket(io) {
         }
       }
 
-      try {
-        await User.findByIdAndUpdate(userId, {
-          isOnline: false,
-          lastSeen: new Date(),
-        });
-      } catch (_) {}
-
       matchmaking.removeFromQueue(socket.id);
+      roomInvitations.removeByInviterSocket(socket.id);
 
       const result = matchmaking.removeUserFromRoom(socket.id);
       if (result && result.remaining) {
@@ -798,6 +954,25 @@ module.exports = function setupSocket(io) {
           message: 'Bạn học đã ngắt kết nối',
         });
       }
+
+      if (!userSocketsReverse.has(userId)) {
+        try {
+          await User.findByIdAndUpdate(userId, {
+            isOnline: false,
+            lastSeen: new Date(),
+          });
+        } catch (_) {}
+      }
     });
   });
-};
+}
+
+module.exports = setupSocket;
+module.exports.getAuthorizedRoom = getAuthorizedRoom;
+module.exports.RoomInvitationStore = RoomInvitationStore;
+module.exports.RoomInvitationError = RoomInvitationError;
+module.exports.reserveMatchQuotas = reserveMatchQuotas;
+module.exports.disconnectUserSockets = disconnectUserSockets;
+module.exports.getLiveInvitationSockets = getLiveInvitationSockets;
+module.exports.trackPendingSocket = trackPendingSocket;
+module.exports.isUserRevoked = (userId) => revokedUserIds.has(userId);

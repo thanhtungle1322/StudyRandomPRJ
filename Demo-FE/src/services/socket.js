@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || window.location.origin;
 
 let socket = null;
 
@@ -41,7 +41,7 @@ function notifyListeners(event, data) {
  */
 export function getSocket() {
   if (!socket) {
-    socket = io(SOCKET_URL, {
+    const currentSocket = io(SOCKET_URL, {
       autoConnect: false,
 
       auth: (cb) => {
@@ -63,50 +63,58 @@ export function getSocket() {
       // Transport (Ưu tiên polling trước trên Vercel do Vercel Serverless không hỗ trợ native websocket)
       transports: ['polling', 'websocket'],
     });
+    socket = currentSocket;
 
     // ========================
     // LIFECYCLE EVENT HANDLERS
     // ========================
 
-    socket.on('connect', () => {
-      console.log('[Socket] ✅ Connected:', socket.id);
-      notifyListeners('connected', { id: socket.id });
+    currentSocket.on('connect', () => {
+      console.log('[Socket] ✅ Connected:', currentSocket.id);
+      notifyListeners('connected', { id: currentSocket.id });
     });
 
-    socket.on('disconnect', (reason) => {
+    currentSocket.on('disconnect', (reason) => {
       console.log('[Socket] ⚠️ Disconnected:', reason);
       notifyListeners('disconnected', { reason });
 
       // Nếu server disconnect → thử reconnect
-      if (reason === 'io server disconnect') {
+      if (reason === 'io server disconnect' && socket === currentSocket) {
         console.log('[Socket] 🔄 Server disconnected, attempting reconnect...');
-        socket.connect();
+        currentSocket.connect();
       }
       // Các lý do khác socket.io tự xử lý reconnect
     });
 
-    socket.io.on('reconnect_attempt', (attempt) => {
+    currentSocket.io.on('reconnect_attempt', (attempt) => {
       console.log(`[Socket] 🔄 Reconnecting... attempt ${attempt}`);
       notifyListeners('reconnecting', { attempt });
     });
 
-    socket.io.on('reconnect', (attempt) => {
+    currentSocket.io.on('reconnect', (attempt) => {
       console.log(`[Socket] ✅ Reconnected after ${attempt} attempts`);
       notifyListeners('reconnected', { attempt });
     });
 
-    socket.io.on('reconnect_failed', () => {
+    currentSocket.io.on('reconnect_failed', () => {
       console.error('[Socket] ❌ Reconnection failed after max attempts');
       notifyListeners('reconnect_failed', {});
     });
 
-    socket.io.on('reconnect_error', (err) => {
+    currentSocket.io.on('reconnect_error', (err) => {
       console.error('[Socket] ❌ Reconnection error:', err.message);
     });
 
-    socket.on('connect_error', (err) => {
+    currentSocket.on('connect_error', (err) => {
       console.error('[Socket] ❌ Connection error:', err.message);
       notifyListeners('connect_error', { error: err.message });
+      if (/invalid token|account no longer exists/i.test(err.message)) {
+        window.dispatchEvent(new Event('studyrandom:auth-expired'));
+      }
+    });
+
+    currentSocket.on('account_revoked', () => {
+      window.dispatchEvent(new Event('studyrandom:auth-expired'));
     });
   }
   return socket;
@@ -127,8 +135,10 @@ export function connectSocket() {
  * Ngắt kết nối socket
  */
 export function disconnectSocket() {
-  if (socket && socket.connected) {
+  if (socket) {
+    socket.io.reconnection(false);
     socket.disconnect();
+    socket = null;
   }
 }
 

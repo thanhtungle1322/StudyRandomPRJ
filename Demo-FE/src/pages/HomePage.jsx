@@ -1,9 +1,9 @@
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import { FaGraduationCap } from 'react-icons/fa';
 import { FiArrowRight, FiSearch, FiZap, FiMessageSquare, FiVideo, FiEdit3, FiUsers, FiHeart } from 'react-icons/fi';
-import backgroundDashboard from '../../background/backgroundDashboard.png';
-import cachhoatdong from '../../background/Cachhoatdong.png';
+import backgroundDashboard from '../../background/backgroundDashboard.webp';
+import cachhoatdong from '../../background/Cachhoatdong.webp';
 import mascot1 from '../../background/mascot1.png';
 import mascot2 from '../../background/mascot2.png';
 import './HomePage.css';
@@ -22,7 +22,7 @@ export default function HomePage() {
           <div className="hero-content animate-fade-in">
             <div className="hero-badge">
               <span className="badge-dot"></span>
-              <span>Miễn phí 100% • Không cần đăng ký phức tạp</span>
+              <span>Có gói miễn phí • Đăng ký bằng email hoặc Google</span>
             </div>
 
             <h1 className="hero-title">
@@ -32,8 +32,8 @@ export default function HomePage() {
             </h1>
 
             <p className="hero-description">
-              Kết nối ngay với bạn học cùng môn chỉ trong vài giây. Học tập
-              hiệu quả hơn khi có bạn đồng hành : video call, chat và bảng
+              Kết nối với bạn học cùng môn ngay khi có người phù hợp. Học tập
+              hiệu quả hơn khi có bạn đồng hành: video call, chat và bảng
               trắng tương tác.
             </p>
 
@@ -48,18 +48,18 @@ export default function HomePage() {
 
             <div className="hero-stats">
               <div className="stat-item">
-                <span className="stat-number">1000+</span>
-                <span className="stat-label">Người dùng</span>
-              </div>
-              <div className="stat-divider"></div>
-              <div className="stat-item">
-                <span className="stat-number">8</span>
+                <span className="stat-number">41</span>
                 <span className="stat-label">Môn học</span>
               </div>
               <div className="stat-divider"></div>
               <div className="stat-item">
-                <span className="stat-number">&lt;5s</span>
-                <span className="stat-label">Ghép đôi</span>
+                <span className="stat-number">2</span>
+                <span className="stat-label">Chế độ ghép</span>
+              </div>
+              <div className="stat-divider"></div>
+              <div className="stat-item">
+                <span className="stat-number">3</span>
+                <span className="stat-label">Công cụ học</span>
               </div>
             </div>
           </div>
@@ -101,8 +101,8 @@ export default function HomePage() {
               <div className="feature-icon-wrap-new feature-icon-yellow">
                 <FiZap />
               </div>
-              <h3 className="feature-card-title">Ghép Đôi Tức Thì</h3>
-              <p className="feature-card-desc">Hệ thống realtime tự động tìm và kết nối bạn với người cùng môn học trong vài giây</p>
+              <h3 className="feature-card-title">Ghép Cặp Thời Gian Thực</h3>
+              <p className="feature-card-desc">Hệ thống tự động tìm và kết nối bạn với người phù hợp đang chờ cùng lúc.</p>
             </div>
 
             <div className="feature-card-new">
@@ -154,18 +154,18 @@ export default function HomePage() {
           {/* 3 khung tách biệt, không mascot, không blur */}
           <div className="howto-steps stagger-children">
             <div className="howto-step-new">
-              <h3 className="howto-step-title">Nhập tên &amp; Đăng nhập</h3>
-              <p className="howto-step-desc">Không cần email, không cần mật khẩu. Chỉ cần nhập tên là xong!</p>
+              <h3 className="howto-step-title">Tạo tài khoản</h3>
+              <p className="howto-step-desc">Đăng ký bằng email và mật khẩu, hoặc tiếp tục nhanh với Google.</p>
             </div>
 
             <div className="howto-step-new">
-              <h3 className="howto-step-title">Chọn môn học</h3>
-              <p className="howto-step-desc">Chọn môn bạn muốn ôn tập và bấm "Tìm bạn học".</p>
+              <h3 className="howto-step-title">Chọn cách ghép</h3>
+              <p className="howto-step-desc">Tìm theo môn và tiêu chí, hoặc dùng Ghép Nhanh để học tự do.</p>
             </div>
 
             <div className="howto-step-new">
               <h3 className="howto-step-title">Học tập cùng nhau!</h3>
-              <p className="howto-step-desc">Hệ thống ghép bạn với partner cùng môn - chat, gọi video và giải bài tập.</p>
+              <p className="howto-step-desc">Chat, gọi video và giải bài tập trên bảng trắng cùng bạn học.</p>
             </div>
           </div>
         </div>

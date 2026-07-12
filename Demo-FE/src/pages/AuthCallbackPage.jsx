@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../services/api';
 import './LoginPage.css';
+import './AuthCallbackPage.css';
 
 
 export default function AuthCallbackPage() {
@@ -27,9 +28,6 @@ export default function AuthCallbackPage() {
     // Tiến hành đăng nhập luồng không đồng bộ: lấy thông tin user hoàn chỉnh từ MongoDB
     const handleLoginFlow = async () => {
       try {
-        console.log('[AuthCallback] Received token length:', token.length);
-        console.log('[AuthCallback] Token prefix:', token.substring(0, 30));
-
         // Lưu token tạm thời để api interceptor tự động đính kèm vào header
         localStorage.setItem('studyrandom_token_v2', token);
 
@@ -67,11 +65,11 @@ export default function AuthCallbackPage() {
   return (
     <div className="login-page">
       <div className="login-container animate-fade-in">
-        <div className="login-card glass-card" style={{ textAlign: 'center', padding: '60px 40px' }}>
-          <div className="login-icon" style={{ fontSize: '48px', marginBottom: '20px' }}>🔄</div>
+        <div className="login-card glass-card auth-callback-card" role="status" aria-live="polite">
+          <div className="login-icon auth-callback-icon" aria-hidden="true">🔄</div>
           <h2>Đang xử lý đăng nhập...</h2>
           <p>Vui lòng lấy thông tin tài khoản Google của bạn</p>
-          <span className="spinner" style={{ margin: '20px auto', display: 'block' }}></span>
+          <span className="app-spinner auth-callback-spinner" aria-hidden="true"></span>
         </div>
       </div>
     </div>

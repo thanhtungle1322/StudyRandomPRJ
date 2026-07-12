@@ -1,0 +1,87 @@
+.floating-session-widget {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 900;
+  width: min(320px, calc(100vw - 48px));
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  color: #fff;
+  background: rgba(15, 18, 30, 0.92);
+  border: 1px solid rgba(132, 94, 247, 0.4);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 16px rgba(132, 94, 247, 0.18);
+  backdrop-filter: blur(16px);
+}
+
+.floating-session-header,
+.floating-session-heading,
+.floating-session-actions {
+  display: flex;
+  align-items: center;
+}
+
+.floating-session-header { justify-content: space-between; }
+.floating-session-heading { min-width: 0; gap: 8px; }
+.floating-session-actions { gap: 10px; }
+
+.floating-session-dot {
+  width: 10px;
+  height: 10px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #51cf66;
+  box-shadow: 0 0 8px #51cf66;
+}
+
+.floating-session-heading h4 {
+  color: #b197fc;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.floating-session-close {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #adb5bd;
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.floating-session-close:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.floating-session-copy { color: #e2e8f0; font-size: 13px; line-height: 1.45; }
+
+.floating-session-return {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 12px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  background: linear-gradient(135deg, #845ef7, #5c7cfa);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(132, 94, 247, 0.2);
+}
+
+.floating-session-return:hover { color: #fff; transform: translateY(-1px); }
+
+@media (max-width: 480px) {
+  .floating-session-widget {
+    bottom: 12px;
+    left: 12px;
+    width: calc(100vw - 24px);
+  }
+}

@@ -366,6 +366,12 @@
   transform: translate(-50%, -4px);
 }
 
+.statistics-page .badge-item:focus-visible .badge-desc-tooltip {
+  visibility: visible;
+  opacity: 1;
+  transform: translate(-50%, -4px);
+}
+
 /* Loading */
 .statistics-page .loading-wrapper {
   display: flex;
@@ -383,6 +389,32 @@
   border-left-color: #339af0;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+}
+
+.statistics-page .stats-error-state {
+  width: min(520px, calc(100% - 32px));
+  height: auto;
+  min-height: 240px;
+  margin: 0 auto;
+  padding: 32px;
+  color: #1e293b;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 18px;
+}
+
+.statistics-page .stats-error-state > svg { font-size: 36px; color: #e03131; }
+
+.statistics-page .stats-retry-btn {
+  min-height: 44px;
+  padding: 10px 24px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  background: #4c6ef5;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
 }
 
 /* Responsive */

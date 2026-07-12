@@ -1,0 +1,29 @@
+.auth-callback-card {
+  padding: 56px 40px;
+  text-align: center;
+  color: #2d1b69;
+}
+
+.auth-callback-card h2 {
+  margin-bottom: 8px;
+  color: #2d1b69;
+}
+
+.auth-callback-card p {
+  color: #5a4a7a;
+}
+
+.auth-callback-icon {
+  margin-bottom: 20px;
+  font-size: 48px;
+}
+
+.auth-callback-spinner {
+  display: block;
+  margin: 20px auto 0;
+  color: #6c3ce0;
+}
+
+@media (max-width: 480px) {
+  .auth-callback-card { padding: 40px 24px; }
+}

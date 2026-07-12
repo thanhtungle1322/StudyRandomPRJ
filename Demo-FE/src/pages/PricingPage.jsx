@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../services/api';
 import { FiCheck, FiStar, FiZap, FiShield, FiArrowLeft } from 'react-icons/fi';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import backgroundLogin from '../../background/backgroundLogin.webp';
 import mascot1 from '../../background/mascot1.png';
 import mascot2 from '../../background/mascot2.png';
 import mascot3 from '../../background/mascot3.png';
@@ -35,8 +35,8 @@ export default function PricingPage() {
       } catch {
         setPlans([
           { id: 'starter', name: 'Starter', price: 30000, durationDays: 30, description: 'Mở rộng giới hạn cơ bản cho việc ôn tập', features: ['15 lượt tìm bạn học / ngày (thay vì 3)', 'Phiên học tối đa 60 phút (thay vì 30)', 'Thời hạn sử dụng: 30 ngày', 'Khung avatar "Starter Spark" hồng lấp lánh', 'Danh hiệu PREMIUM STARTER trong hồ sơ'] },
-          { id: 'pro', name: 'Pro', price: 75000, durationDays: 90, popular: true, description: 'Không giới hạn lượt tìm, phiên học 3 tiếng', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Phiên học tối đa 180 phút (3 tiếng)', 'Thời hạn sử dụng: 90 ngày', 'Khung avatar "Pro Crown" vương miện vàng', 'Danh hiệu PREMIUM PRO trong hồ sơ', 'Ưu tiên ghép đôi nhanh hơn'] },
-          { id: 'ultimate', name: 'Ultimate', price: 150000, durationDays: 365, description: 'Trải nghiệm tối thượng, không giới hạn bất kỳ điều gì', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Không giới hạn thời gian phiên học', 'Thời hạn sử dụng: 365 ngày (1 năm)', 'Khung avatar "Ultimate Cosmic" vũ trụ huyền ảo', 'Danh hiệu PREMIUM ULTIMATE trong hồ sơ', 'Truy cập tính năng beta sớm', 'Hỗ trợ VIP 24/7'] },
+          { id: 'pro', name: 'Pro', price: 75000, durationDays: 90, popular: true, description: 'Không giới hạn lượt tìm, phiên học 3 tiếng', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Phiên học tối đa 180 phút (3 tiếng)', 'Thời hạn sử dụng: 90 ngày', 'Khung avatar "Pro Crown" vương miện vàng', 'Danh hiệu PREMIUM PRO trong hồ sơ'] },
+          { id: 'ultimate', name: 'Ultimate', price: 150000, durationDays: 365, description: 'Không giới hạn lượt tìm và thời gian phiên học', features: ['Không giới hạn lượt tìm bạn học / ngày', 'Không giới hạn thời gian phiên học', 'Thời hạn sử dụng: 365 ngày (1 năm)', 'Khung avatar "Ultimate Cosmic" vũ trụ huyền ảo', 'Danh hiệu PREMIUM ULTIMATE trong hồ sơ'] },
         ]);
         setFreeLimits({ dailyMatches: 3, sessionMinutes: 30 });
       } finally {
@@ -137,7 +137,7 @@ export default function PricingPage() {
   if (loading) {
     return (
       <div className="pricing-page" style={{ backgroundImage: `url(${backgroundLogin})` }}>
-        <div className="pricing-loading"><div className="spinner"></div><p>Đang tải...</p></div>
+        <div className="pricing-loading" role="status"><span className="app-spinner" aria-hidden="true"></span><p>Đang tải...</p></div>
       </div>
     );
   }
@@ -145,9 +145,9 @@ export default function PricingPage() {
   return (
     <div className="pricing-page" style={{ backgroundImage: `url(${backgroundLogin})` }}>
       {/* Mascot decorations similar to Lobby */}
-      <img src={mascot1} alt="mascot-left" className="lobby-mascot-fixed lobby-mascot-left" />
-      <img src={mascot2} alt="mascot-right" className="lobby-mascot-fixed lobby-mascot-right" />
-      <img src={mascot3} alt="mascot-center" className="lobby-mascot-fixed lobby-mascot-center-right" />
+      <img src={mascot1} alt="" aria-hidden="true" className="page-mascot page-mascot-left" />
+      <img src={mascot2} alt="" aria-hidden="true" className="page-mascot page-mascot-right" />
+      <img src={mascot3} alt="" aria-hidden="true" className="page-mascot page-mascot-center-right" />
 
       <div className="container pricing-container">
         <button className="pricing-back-btn" onClick={() => navigate(-1)}>
@@ -164,7 +164,7 @@ export default function PricingPage() {
             Nâng cấp <span className="pricing-title-highlight">Premium</span>
           </h1>
           <p className="pricing-subtitle">
-            Mở khóa toàn bộ tính năng, tìm bạn học không giới hạn & nhận khung trang trí avatar cực ngầu
+            Chọn giới hạn phù hợp, kéo dài phiên học và nhận khung trang trí avatar riêng cho từng gói
           </p>
         </div>
 
@@ -259,7 +259,7 @@ export default function PricingPage() {
                 <span className="giftcode-icon">🎁</span>
                 <div>
                   <h3>Bạn có mã quà tặng (Giftcode)?</h3>
-                  <p>Nhập mã để nâng cấp ngay lên gói Premium cao hơn trọn đời mà không cần thanh toán!</p>
+                  <p>Nhập mã để kích hoạt gói Premium và thời hạn tương ứng mà không cần thanh toán.</p>
                 </div>
               </div>
               <form onSubmit={handleRedeemGiftcode} className="giftcode-form">
@@ -276,7 +276,7 @@ export default function PricingPage() {
                   className="giftcode-submit-btn" 
                   disabled={redeeming || !giftcode.trim()}
                 >
-                  {redeeming ? <span className="spinner"></span> : 'Kích hoạt'}
+                  {redeeming ? <span className="app-spinner" aria-label="Đang kích hoạt"></span> : 'Kích hoạt'}
                 </button>
               </form>
             </div>
@@ -324,7 +324,7 @@ export default function PricingPage() {
                 disabled={currentTierLevel >= TIER_LEVELS[plan.id] || purchasing === plan.id}
               >
                 {purchasing === plan.id ? (
-                  <><span className="spinner"></span> Đang xử lý...</>
+                  <><span className="app-spinner" aria-hidden="true"></span> Đang xử lý...</>
                 ) : currentTierLevel >= TIER_LEVELS[plan.id] ? 'Đã sở hữu ✓' : `Mua ${plan.name}`}
               </button>
             </div>

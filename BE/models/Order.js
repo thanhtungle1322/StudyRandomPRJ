@@ -20,12 +20,31 @@ const orderSchema = new mongoose.Schema(
       type: Number,
       required: true,
     },
+    activePurchaseKey: {
+      type: String,
+    },
     status: {
       type: String,
-      enum: ['pending', 'completed', 'cancelled'],
+      enum: ['pending', 'processing', 'completed', 'cancelled'],
       default: 'pending',
     },
     checkoutUrl: {
+      type: String,
+    },
+    checkoutCreatingAt: {
+      type: Date,
+    },
+    processingAt: {
+      type: Date,
+    },
+    fulfilledAt: {
+      type: Date,
+    },
+    fulfillmentResult: {
+      type: String,
+      enum: ['granted', 'superseded'],
+    },
+    fulfillmentError: {
       type: String,
     },
   },
@@ -34,7 +53,7 @@ const orderSchema = new mongoose.Schema(
   }
 );
 
-orderSchema.index({ orderCode: 1 });
+orderSchema.index({ activePurchaseKey: 1 }, { unique: true, sparse: true });
 
 const Order = mongoose.model('Order', orderSchema);
 

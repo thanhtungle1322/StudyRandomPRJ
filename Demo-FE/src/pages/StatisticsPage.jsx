@@ -1,40 +1,38 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FiArrowLeft, FiClock, FiBookOpen, FiZap, FiAward, FiBook } from 'react-icons/fi';
 import api from '../services/api';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import { getSubjectName } from '../data/subjects';
+import backgroundLogin from '../../background/backgroundLogin.webp';
 import './StatisticsPage.css';
 
 export default function StatisticsPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [statsData, setStatsData] = useState(null);
   const [hoveredBar, setHoveredBar] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const containerRef = useRef(null);
 
-  const subjectNames = {
-    math: 'Toán học', nodejs: 'Lập trình NodeJS', english: 'Tiếng Anh',
-    python: 'Lập trình Python', react: 'React / Frontend', database: 'Cơ sở dữ liệu',
-    algorithm: 'Thuật toán', physics: 'Vật lý', triet: 'Triết học',
-    lichsu: 'Lịch sử', diali: 'Địa lí',
-  };
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await api.get('/users/stats');
+      if (!res.data.success) throw new Error(res.data.message || 'Không thể tải thống kê');
+      setStatsData(res.data.data);
+    } catch (err) {
+      console.error('Failed to fetch user stats:', err);
+      setError('Không thể tải thống kê học tập. Vui lòng thử lại.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await api.get('/users/stats');
-        if (res.data.success) {
-          setStatsData(res.data.data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch user stats:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchStats();
-  }, []);
+  }, [fetchStats]);
 
   const formatStudyTime = (totalMinutes) => {
     if (!totalMinutes || totalMinutes <= 0) return '0 phút';
@@ -144,9 +142,16 @@ export default function StatisticsPage() {
                   ry={6}
                   fill="url(#barGradient)"
                   className="chart-bar-rect"
+                  role="img"
+                  tabIndex="0"
+                  aria-label={`${item.date}: ${item.minutes} phút học`}
                   onMouseMove={(e) => handleMouseMove(e, item.date, item.minutes)}
                   onMouseLeave={() => setHoveredBar(null)}
-                />
+                  onFocus={() => setHoveredBar({ date: item.date, minutes: item.minutes })}
+                  onBlur={() => setHoveredBar(null)}
+                >
+                  <title>{item.date}: {item.minutes} phút học</title>
+                </rect>
                 {/* Nhãn ngày (X Axis Labels) */}
                 <text
                   x={x + barWidth / 2}
@@ -178,6 +183,18 @@ export default function StatisticsPage() {
         <div className="loading-wrapper">
           <div className="loading-spinner"></div>
           <p>Đang tải dữ liệu thống kê...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="statistics-page" style={{ backgroundImage: `url(${backgroundLogin})`, backgroundSize: 'cover' }}>
+        <div className="loading-wrapper stats-error-state" role="alert">
+          <FiAward />
+          <p>{error}</p>
+          <button type="button" className="stats-retry-btn" onClick={fetchStats}>Thử lại</button>
         </div>
       </div>
     );
@@ -304,7 +321,7 @@ export default function StatisticsPage() {
                     return (
                       <div className="subject-stat-item" key={item.subject}>
                         <div className="subject-info-row">
-                          <span className="subject-name">{subjectNames[item.subject] || item.subject}</span>
+                          <span className="subject-name">{getSubjectName(item.subject)}</span>
                           <span className="subject-time">{formatStudyTime(item.minutes)}</span>
                         </div>
                         <div className="subject-progress-bg">
@@ -332,6 +349,8 @@ export default function StatisticsPage() {
                     <div 
                       key={badge.id} 
                       className={`badge-item ${isEarned ? 'active' : 'locked'}`}
+                      tabIndex="0"
+                      aria-label={`${badge.name}. ${isEarned ? 'Đã đạt được' : badge.condition}`}
                     >
                       <div className="badge-circle">
                         {badge.icon}

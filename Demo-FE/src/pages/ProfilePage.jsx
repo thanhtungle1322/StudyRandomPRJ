@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../services/api';
 import { FiCheckCircle, FiAlertTriangle, FiSave, FiLock, FiStar, FiArrowLeft } from 'react-icons/fi';
 import { FiLoader } from 'react-icons/fi';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import backgroundLogin from '../../background/backgroundLogin.webp';
 import './LoginPage.css';
 import './ProfilePage.css';
 
@@ -227,7 +227,7 @@ export default function ProfilePage() {
     .filter(Boolean);
 
   return (
-    <div className="login-page" style={{
+    <div className="login-page profile-page" style={{
       backgroundImage: `url(${backgroundLogin})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center top',
@@ -428,7 +428,7 @@ export default function ProfilePage() {
                 )}
 
                 <button type="submit" className="btn btn-primary login-btn" disabled={profileLoading} style={{ marginTop: '8px' }}>
-                  {profileLoading ? <><FiLoader className="spin-icon animate-spin" /> Đang lưu...</> : <><FiSave /> Lưu cấu hình</>}
+                  {profileLoading ? <><FiLoader className="app-spin" /> Đang lưu...</> : <><FiSave /> Lưu cấu hình</>}
                 </button>
               </form>
             </div>
@@ -533,7 +533,7 @@ export default function ProfilePage() {
                 )}
 
                 <button type="submit" className="btn btn-secondary login-btn" disabled={passwordLoading}>
-                  {passwordLoading ? <><FiLoader className="spin-icon animate-spin" /> Đang đổi...</> : <><FiLock /> Đổi mật khẩu</>}
+                  {passwordLoading ? <><FiLoader className="app-spin" /> Đang đổi...</> : <><FiLock /> Đổi mật khẩu</>}
                 </button>
               </form>
             </>

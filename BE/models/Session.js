@@ -24,6 +24,9 @@ const sessionSchema = new mongoose.Schema(
         username: { type: String },
         joinedAt: { type: Date, default: Date.now },
         leftAt: { type: Date },
+        connectionVersion: { type: Number, default: 0 },
+        studyCreditedAt: { type: Date },
+        studyCreditedMinutes: { type: Number, min: 0, max: 240 },
       },
     ],
     messages: [messageSchema],
@@ -37,7 +40,7 @@ const sessionSchema = new mongoose.Schema(
     },
     endReason: {
       type: String,
-      enum: ['user_left', 'auto_disconnect', 'both_left', null],
+      enum: ['user_left', 'auto_disconnect', 'both_left', 'quota_rejected', 'socket_missing', 'session_limit', null],
       default: null,
     },
   },

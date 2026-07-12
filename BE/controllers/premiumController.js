@@ -101,7 +101,7 @@ class PremiumController {
   async verifyOrder(req, res) {
     try {
       const { orderCode } = req.params;
-      const result = await premiumService.verifyOrder(orderCode);
+      const result = await premiumService.verifyOrder(orderCode, req.user.userId);
       res.json(result);
     } catch (error) {
       console.error('[PremiumCtrl] Verify order error:', error);

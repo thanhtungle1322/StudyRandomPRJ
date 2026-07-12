@@ -469,7 +469,8 @@
   to { transform: rotate(360deg); }
 }
 
-.lb-empty {
+.lb-empty,
+.lb-error {
   padding: 56px 20px;
   text-align: center;
   color: #5a4a7a;
@@ -484,10 +485,23 @@
   opacity: 0.35;
 }
 
-.lb-empty p {
+.lb-empty p,
+.lb-error p {
   font-size: 15px;
   font-weight: 600;
   opacity: 0.65;
+}
+
+.lb-retry-btn {
+  min-height: 44px;
+  padding: 10px 22px;
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  background: #4c6ef5;
+  border: 0;
+  border-radius: 999px;
+  cursor: pointer;
 }
 
 /* ---- Responsive ---- */
@@ -499,6 +513,22 @@
   .lb-search-wrapper      { max-width: 100%; margin-left: 0; }
   .lb-table thead th:nth-child(3),
   .lb-table tbody td:nth-child(3) { display: none; }
+  .lb-table { table-layout: fixed; }
+  .lb-th-rank { width: 48px; }
+  .lb-th-data { width: 70px; }
+  .lb-table thead th,
+  .lb-td-rank,
+  .lb-td-member,
+  .lb-td-data { padding: 12px 8px; }
+  .lb-member-inner { gap: 8px; min-width: 0; }
+  .lb-member-avatar { width: 34px; height: 34px; }
+  .lb-member-info { min-width: 0; }
+  .lb-member-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .lb-cell-icon-val { gap: 3px; }
 }
 
 @media (max-width: 480px) {

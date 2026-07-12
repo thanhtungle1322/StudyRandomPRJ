@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { Excalidraw } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
@@ -116,7 +116,7 @@ export default function WhiteboardPage() {
           UIOptions={{
             canvasActions: {
               changeViewBackgroundColor: true,
-              clearCanvas: true,
+              clearCanvas: false,
               export: false,
               loadScene: false,
               saveToActiveFile: false,

@@ -1,63 +1,107 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../services/api';
 import { FiCheckCircle, FiAlertCircle, FiLoader, FiArrowRight } from 'react-icons/fi';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import backgroundLogin from '../../background/backgroundLogin.webp';
 import mascot1 from '../../background/mascot1.png';
 import mascot2 from '../../background/mascot2.png';
 import './PaymentSuccessPage.css';
 
+const PLAN_DETAILS = {
+  starter: {
+    name: 'Premium Starter',
+    benefits: ['15 lượt ghép mỗi ngày', 'Phiên học tối đa 60 phút', 'Khung avatar Starter Spark'],
+  },
+  pro: {
+    name: 'Premium Pro',
+    benefits: ['Không giới hạn lượt ghép', 'Phiên học tối đa 180 phút', 'Khung avatar Pro Crown'],
+  },
+  ultimate: {
+    name: 'Premium Ultimate',
+    benefits: ['Không giới hạn lượt ghép', 'Không giới hạn thời gian học', 'Khung avatar Ultimate Cosmic'],
+  },
+};
+
 export default function PaymentSuccessPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, login } = useAuth();
+  const { login } = useAuth();
   
   const [verifying, setVerifying] = useState(true);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [paymentDetails, setPaymentDetails] = useState(null);
   
   const orderCode = searchParams.get('orderCode');
   const payosStatus = searchParams.get('status');
 
   useEffect(() => {
+    let cancelled = false;
     if (!orderCode) {
       setVerifying(false);
       setErrorMsg('Thiếu mã đơn hàng giao dịch.');
       return;
     }
+    if (payosStatus?.toUpperCase() === 'CANCELLED') {
+      setVerifying(false);
+      setErrorMsg('Giao dịch đã bị hủy trước khi hoàn tất.');
+      return;
+    }
 
     const verifyPayment = async () => {
       try {
-        console.log('[PaymentSuccess] Verifying order code:', orderCode);
-        const { data } = await api.get(`/premium/verify-order/${orderCode}`);
-        
-        if (data.success) {
-          setSuccess(true);
-          // Refetch user/me to get the latest plan and badges
-          const meRes = await api.get('/auth/me');
-          if (meRes.data.success) {
-            const token = localStorage.getItem('studyrandom_token_v2');
+        for (let attempt = 0; attempt < 20; attempt += 1) {
+          const { data } = await api.get(`/premium/verify-order/${orderCode}`);
+          if (cancelled) return;
+
+          if (data.success) {
+            const meRes = await api.get('/auth/me');
+            if (!meRes.data.success || cancelled) return;
+            const refreshedUser = meRes.data.user;
+            if (data.legacyCompletion && refreshedUser.plan !== 'premium') {
+              setErrorMsg('Đơn hàng này đã được xử lý trước đây nhưng hiện không có quyền lợi đang hoạt động. Vui lòng liên hệ hỗ trợ.');
+              return;
+            }
+            setPaymentDetails({
+              planId: refreshedUser.premiumTier || data.planId,
+              expiresAt: refreshedUser.premiumExpiresAt || data.premiumExpiresAt,
+            });
+            const token = localStorage.getItem('studyrandom_token_v2') || localStorage.getItem('studyrandom_token');
             login(meRes.data.user, token);
+            setSuccess(true);
+            return;
           }
-        } else {
-          setErrorMsg(data.message || 'Thanh toán chưa hoàn tất.');
+
+          if (!['PROCESSING', 'PENDING'].includes(data.status) || attempt === 19) {
+            setErrorMsg(data.message || 'Thanh toán chưa hoàn tất.');
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1500));
         }
       } catch (err) {
-        console.error('[PaymentSuccess] Verification error:', err);
-        setErrorMsg(err.response?.data?.message || 'Lỗi hệ thống khi xác thực giao dịch.');
+        if (!cancelled) {
+          console.error('[PaymentSuccess] Verification error:', err);
+          setErrorMsg(err.response?.data?.message || 'Lỗi hệ thống khi xác thực giao dịch.');
+        }
       } finally {
-        setVerifying(false);
+        if (!cancelled) setVerifying(false);
       }
     };
 
     verifyPayment();
-  }, [orderCode, login]);
+    return () => { cancelled = true; };
+  }, [orderCode, payosStatus, login]);
+
+  const plan = PLAN_DETAILS[paymentDetails?.planId] || PLAN_DETAILS.starter;
+  const expiryLabel = paymentDetails?.expiresAt
+    ? new Date(paymentDetails.expiresAt).toLocaleDateString('vi-VN')
+    : 'Đang cập nhật';
 
   return (
     <div className="payment-success-page" style={{ backgroundImage: `url(${backgroundLogin})` }}>
-      <img src={mascot1} alt="mascot-left" className="lobby-mascot-fixed lobby-mascot-left" />
-      <img src={mascot2} alt="mascot-right" className="lobby-mascot-fixed lobby-mascot-right" />
+      <img src={mascot1} alt="" aria-hidden="true" className="page-mascot page-mascot-left" />
+      <img src={mascot2} alt="" aria-hidden="true" className="page-mascot page-mascot-right" />
 
       <div className="container payment-success-container">
         <div className="glass-card success-card animate-fade-in">
@@ -75,7 +119,7 @@ export default function PaymentSuccessPage() {
               </div>
               <h1 className="success-title">Nâng Cấp Thành Công! 🎉</h1>
               <p className="success-subtitle">
-                Chào mừng bạn đến với gói **Premium** của StudyRandom. Tài khoản của bạn đã được mở khóa toàn bộ giới hạn trọn đời.
+                Gói {plan.name} đã được kích hoạt cho tài khoản của bạn đến ngày {expiryLabel}.
               </p>
 
               <div className="order-details-summary">
@@ -85,7 +129,7 @@ export default function PaymentSuccessPage() {
                 </div>
                 <div className="summary-row">
                   <span>Gói dịch vụ:</span>
-                  <strong className="premium-accent">PREMIUM LIFETIME</strong>
+                  <strong className="premium-accent">{plan.name}</strong>
                 </div>
                 <div className="summary-row">
                   <span>Trạng thái:</span>
@@ -94,9 +138,9 @@ export default function PaymentSuccessPage() {
               </div>
 
               <div className="perk-highlight-row">
-                <div className="perk-badge">✨ Vô hạn ghép bạn</div>
-                <div className="perk-badge">⏳ Không giới hạn giờ học</div>
-                <div className="perk-badge">👑 Khung avatar độc quyền</div>
+                {plan.benefits.map((benefit) => (
+                  <div key={benefit} className="perk-badge">{benefit}</div>
+                ))}
               </div>
 
               <button className="success-action-btn" onClick={() => navigate('/lobby')}>

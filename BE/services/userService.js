@@ -4,6 +4,12 @@ const Session = require('../models/Session');
 const UserDto = require('../dtos/userDto');
 
 class UserService {
+  constructor(options = {}) {
+    this.User = options.UserModel || User;
+    this.Session = options.SessionModel || Session;
+    this.now = options.now || (() => new Date());
+  }
+
   /**
    * Get leaderboard sorted by study minutes or reputation
    */
@@ -86,81 +92,119 @@ class UserService {
   /**
    * Log study time and recalculate streaks and badges
    */
-  async updateStudyTime(userId, minutes) {
-    if (!userId) {
-      throw { status: 400, message: 'Thiếu thông tin' };
+  async updateStudyTime(userId, roomId) {
+    if (!userId || typeof roomId !== 'string' || !roomId) {
+      throw { status: 400, message: 'Thiếu thông tin phiên học' };
     }
 
-    const minutesVal = parseInt(minutes);
-    if (isNaN(minutesVal) || minutesVal <= 0) {
-      throw { status: 400, message: 'Số phút không hợp lệ' };
+    const session = await this.Session.findOne({ roomId, 'users.userId': userId });
+    if (!session) {
+      throw { status: 404, message: 'Không tìm thấy phiên học của bạn' };
+    }
+    const participant = session.users.find((entry) => String(entry.userId) === String(userId));
+    if (!participant) {
+      throw { status: 403, message: 'Bạn không tham gia phiên học này' };
+    }
+    if (participant.studyCreditedAt) {
+      return {
+        creditedMinutes: participant.studyCreditedMinutes || 0,
+        alreadyCredited: true,
+      };
     }
 
-    if (minutesVal > 240) {
-      throw { status: 400, message: 'Thời gian học gửi lên vượt quá giới hạn cho phép của một phiên' };
+    const now = this.now();
+    const startedAt = new Date(participant.joinedAt);
+    const endedAt = participant.leftAt || session.endedAt || now;
+    const minutesVal = Math.min(240, Math.max(0, Math.floor((new Date(endedAt) - startedAt) / 60000)));
+    if (!Number.isFinite(minutesVal) || minutesVal <= 0) {
+      throw { status: 400, message: 'Phiên học chưa đủ một phút để ghi nhận' };
     }
 
-    const user = await User.findById(userId);
-    if (!user) {
-      throw { status: 404, message: 'Không tìm thấy user' };
-    }
-
-    // Accumulate study minutes
-    user.totalStudyMinutes += minutesVal;
-
-    // Calculate daily streak
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-    if (user.lastStudyDate) {
-      const lastStudy = new Date(user.lastStudyDate);
-      const lastStudyDay = new Date(lastStudy.getFullYear(), lastStudy.getMonth(), lastStudy.getDate());
-
-      const diffTime = Math.abs(today - lastStudyDay);
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 1) {
-        user.streak += 1;
-      } else if (diffDays > 1) {
-        user.streak = 1; // start new streak
-      }
-    } else {
-      user.streak = 1; // first time
-    }
-
-    user.lastStudyDate = now;
-
-    // Award badges (Gamification)
-    const newBadges = new Set(user.badges);
-
-    if (!newBadges.has('FIRST_STEP') && user.totalStudyMinutes > 0) {
-      newBadges.add('FIRST_STEP');
-    }
-
-    if (!newBadges.has('DEDICATED') && user.totalStudyMinutes >= 600) {
-      newBadges.add('DEDICATED');
-    }
-
-    if (!newBadges.has('WEEK_STREAK') && user.streak >= 7) {
-      newBadges.add('WEEK_STREAK');
-    }
-
-    user.badges = Array.from(newBadges);
-    
-    // Save modifications
-    await User.updateOne(
-      { _id: user._id },
+    const creditClaim = await this.Session.updateOne(
+      {
+        _id: session._id,
+        users: { $elemMatch: { userId, studyCreditedAt: null } },
+      },
       {
         $set: {
-          totalStudyMinutes: user.totalStudyMinutes,
-          streak: user.streak,
-          lastStudyDate: user.lastStudyDate,
-          badges: user.badges,
+          'users.$.studyCreditedAt': now,
+          'users.$.studyCreditedMinutes': minutesVal,
         },
       }
     );
+    if (creditClaim.matchedCount === 0) {
+      return { creditedMinutes: 0, alreadyCredited: true };
+    }
+
+    let user;
+    try {
+      user = await this.User.findOneAndUpdate(
+        { _id: userId },
+        [
+          {
+            $set: {
+              totalStudyMinutes: { $add: [{ $ifNull: ['$totalStudyMinutes', 0] }, minutesVal] },
+              streak: {
+                $cond: [
+                  { $eq: [{ $ifNull: ['$lastStudyDate', null] }, null] },
+                  1,
+                  {
+                    $let: {
+                      vars: {
+                        dayDifference: {
+                          $dateDiff: {
+                            startDate: { $dateTrunc: { date: '$lastStudyDate', unit: 'day', timezone: 'UTC' } },
+                            endDate: { $dateTrunc: { date: now, unit: 'day', timezone: 'UTC' } },
+                            unit: 'day',
+                          },
+                        },
+                      },
+                      in: {
+                        $switch: {
+                          branches: [
+                            {
+                              case: { $eq: ['$$dayDifference', 1] },
+                              then: { $add: [{ $ifNull: ['$streak', 0] }, 1] },
+                            },
+                            { case: { $gt: ['$$dayDifference', 1] }, then: 1 },
+                          ],
+                          default: { $ifNull: ['$streak', 1] },
+                        },
+                      },
+                    },
+                  },
+                ],
+              },
+              lastStudyDate: now,
+            },
+          },
+          {
+            $set: {
+              badges: {
+                $setUnion: [
+                  { $ifNull: ['$badges', []] },
+                  { $cond: [{ $gt: ['$totalStudyMinutes', 0] }, ['FIRST_STEP'], []] },
+                  { $cond: [{ $gte: ['$totalStudyMinutes', 600] }, ['DEDICATED'], []] },
+                  { $cond: [{ $gte: ['$streak', 7] }, ['WEEK_STREAK'], []] },
+                ],
+              },
+            },
+          },
+        ],
+        { new: true }
+      );
+      if (!user) throw { status: 404, message: 'Không tìm thấy user' };
+    } catch (error) {
+      await this.Session.updateOne(
+        { _id: session._id, users: { $elemMatch: { userId, studyCreditedAt: now } } },
+        { $unset: { 'users.$.studyCreditedAt': 1, 'users.$.studyCreditedMinutes': 1 } }
+      ).catch(() => {});
+      throw error;
+    }
 
     return {
+      creditedMinutes: minutesVal,
+      alreadyCredited: false,
       totalStudyMinutes: user.totalStudyMinutes,
       streak: user.streak,
       badges: user.badges,
@@ -280,4 +324,6 @@ class UserService {
   }
 }
 
-module.exports = new UserService();
+const userService = new UserService();
+userService.UserService = UserService;
+module.exports = userService;

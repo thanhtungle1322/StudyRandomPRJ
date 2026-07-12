@@ -1,19 +1,22 @@
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/auth-context';
 import { disconnectSocket } from '../services/socket';
 import api from '../services/api';
+import NotificationBell from './NotificationBell';
 import { FaGraduationCap } from 'react-icons/fa';
-import { FiHome, FiEdit3, FiUsers, FiBarChart2, FiShield, FiAward, FiStar, FiMessageSquare } from 'react-icons/fi';
+import { FiHome, FiEdit3, FiUsers, FiBarChart2, FiShield, FiAward, FiStar, FiMessageSquare, FiLogOut } from 'react-icons/fi';
 import './Navbar.css';
 
 export default function Navbar() {
-  const { user, logout, isLoggedIn } = useAuth();
+  const { user, logout, isLoggedIn, authReady } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     try {
       await api.post('/auth/logout');
-    } catch (_) {}
+    } catch (error) {
+      console.warn('[Navbar] Server logout failed; clearing local session.', error);
+    }
     disconnectSocket();
     logout();
     navigate('/');
@@ -49,39 +52,42 @@ export default function Navbar() {
 
         <div className="navbar-links">
           {/* Nút Trang chủ luôn hiển thị */}
-          <Link to="/" className="nav-link">
+          <NavLink to="/" end className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
             <span className="nav-icon"><FiHome style={{ color: '#f783ac' }} /></span>
             Trang chủ
-          </Link>
+          </NavLink>
 
-          {isLoggedIn ? (
+          {!authReady ? (
+            <span className="navbar-auth-placeholder" aria-hidden="true" />
+          ) : isLoggedIn ? (
             <>
               {user?.role === 'admin' && (
-                <Link to="/admin" className="nav-link nav-link-admin" style={{ fontWeight: 'bold' }}>
+                <NavLink to="/admin" className={({ isActive }) => `nav-link nav-link-admin ${isActive ? 'active' : ''}`}>
                   <span className="nav-icon"><FiShield style={{ color: '#ff6b6b' }} /></span>
                   Admin
-                </Link>
+                </NavLink>
               )}
-              <Link to="/lobby" className="nav-link">
+              <NavLink to="/lobby" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                 <span className="nav-icon"><FiBarChart2 style={{ color: '#339af0' }} /></span>
                 Sảnh chờ
-              </Link>
-              <Link to="/friends" className="nav-link">
+              </NavLink>
+              <NavLink to="/friends" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                 <span className="nav-icon"><FiUsers style={{ color: '#20c997' }} /></span>
                 Bạn bè
-              </Link>
-              <Link to="/leaderboard" className="nav-link">
+              </NavLink>
+              <NavLink to="/leaderboard" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                 <span className="nav-icon"><FiAward style={{ color: '#f59f00' }} /></span>
                 Xếp hạng
-              </Link>
-              <Link to="/feedback" className="nav-link">
+              </NavLink>
+              <NavLink to="/feedback" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
                 <span className="nav-icon"><FiMessageSquare style={{ color: '#4dabf7' }} /></span>
                 Đánh giá
-              </Link>
-              <Link to="/pricing" className="nav-link nav-link-premium">
+              </NavLink>
+              <NavLink to="/pricing" className={({ isActive }) => `nav-link nav-link-premium ${isActive ? 'active' : ''}`}>
                 <span className="nav-icon"><FiStar /></span>
                 Premium
-              </Link>
+              </NavLink>
+              <NotificationBell />
               <div className="navbar-user">
                 <Link to="/profile" className="user-avatar-link" title="Hồ sơ cá nhân" style={{ overflow: 'visible' }}>
                   <div className={`avatar-decor-wrapper ${decors.wrapper}`} style={{ width: '32px', height: '32px' }}>
@@ -97,8 +103,13 @@ export default function Navbar() {
                   </div>
                 </Link>
                 <span className="user-name">{displayName}</span>
-                <button onClick={handleLogout} className="btn btn-sm btn-secondary">
-                  Đăng xuất
+                <button
+                  onClick={handleLogout}
+                  className="navbar-logout-btn"
+                  aria-label="Đăng xuất"
+                  title="Đăng xuất"
+                >
+                  <FiLogOut />
                 </button>
               </div>
             </>

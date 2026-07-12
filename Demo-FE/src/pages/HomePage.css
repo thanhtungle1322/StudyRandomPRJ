@@ -15,8 +15,7 @@
 
 .hero-section {
   position: relative;
-  /* Tăng chiều cao để thấy hết background */
-  min-height: 110vh;
+  min-height: calc(100dvh - 96px);
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
@@ -57,7 +56,7 @@
   max-width: 680px;
   margin: 0 auto;
   text-align: center;
-  padding: 144px 20px 60px;
+  padding: 96px 20px 36px;
 }
 
 /* Hero Badge */
@@ -90,7 +89,7 @@
   font-size: 58px;
   font-weight: 900;
   line-height: 1.1;
-  letter-spacing: 1px;
+  letter-spacing: 0;
   margin-bottom: 20px;
   color: #ffffff;
   text-shadow: 0 2px 16px rgba(0,0,0,0.25);
@@ -119,7 +118,7 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  margin-bottom: 48px;
+  margin-bottom: 32px;
 }
 
 .btn-hero-primary {
@@ -253,7 +252,7 @@
   font-family: 'Nunito', sans-serif;
   font-size: 44px;
   font-weight: 900;
-  letter-spacing: -0.5px;
+  letter-spacing: 0;
   color: #1a2a5e;
   margin-bottom: 10px;
 }
@@ -583,20 +582,23 @@
 }
 
 @media (max-width: 480px) {
-  .hero-content { padding: 100px 16px 40px; }
+  .hero-section { min-height: calc(100dvh - 96px); }
+  .hero-content { padding: 76px 16px 28px; }
   .hero-title { font-size: 28px; }
   .hero-description { font-size: 14px; margin-bottom: 24px; }
   .hero-badge { font-size: 11px; padding: 6px 14px; }
   .btn-hero-primary,
   .btn-hero-secondary { padding: 12px 28px; font-size: 14px; }
   .hero-stats {
-    flex-direction: column;
-    gap: 12px;
-    padding: 14px 20px;
+    flex-direction: row;
+    gap: 10px;
+    width: min(100%, 340px);
+    padding: 12px 14px;
+    justify-content: space-between;
   }
   .stat-divider {
-    width: 60px;
-    height: 1px;
+    width: 1px;
+    height: 34px;
   }
   .stat-number { font-size: 18px; }
   .section-title-dark { font-size: 28px; }

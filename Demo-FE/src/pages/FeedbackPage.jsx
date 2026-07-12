@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/auth-context';
 import api from '../services/api';
 import { FiStar, FiArrowLeft, FiSend, FiCheckCircle } from 'react-icons/fi';
-import backgroundLogin from '../../background/backgroundLogin.png';
+import backgroundLogin from '../../background/backgroundLogin.webp';
 import mascot1 from '../../background/mascot1.png';
 import mascot2 from '../../background/mascot2.png';
 import './FeedbackPage.css';
@@ -59,8 +59,8 @@ export default function FeedbackPage() {
 
   return (
     <div className="feedback-page" style={{ backgroundImage: `url(${backgroundLogin})` }}>
-      <img src={mascot1} alt="mascot-left" className="lobby-mascot-fixed lobby-mascot-left" />
-      <img src={mascot2} alt="mascot-right" className="lobby-mascot-fixed lobby-mascot-right" />
+      <img src={mascot1} alt="" aria-hidden="true" className="page-mascot page-mascot-left" />
+      <img src={mascot2} alt="" aria-hidden="true" className="page-mascot page-mascot-right" />
 
       <div className="container feedback-container">
         <button className="feedback-back-btn" onClick={() => navigate(-1)}>
@@ -119,6 +119,8 @@ export default function FeedbackPage() {
                         onClick={() => setRating(starValue)}
                         onMouseEnter={() => setHoverRating(starValue)}
                         onMouseLeave={() => setHoverRating(0)}
+                        aria-label={`${starValue} sao`}
+                        aria-pressed={rating === starValue}
                       >
                         <FiStar className="star-icon" />
                       </button>
@@ -143,6 +145,7 @@ export default function FeedbackPage() {
                 <div className="textarea-wrapper">
                   <textarea
                     className="feedback-textarea"
+                    aria-label="Ý kiến đóng góp chi tiết"
                     placeholder="Mô tả cảm nghĩ của bạn tại đây (ít nhất 5 ký tự)..."
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
@@ -161,7 +164,7 @@ export default function FeedbackPage() {
                 disabled={submitting}
               >
                 {submitting ? (
-                  <><span className="spinner"></span> Đang gửi đánh giá...</>
+                  <><span className="app-spinner" aria-hidden="true"></span> Đang gửi đánh giá...</>
                 ) : (
                   <><FiSend /> Gửi Đánh Giá</>
                 )}

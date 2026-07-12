@@ -154,6 +154,11 @@
 }
 
 .star-btn {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   cursor: pointer;
@@ -331,7 +336,7 @@
     width: 100%;
   }
   /* Hide mascots on mobile to avoid blocking content */
-  .feedback-page .lobby-mascot-fixed {
+  .feedback-page .page-mascot {
     display: none;
   }
   .stars-wrapper {

@@ -1,11 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { FiBell, FiUserPlus, FiCheck, FiX, FiUserCheck } from 'react-icons/fi';
-import { useNotifications } from '../context/NotificationProvider';
+import { useNotifications } from '../context/notification-context';
 import { getSocket } from '../services/socket';
 import './NotificationBell.css';
 
 export default function NotificationBell() {
-  const { notifications, unreadCount, removeNotification, clearAll } = useNotifications();
+  const { notifications, unreadCount, removeNotification, clearAll, markAllRead } = useNotifications();
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef(null);
 
@@ -21,6 +21,16 @@ export default function NotificationBell() {
     }
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    markAllRead();
+    const handleEscape = (event) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [open, markAllRead]);
 
   const handleRespondFriendRequest = (friendshipId, action) => {
     const socket = getSocket();
@@ -100,7 +110,14 @@ export default function NotificationBell() {
 
   return (
     <div className="notification-bell" ref={dropdownRef}>
-      <button className="bell-btn" onClick={() => setOpen(!open)} title="Thông báo">
+      <button
+        className="bell-btn"
+        onClick={() => setOpen(!open)}
+        title="Thông báo"
+        aria-label="Thông báo"
+        aria-expanded={open}
+        aria-controls="notification-dropdown"
+      >
         <FiBell />
         {unreadCount > 0 && (
           <span className="bell-badge">{unreadCount > 9 ? '9+' : unreadCount}</span>
@@ -108,7 +125,7 @@ export default function NotificationBell() {
       </button>
 
       {open && (
-        <div className="notification-dropdown">
+        <div className="notification-dropdown" id="notification-dropdown" role="region" aria-label="Danh sách thông báo">
           <div className="notification-dropdown-header">
             <h4>Thông báo</h4>
             {notifications.length > 0 && (

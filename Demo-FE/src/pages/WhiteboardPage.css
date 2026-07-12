@@ -6,8 +6,9 @@
 .whiteboard-page-new {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100dvh;
   width: 100%;
+  padding-top: 64px;
   background: #0d0e1a;
   overflow: hidden;
   font-family: 'Inter', 'Nunito', sans-serif;
@@ -17,6 +18,7 @@
   position: fixed;
   inset: 0;
   z-index: 9999;
+  padding-top: 0;
 }
 
 /* ===== TOPBAR ===== */
@@ -199,6 +201,8 @@
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 640px) {
+  .whiteboard-page-new { padding-top: 56px; }
+  .whiteboard-page-new.wb-fullscreen-page { padding-top: 0; }
   .wb-standalone-topbar {
     padding: 8px 12px;
     flex-wrap: wrap;
