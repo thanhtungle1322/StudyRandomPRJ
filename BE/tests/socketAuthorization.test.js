@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const matchmaking = require('../services/matchmaking');
 const {
   getAuthorizedRoom,
+  normalizeScreenShareState,
   reserveMatchQuotas,
   getLiveInvitationSockets,
   trackPendingSocket,
@@ -52,6 +53,35 @@ describe('socket room authorization', () => {
     assert.ok(getAuthorizedRoom(socket('user-a', 'socket-a-current', true), roomId, true));
     assert.equal(getAuthorizedRoom(socket('user-a', 'socket-a-stale', true), roomId, true), null);
     assert.equal(getAuthorizedRoom(socket('user-a', 'socket-a-current'), roomId, true), null);
+  });
+});
+
+describe('screen share state validation', () => {
+  test('accepts and canonicalizes a valid screen share state', () => {
+    assert.deepEqual(normalizeScreenShareState({
+      roomId,
+      type: 'screen_share',
+      isSharing: true,
+      ignored: 'value',
+    }), {
+      roomId,
+      type: 'screen_share',
+      isSharing: true,
+    });
+  });
+
+  test('rejects malformed screen share states', () => {
+    const invalidStates = [
+      null,
+      [],
+      { roomId, type: 'screen_share', isSharing: 'false' },
+      { roomId: '', type: 'screen_share', isSharing: false },
+      { roomId, type: 'camera', isSharing: false },
+    ];
+
+    invalidStates.forEach((state) => {
+      assert.equal(normalizeScreenShareState(state), null);
+    });
   });
 });
 

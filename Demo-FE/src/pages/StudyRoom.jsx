@@ -5,9 +5,10 @@ import { useAuth } from '../context/auth-context';
 import { getSocket, connectSocket, onSocketEvent } from '../services/socket';
 import api from '../services/api';
 import { getSubjectName } from '../data/subjects';
-import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck, FiTv, FiPlay, FiPause, FiRotateCcw, FiCoffee, FiTarget, FiEdit3 } from 'react-icons/fi';
+import { FiBook, FiRefreshCw, FiAlertTriangle, FiClock, FiVideo, FiVideoOff, FiMessageSquare, FiSmile, FiInfo, FiSend, FiArrowLeft, FiUserPlus, FiUserCheck, FiLoader, FiCheck, FiTv, FiPlay, FiPause, FiRotateCcw, FiCoffee, FiTarget, FiEdit3, FiMonitor, FiMaximize2, FiMinimize2 } from 'react-icons/fi';
 import { FaCircle } from 'react-icons/fa';
 import WhiteboardPanel from '../components/WhiteboardPanel';
+import { findVideoSender, getActiveVideoSource, shouldShowVideoFallback } from '../utils/screenShare';
 import './StudyRoom.css';
 
 export default function StudyRoom({ propRoomId }) {
@@ -37,6 +38,10 @@ export default function StudyRoom({ propRoomId }) {
   const [partnerHasVideo, setPartnerHasVideo] = useState(false);
   const [permissionDenied, setPermissionDenied] = useState(false);
   const [showPermissionPopup, setShowPermissionPopup] = useState(false);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [isScreenSharePending, setIsScreenSharePending] = useState(false);
+  const [partnerScreenSharing, setPartnerScreenSharing] = useState(false);
+  const [isPartnerShareFullscreen, setIsPartnerShareFullscreen] = useState(false);
 
   // Pomodoro
   const [pomodoroMode, setPomodoroMode] = useState('focus');
@@ -63,13 +68,23 @@ export default function StudyRoom({ propRoomId }) {
 
   const localVideoRef = useRef(null);
   const partnerVideoRef = useRef(null);
+  const partnerVideoCardRef = useRef(null);
   const streamRef = useRef(null);
+  const screenStreamRef = useRef(null);
+  const screenSharePendingRef = useRef(false);
+  const screenShareOperationRef = useRef(0);
+  const isMountedRef = useRef(true);
   const peerConnectionRef = useRef(null);
+  const peerConnectionCreationRef = useRef(null);
+  const peerConnectionGenerationRef = useRef(0);
   const webrtcStartedRef = useRef(false);
   const startWebRTCRef = useRef(null);
   const createPCRef = useRef(null);
   const iceCandidateQueueRef = useRef([]);
   const iceServersCacheRef = useRef(null);
+  const webrtcRestartTimeoutRef = useRef(null);
+  const partnerRef = useRef(partner);
+  const isVideoOffRef = useRef(isVideoOff);
 
   // Profile Popup State
   const [profileUserId, setProfileUserId] = useState(null);
@@ -84,6 +99,14 @@ export default function StudyRoom({ propRoomId }) {
   const [editThemeColor, setEditThemeColor] = useState('#7c3aed');
   const [editThemeGradient, setEditThemeGradient] = useState('linear-gradient(135deg, #7c3aed, #4f46e5)');
   const [editBanner, setEditBanner] = useState('');
+
+  useEffect(() => {
+    partnerRef.current = partner;
+  }, [partner]);
+
+  useEffect(() => {
+    isVideoOffRef.current = isVideoOff;
+  }, [isVideoOff]);
 
   // Document Picture-in-Picture State & Ref
   const [isDocumentPiPActive, setIsDocumentPiPActive] = useState(false);
@@ -175,61 +198,83 @@ export default function StudyRoom({ propRoomId }) {
   }, []);
 
   // Tạo PeerConnection — gọi nhiều lần an toàn (idempotent)
-  const createPeerConnection = useCallback(async () => {
-    if (peerConnectionRef.current) return peerConnectionRef.current;
+  const createPeerConnection = useCallback(() => {
+    if (peerConnectionRef.current) return Promise.resolve(peerConnectionRef.current);
+    if (peerConnectionCreationRef.current) return peerConnectionCreationRef.current;
 
-    console.log('[WebRTC] Creating PeerConnection...');
-    const iceServers = await getIceServers();
-    const pc = new RTCPeerConnection({ iceServers });
-
-    peerConnectionRef.current = pc;
-
-    // Thêm track từ local stream (nếu đã có)
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        pc.addTrack(track, streamRef.current);
-      });
-      console.log('[WebRTC] Added local tracks:', streamRef.current.getTracks().length);
-    }
-
-    // Nhận track từ partner
-    pc.ontrack = (event) => {
-      console.log('[WebRTC] Received remote track:', event.track.kind);
-      if (partnerVideoRef.current && event.streams[0]) {
-        partnerVideoRef.current.srcObject = event.streams[0];
-        setPartnerHasVideo(true);
+    const generation = peerConnectionGenerationRef.current;
+    const creationPromise = (async () => {
+      console.log('[WebRTC] Creating PeerConnection...');
+      const iceServers = await getIceServers();
+      if (!isMountedRef.current || generation !== peerConnectionGenerationRef.current) {
+        return null;
       }
-    };
 
-    // Gửi ICE candidates qua Socket
-    pc.onicecandidate = (event) => {
-      if (event.candidate) {
-        const socket = getSocket();
-        socket.emit('webrtc_ice_candidate', { roomId, candidate: event.candidate });
+      const pc = new RTCPeerConnection({ iceServers });
+      peerConnectionRef.current = pc;
+
+      // Thêm audio và đúng một nguồn video đang hoạt động.
+      if (streamRef.current) {
+        streamRef.current.getAudioTracks().forEach(track => {
+          pc.addTrack(track, streamRef.current);
+        });
       }
-    };
 
-    // Theo dõi trạng thái kết nối ICE
-    pc.oniceconnectionstatechange = () => {
-      console.log('[WebRTC] ICE state:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
-        setPartnerHasVideo(true);
-      } else if (pc.iceConnectionState === 'disconnected') {
-        setPartnerHasVideo(false);
-      } else if (pc.iceConnectionState === 'failed') {
-        setPartnerHasVideo(false);
-        console.log('[WebRTC] ICE failed, attempting ICE restart...');
-        pc.createOffer({ iceRestart: true })
-          .then(offer => pc.setLocalDescription(offer))
-          .then(() => {
-            const socket = getSocket();
-            socket.emit('webrtc_offer', { roomId, offer: pc.localDescription });
-          })
-          .catch(err => console.error('[WebRTC] ICE restart failed:', err));
+      const activeVideo = getActiveVideoSource(screenStreamRef.current, streamRef.current);
+      if (activeVideo.track) {
+        pc.addTrack(activeVideo.track, activeVideo.stream);
+      } else {
+        pc.addTransceiver('video', { direction: 'sendrecv' });
       }
-    };
+      console.log('[WebRTC] Added local media tracks:', pc.getSenders().filter(sender => sender.track).length);
 
-    return pc;
+      // Nhận track từ partner
+      pc.ontrack = (event) => {
+        console.log('[WebRTC] Received remote track:', event.track.kind);
+        if (partnerVideoRef.current) {
+          partnerVideoRef.current.srcObject = event.streams[0] || new MediaStream([event.track]);
+          setPartnerHasVideo(true);
+        }
+      };
+
+      // Gửi ICE candidates qua Socket
+      pc.onicecandidate = (event) => {
+        if (event.candidate) {
+          const socket = getSocket();
+          socket.emit('webrtc_ice_candidate', { roomId, candidate: event.candidate });
+        }
+      };
+
+      // Theo dõi trạng thái kết nối ICE
+      pc.oniceconnectionstatechange = () => {
+        console.log('[WebRTC] ICE state:', pc.iceConnectionState);
+        if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+          setPartnerHasVideo(true);
+        } else if (pc.iceConnectionState === 'disconnected') {
+          setPartnerHasVideo(false);
+        } else if (pc.iceConnectionState === 'failed') {
+          setPartnerHasVideo(false);
+          console.log('[WebRTC] ICE failed, attempting ICE restart...');
+          pc.createOffer({ iceRestart: true })
+            .then(offer => pc.setLocalDescription(offer))
+            .then(() => {
+              const socket = getSocket();
+              socket.emit('webrtc_offer', { roomId, offer: pc.localDescription });
+            })
+            .catch(err => console.error('[WebRTC] ICE restart failed:', err));
+        }
+      };
+
+      return pc;
+    })();
+
+    const trackedPromise = creationPromise.finally(() => {
+      if (peerConnectionCreationRef.current === trackedPromise) {
+        peerConnectionCreationRef.current = null;
+      }
+    });
+    peerConnectionCreationRef.current = trackedPromise;
+    return trackedPromise;
   }, [getIceServers, roomId]);
 
   // Bắt đầu handshake WebRTC — chỉ bên "caller" tạo offer
@@ -240,6 +285,10 @@ export default function StudyRoom({ propRoomId }) {
     // Luôn tạo PeerConnection để có thể nhận media từ partner
     // dù chưa có local stream (fix: user không có cam/mic vẫn nghe được)
     const pc = await createPeerConnection();
+    if (!pc || !isMountedRef.current) {
+      webrtcStartedRef.current = false;
+      return;
+    }
 
     const myId = String(user?.id || user?.userId || user?._id);
     const partnerId = String(partner?.id || partner?.userId || partner?._id);
@@ -251,6 +300,10 @@ export default function StudyRoom({ propRoomId }) {
         if (!streamRef.current) {
           console.log('[WebRTC] No local stream yet, waiting 3s for media...');
           await new Promise(resolve => setTimeout(resolve, 3000));
+        }
+        if (pc !== peerConnectionRef.current || pc.signalingState === 'closed') {
+          webrtcStartedRef.current = false;
+          return;
         }
         console.log('[WebRTC] I am the caller, creating offer...');
         const offer = await pc.createOffer();
@@ -270,6 +323,29 @@ export default function StudyRoom({ propRoomId }) {
   // Cập nhật refs để socket handlers dùng (tránh stale closures)
   useEffect(() => { startWebRTCRef.current = startWebRTC; }, [startWebRTC]);
   useEffect(() => { createPCRef.current = createPeerConnection; }, [createPeerConnection]);
+
+  const scheduleWebRTCStart = useCallback((delay = 1000) => {
+    if (webrtcRestartTimeoutRef.current) {
+      clearTimeout(webrtcRestartTimeoutRef.current);
+    }
+    webrtcRestartTimeoutRef.current = setTimeout(() => {
+      webrtcRestartTimeoutRef.current = null;
+      startWebRTCRef.current?.();
+    }, delay);
+  }, []);
+
+  const restartWebRTC = useCallback((delay = 1000) => {
+    peerConnectionGenerationRef.current += 1;
+    peerConnectionCreationRef.current = null;
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    webrtcStartedRef.current = false;
+    iceCandidateQueueRef.current = [];
+    setPartnerHasVideo(false);
+    scheduleWebRTCStart(delay);
+  }, [scheduleWebRTCStart]);
 
   const messagesEndRef = useRef(null);
   const chatInputRef = useRef(null);
@@ -472,16 +548,28 @@ export default function StudyRoom({ propRoomId }) {
       setShowPermissionPopup(false);
 
       if (localVideoRef.current) {
-        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.srcObject = screenStreamRef.current || stream;
       }
       console.log('[Media] Got stream:', stream.getTracks().map(t => t.kind).join(', '));
 
-      // FIX: Nếu PC đã tạo nhưng chưa có track → thêm track ngay
-      if (peerConnectionRef.current && peerConnectionRef.current.getSenders().length === 0) {
-        stream.getTracks().forEach(track => {
-          peerConnectionRef.current.addTrack(track, stream);
-        });
-        console.log('[WebRTC] Late-added tracks to existing PeerConnection');
+      // Đồng bộ từng loại track vì video sender có thể đã được dự phòng cho screen share.
+      if (peerConnectionRef.current) {
+        const pc = peerConnectionRef.current;
+        const hasAudioSender = pc.getSenders().some(sender => sender.track?.kind === 'audio');
+        if (!hasAudioSender) {
+          stream.getAudioTracks().forEach(track => pc.addTrack(track, stream));
+        }
+
+        if (!screenStreamRef.current) {
+          const cameraTrack = stream.getVideoTracks()[0];
+          const videoSender = findVideoSender(pc);
+          if (cameraTrack && videoSender) {
+            videoSender.replaceTrack(cameraTrack)
+              .catch(err => console.error('[WebRTC] Failed to attach late camera track:', err));
+          } else if (cameraTrack) {
+            pc.addTrack(cameraTrack, stream);
+          }
+        }
       }
     };
 
@@ -530,13 +618,138 @@ export default function StudyRoom({ propRoomId }) {
     addSystemMessage('Không tìm thấy Camera và Micro. Bạn vẫn có thể chat bằng tin nhắn.');
   }, [addSystemMessage]);
 
+  const stopScreenShare = useCallback(async () => {
+    screenShareOperationRef.current += 1;
+    const displayStream = screenStreamRef.current;
+    if (!displayStream) return;
+
+    screenStreamRef.current = null;
+    displayStream.getTracks().forEach((track) => {
+      track.onended = null;
+      track.stop();
+    });
+
+    try {
+      const videoSender = findVideoSender(peerConnectionRef.current);
+      const cameraTrack = streamRef.current?.getVideoTracks?.()[0] || null;
+      if (videoSender) await videoSender.replaceTrack(cameraTrack);
+    } catch (err) {
+      console.error('[ScreenShare] Failed to restore camera track:', err);
+      if (isMountedRef.current) {
+        addSystemMessage('Không thể khôi phục camera sau khi dừng chia sẻ màn hình.');
+      }
+    }
+
+    if (!isMountedRef.current) return;
+
+    if (localVideoRef.current) {
+      localVideoRef.current.srcObject = streamRef.current;
+    }
+    setIsScreenSharing(false);
+    getSocket().emit('media_state_change', {
+      roomId,
+      type: 'screen_share',
+      isSharing: false,
+    });
+  }, [addSystemMessage, roomId]);
+
+  const startScreenShare = useCallback(async (mediaDevices = navigator.mediaDevices) => {
+    if (screenStreamRef.current || screenSharePendingRef.current) return;
+
+    if (!mediaDevices?.getDisplayMedia) {
+      addSystemMessage('Trình duyệt này không hỗ trợ chia sẻ màn hình.');
+      return;
+    }
+
+    const operationId = ++screenShareOperationRef.current;
+    screenSharePendingRef.current = true;
+    setIsScreenSharePending(true);
+    let displayStream = null;
+
+    try {
+      displayStream = await mediaDevices.getDisplayMedia({
+        video: true,
+        audio: false,
+      });
+
+      if (!isMountedRef.current || operationId !== screenShareOperationRef.current) {
+        displayStream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
+      const screenTrack = displayStream.getVideoTracks()[0];
+      if (!screenTrack) throw new Error('Screen capture did not provide a video track');
+
+      screenStreamRef.current = displayStream;
+      screenTrack.onended = () => {
+        void stopScreenShare();
+      };
+
+      let pc = await createPeerConnection();
+      if (!pc && isMountedRef.current && operationId === screenShareOperationRef.current) {
+        pc = await createPeerConnection();
+      }
+      if (!isMountedRef.current || operationId !== screenShareOperationRef.current) return;
+      if (!pc) throw new Error('WebRTC peer connection is unavailable');
+
+      const videoSender = findVideoSender(pc);
+      if (!videoSender) throw new Error('WebRTC video sender is unavailable');
+
+      await videoSender.replaceTrack(screenTrack);
+      if (!isMountedRef.current || operationId !== screenShareOperationRef.current) return;
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = displayStream;
+      }
+      setIsScreenSharing(true);
+      getSocket().emit('media_state_change', {
+        roomId,
+        type: 'screen_share',
+        isSharing: true,
+      });
+    } catch (err) {
+      if (screenStreamRef.current === displayStream) {
+        screenStreamRef.current = null;
+      }
+      displayStream?.getTracks().forEach((track) => {
+        track.onended = null;
+        track.stop();
+      });
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = streamRef.current;
+      }
+
+      const cancelled = err.name === 'NotAllowedError' || err.name === 'AbortError';
+      if (!cancelled && isMountedRef.current && operationId === screenShareOperationRef.current) {
+        console.error('[ScreenShare] Failed to start:', err);
+        addSystemMessage('Không thể bắt đầu chia sẻ màn hình. Vui lòng thử lại.');
+      }
+    } finally {
+      screenSharePendingRef.current = false;
+      if (isMountedRef.current) setIsScreenSharePending(false);
+    }
+  }, [addSystemMessage, createPeerConnection, roomId, stopScreenShare]);
+
   // ========================
   // Effect 1: Xin quyền media lần đầu (không WebRTC!)
   // ========================
   useEffect(() => {
+    isMountedRef.current = true;
     requestMedia();
 
     return () => {
+      isMountedRef.current = false;
+      screenShareOperationRef.current += 1;
+      peerConnectionGenerationRef.current += 1;
+      peerConnectionCreationRef.current = null;
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach((track) => {
+          track.onended = null;
+          track.stop();
+        });
+        screenStreamRef.current = null;
+      }
       // Cleanup: dừng stream và đóng PeerConnection
       if (streamRef.current) {
         streamRef.current.getTracks().forEach(track => track.stop());
@@ -546,10 +759,31 @@ export default function StudyRoom({ propRoomId }) {
         peerConnectionRef.current.close();
         peerConnectionRef.current = null;
       }
+      if (webrtcRestartTimeoutRef.current) {
+        clearTimeout(webrtcRestartTimeoutRef.current);
+        webrtcRestartTimeoutRef.current = null;
+      }
       webrtcStartedRef.current = false;
       iceCandidateQueueRef.current = [];
     };
   }, [requestMedia]);
+
+  const toggleCamera = useCallback(() => {
+    const cameraTrack = streamRef.current
+      ?.getVideoTracks()
+      .find(track => track.readyState !== 'ended');
+
+    if (isVideoOff && !cameraTrack) {
+      addSystemMessage('Không tìm thấy Camera để bật.');
+      return;
+    }
+
+    const newVideoOff = !isVideoOff;
+    if (cameraTrack) cameraTrack.enabled = !newVideoOff;
+    isVideoOffRef.current = newVideoOff;
+    setIsVideoOff(newVideoOff);
+    getSocket().emit('camera_status', { roomId, isVideoOff: newVideoOff });
+  }, [addSystemMessage, isVideoOff, roomId]);
 
   // Lưu trạng thái phòng học đang hoạt động vào localStorage
   useEffect(() => {
@@ -715,7 +949,7 @@ export default function StudyRoom({ propRoomId }) {
         return;
       }
       if (partnerVideoRef.current) {
-        if (partnerCameraOff) {
+        if (partnerCameraOff && !partnerScreenSharing) {
           alert('Chỉ có thể bật Hình trong hình khi bạn học đang bật Camera!');
           return;
         }
@@ -741,13 +975,14 @@ export default function StudyRoom({ propRoomId }) {
     } catch (err) {
       console.warn('[PiP] Lỗi kích hoạt Picture-in-Picture:', err.message);
     }
-  }, [navigate, partnerCameraOff, roomId]);
+  }, [navigate, partnerCameraOff, partnerScreenSharing, roomId]);
 
   // Tự động kích hoạt Picture-in-Picture khi người dùng ẩn tab/thu nhỏ trình duyệt
   useEffect(() => {
     const handleVisibilityChange = async () => {
       try {
-        if (partnerCameraOff || !partnerVideoRef.current) return;
+        if (isPartnerShareFullscreen || document.fullscreenElement) return;
+        if ((partnerCameraOff && !partnerScreenSharing) || !partnerVideoRef.current) return;
         if (partnerVideoRef.current.readyState < 1) return; // Chờ cho metadata sẵn sàng
         
         const stream = partnerVideoRef.current.srcObject;
@@ -787,7 +1022,7 @@ export default function StudyRoom({ propRoomId }) {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [partnerCameraOff, isDocumentPiPActive, handlePiP]);
+  }, [partnerCameraOff, partnerScreenSharing, isPartnerShareFullscreen, isDocumentPiPActive, handlePiP]);
 
   // Lắng nghe thay đổi Route để gửi thông báo Trạng thái Tạm xa (user_temp_away) / Quay lại (user_back)
   useEffect(() => {
@@ -818,17 +1053,13 @@ export default function StudyRoom({ propRoomId }) {
 
       const socket = getSocket();
       socket.emit('join_room', { roomId });
-
-      // Reset WebRTC và khởi động lại để tạo PeerConnection mới
-      if (peerConnectionRef.current) {
-        peerConnectionRef.current.close();
-        peerConnectionRef.current = null;
-      }
-      webrtcStartedRef.current = false;
-      iceCandidateQueueRef.current = [];
-      setTimeout(() => {
-        startWebRTCRef.current?.();
-      }, 1000);
+      socket.emit('camera_status', { roomId, isVideoOff: isVideoOffRef.current });
+      socket.emit('media_state_change', {
+        roomId,
+        type: 'screen_share',
+        isSharing: Boolean(screenStreamRef.current),
+      });
+      restartWebRTC();
     });
 
     const unsub3 = onSocketEvent('reconnect_failed', () => {
@@ -841,7 +1072,7 @@ export default function StudyRoom({ propRoomId }) {
       unsub2();
       unsub3();
     };
-  }, [roomId, addSystemMessage]);
+  }, [roomId, addSystemMessage, restartWebRTC]);
 
   const creditStudyTime = useCallback(async () => {
     if (!user) return;
@@ -864,7 +1095,12 @@ export default function StudyRoom({ propRoomId }) {
 
     socket.emit('join_room', { roomId });
     socket.emit('user_back', { roomId });
-    socket.emit('camera_status', { roomId, isVideoOff });
+    socket.emit('camera_status', { roomId, isVideoOff: isVideoOffRef.current });
+    socket.emit('media_state_change', {
+      roomId,
+      type: 'screen_share',
+      isSharing: Boolean(screenStreamRef.current),
+    });
 
     onSocket('new_message', (msg) => {
       setMessages((prev) => [...prev, msg]);
@@ -872,6 +1108,12 @@ export default function StudyRoom({ propRoomId }) {
 
     onSocket('partner_camera_status', (data) => {
       setPartnerCameraOff(data.isVideoOff);
+    });
+
+    onSocket('media_state_change', (data) => {
+      if (data.type === 'screen_share') {
+        setPartnerScreenSharing(Boolean(data.isSharing));
+      }
     });
 
     onSocket('partner_temp_away', (data) => {
@@ -886,6 +1128,7 @@ export default function StudyRoom({ propRoomId }) {
 
     onSocket('partner_left', (data) => {
       setPartnerLeft(true);
+      setPartnerScreenSharing(false);
       addSystemMessage(data.message || 'Bạn học đã rời phòng');
     });
 
@@ -898,6 +1141,13 @@ export default function StudyRoom({ propRoomId }) {
         countdownRef.current = null;
       }
       addSystemMessage(data.message || 'Bạn học đã kết nối lại!');
+      socket.emit('camera_status', { roomId, isVideoOff: isVideoOffRef.current });
+      socket.emit('media_state_change', {
+        roomId,
+        type: 'screen_share',
+        isSharing: Boolean(screenStreamRef.current),
+      });
+      restartWebRTC();
     });
 
     onSocket('auto_disconnect_warning', (data) => {
@@ -952,9 +1202,10 @@ export default function StudyRoom({ propRoomId }) {
       if (room.messages) setMessages(room.messages);
 
       // Extract partner info from room data (fallback if location.state is missing)
-      if (!partner && room.users) {
+      if (!partnerRef.current && room.users) {
         const partnerData = room.users.find(u => u.socketId !== socket.id);
         if (partnerData) {
+          partnerRef.current = partnerData.user;
           setPartner(partnerData.user);
         }
       }
@@ -962,9 +1213,7 @@ export default function StudyRoom({ propRoomId }) {
       // Sau khi join room thành công → chờ 2s rồi bắt đầu WebRTC
       // Delay đảm bảo cả 2 bên đã join room và setup listeners
       console.log('[WebRTC] Room joined, will start WebRTC in 2s...');
-      setTimeout(() => {
-        startWebRTCRef.current?.();
-      }, 2000);
+      scheduleWebRTCStart(2000);
     });
 
     onSocket('room_error', () => {
@@ -979,11 +1228,18 @@ export default function StudyRoom({ propRoomId }) {
       setConnected(true);
       setReconnecting(false);
       socket.emit('join_room', { roomId });
+      socket.emit('camera_status', { roomId, isVideoOff: isVideoOffRef.current });
+      socket.emit('media_state_change', {
+        roomId,
+        type: 'screen_share',
+        isSharing: Boolean(screenStreamRef.current),
+      });
     });
 
     // === FRIEND STATUS UPDATES ===
     onSocket('friend:request_accepted', (data) => {
-      const partnerId = partner?.userId || partner?.id || partner?._id;
+      const currentPartner = partnerRef.current;
+      const partnerId = currentPartner?.userId || currentPartner?.id || currentPartner?._id;
       if (data.friend?._id === partnerId) {
         setFriendStatus('accepted');
         addSystemMessage('Bạn và đối phương đã trở thành bạn bè! 🎉');
@@ -991,7 +1247,8 @@ export default function StudyRoom({ propRoomId }) {
     });
 
     onSocket('friend:request_received', (data) => {
-      const partnerId = partner?.userId || partner?.id || partner?._id;
+      const currentPartner = partnerRef.current;
+      const partnerId = currentPartner?.userId || currentPartner?.id || currentPartner?._id;
       if (data.requester?._id === partnerId) {
         setFriendStatus('pending_received');
         setFriendshipId(data.friendshipId);
@@ -1080,9 +1337,12 @@ export default function StudyRoom({ propRoomId }) {
       if (countdownRef.current) {
         clearInterval(countdownRef.current);
       }
-      socket.emit('user_temp_away', { roomId });
     };
-  }, [roomId, navigate, user, addSystemMessage, partner, isVideoOff, creditStudyTime]);
+  }, [roomId, navigate, addSystemMessage, creditStudyTime, restartWebRTC, scheduleWebRTCStart]);
+
+  useEffect(() => () => {
+    getSocket()?.emit('user_temp_away', { roomId });
+  }, [roomId]);
 
   const sendMessage = (e) => {
     e.preventDefault();
@@ -1160,6 +1420,30 @@ export default function StudyRoom({ propRoomId }) {
     const date = new Date(timestamp);
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   };
+
+  const togglePartnerShareFullscreen = useCallback(() => {
+    setIsPartnerShareFullscreen((current) => !current);
+  }, []);
+
+  useEffect(() => {
+    if (!isPartnerShareFullscreen) return undefined;
+
+    const previousOverflow = document.body.style.overflow;
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') setIsPartnerShareFullscreen(false);
+    };
+
+    document.body.style.overflow = 'hidden';
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isPartnerShareFullscreen]);
+
+  useEffect(() => {
+    if (!partnerScreenSharing) setIsPartnerShareFullscreen(false);
+  }, [partnerScreenSharing]);
 
   return (
     <div className="study-room">
@@ -1401,13 +1685,16 @@ export default function StudyRoom({ propRoomId }) {
           <div className="video-grid">
 
             {/* Partner Video Card */}
-            <div className="video-card partner-video">
+            <div
+              ref={partnerVideoCardRef}
+              className={`video-card partner-video ${isPartnerShareFullscreen ? 'share-fullscreen' : ''}`}
+            >
               {/* Thẻ video ẩn đi nếu chưa có luồng, nhưng luôn render để gắn ref */}
               <video
                 ref={partnerVideoRef}
                 autoPlay
                 playsInline
-                className="video-element"
+                className={`video-element ${partnerScreenSharing ? 'screen-share-video' : ''}`}
               />
 
               {partnerTempAway && partner && (
@@ -1431,7 +1718,7 @@ export default function StudyRoom({ propRoomId }) {
                 </div>
               )}
 
-              {partner && (
+              {partner && !partnerScreenSharing && (
                 <div 
                   className="video-hover-profile-overlay"
                   onClick={() => handleOpenProfile(partner?.userId || partner?.id || partner?._id)}
@@ -1451,7 +1738,7 @@ export default function StudyRoom({ propRoomId }) {
 
 
 
-              {(partnerCameraOff || !partnerHasVideo) && (
+              {shouldShowVideoFallback(partnerCameraOff, partnerScreenSharing, partnerHasVideo) && (
                 partnerLeft ? (
                   <div className="video-offline">
                     <div 
@@ -1505,6 +1792,19 @@ export default function StudyRoom({ propRoomId }) {
                   </div>
                 )
               )}
+
+              {partnerScreenSharing && partnerHasVideo && (
+                <button
+                  type="button"
+                  className="share-fullscreen-btn"
+                  onClick={togglePartnerShareFullscreen}
+                  aria-label={isPartnerShareFullscreen ? 'Thoát toàn màn hình' : 'Mở toàn màn hình'}
+                  aria-pressed={isPartnerShareFullscreen}
+                  title={isPartnerShareFullscreen ? 'Thoát toàn màn hình' : 'Mở rộng màn hình chia sẻ'}
+                >
+                  {isPartnerShareFullscreen ? <FiMinimize2 size={20} /> : <FiMaximize2 size={20} />}
+                </button>
+              )}
             </div>
 
             {/* Self Video Card */}
@@ -1514,7 +1814,7 @@ export default function StudyRoom({ propRoomId }) {
                 autoPlay
                 playsInline
                 muted
-                className="video-element"
+                className={`video-element ${isScreenSharing ? 'screen-share-video' : ''}`}
               />
 
               {user && (
@@ -1537,7 +1837,7 @@ export default function StudyRoom({ propRoomId }) {
 
 
 
-              {isVideoOff && (
+              {shouldShowVideoFallback(isVideoOff, isScreenSharing) && (
                 <div className="video-offline">
                   <div 
                     className={`avatar-decor-wrapper ${selfDecors.wrapper}`} 
@@ -1561,7 +1861,7 @@ export default function StudyRoom({ propRoomId }) {
                 onClick={() => handleOpenProfile(user?.id || user?.userId || user?._id)}
                 title="Chỉnh sửa thông tin cá nhân"
               >
-                Bạn {isMuted && <span className="muted-icon">🔇</span>}
+                Bạn {isScreenSharing && <span className="screen-share-label">Đang chia sẻ</span>} {isMuted && <span className="muted-icon">🔇</span>}
               </div>
             </div>
 
@@ -1593,19 +1893,23 @@ export default function StudyRoom({ propRoomId }) {
                   setShowPermissionPopup(true);
                   return;
                 }
-                const newVideoOff = !isVideoOff;
-                if (streamRef.current) {
-                  streamRef.current.getVideoTracks().forEach(track => track.enabled = !newVideoOff);
-                }
-                setIsVideoOff(newVideoOff);
-                
-                const socket = getSocket();
-                socket.emit('camera_status', { roomId, isVideoOff: newVideoOff });
+                toggleCamera();
               }}
               title={permissionDenied ? "Camera bị chặn — nhấn để cấp quyền" : isVideoOff ? "Bật Camera" : "Tắt Camera"}
             >
               {isVideoOff ? <VideoOffIcon /> : <VideoIcon />}
               {permissionDenied && <span className="control-badge"><WarningIcon /></span>}
+            </button>
+            <button
+              className={`control-btn ${isScreenSharing ? 'screen-sharing' : 'active'}`}
+              onClick={() => {
+                void (isScreenSharing ? stopScreenShare() : startScreenShare());
+              }}
+              disabled={isScreenSharePending}
+              aria-pressed={isScreenSharing}
+              title={isScreenSharing ? 'Dừng chia sẻ màn hình' : 'Chia sẻ màn hình'}
+            >
+              <FiMonitor size={20} />
             </button>
             <button
               className="control-btn active"
@@ -2037,7 +2341,7 @@ export default function StudyRoom({ propRoomId }) {
           <div style={{ flex: 1, display: 'flex', gap: '8px', minHeight: 0, marginBottom: '12px' }}>
             {/* Partner video card in PiP */}
             <div style={{ flex: 1, position: 'relative', background: '#14151f', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {partnerCameraOff ? (
+              {shouldShowVideoFallback(partnerCameraOff, partnerScreenSharing, partnerHasVideo) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                   <img 
                     src={partner?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${partner?.username}`} 
@@ -2050,17 +2354,17 @@ export default function StudyRoom({ propRoomId }) {
                   ref={el => { if (el && partnerVideoRef.current && el.srcObject !== partnerVideoRef.current.srcObject) el.srcObject = partnerVideoRef.current.srcObject; }} 
                   autoPlay 
                   playsInline 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  style={{ width: '100%', height: '100%', objectFit: partnerScreenSharing ? 'contain' : 'cover' }}
                 />
               )}
               <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>
-                {partner?.username || 'Bạn học'}
+                {partner?.username || 'Bạn học'} {partnerScreenSharing && '• Đang chia sẻ'}
               </div>
             </div>
 
             {/* Self video card in PiP */}
             <div style={{ flex: 1, position: 'relative', background: '#14151f', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {isVideoOff ? (
+              {shouldShowVideoFallback(isVideoOff, isScreenSharing) ? (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                   <img 
                     src={user?.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.username}`} 
@@ -2070,15 +2374,15 @@ export default function StudyRoom({ propRoomId }) {
                 </div>
               ) : (
                 <video 
-                  ref={el => { if (el && localVideoRef.current && el.srcObject !== localVideoRef.current.srcObject) el.srcObject = localVideoRef.current.srcObject; }} 
+                  ref={el => { const source = screenStreamRef.current || streamRef.current; if (el && el.srcObject !== source) el.srcObject = source; }}
                   autoPlay 
                   playsInline 
                   muted 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  style={{ width: '100%', height: '100%', objectFit: isScreenSharing ? 'contain' : 'cover' }}
                 />
               )}
               <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', padding: '3px 8px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>
-                Bạn {isMuted && '🔇'}
+                Bạn {isScreenSharing && '• Đang chia sẻ'} {isMuted && '🔇'}
               </div>
             </div>
           </div>
@@ -2113,15 +2417,7 @@ export default function StudyRoom({ propRoomId }) {
 
             {/* Toggle Cam */}
             <button 
-              onClick={() => {
-                const newVideoOff = !isVideoOff;
-                if (streamRef.current) {
-                  streamRef.current.getVideoTracks().forEach(track => track.enabled = !newVideoOff);
-                }
-                setIsVideoOff(newVideoOff);
-                const socket = getSocket();
-                socket.emit('camera_status', { roomId, isVideoOff: newVideoOff });
-              }}
+              onClick={toggleCamera}
               style={{
                 background: isVideoOff ? '#fa5252' : 'rgba(255, 255, 255, 0.1)',
                 border: 'none',
@@ -2138,6 +2434,37 @@ export default function StudyRoom({ propRoomId }) {
               title={isVideoOff ? "Bật Camera" : "Tắt Camera"}
             >
               <VideoIcon />
+            </button>
+
+            {/* Toggle Screen Share */}
+            <button
+              onClick={(event) => {
+                if (isScreenSharing) {
+                  void stopScreenShare();
+                  return;
+                }
+                const mediaDevices = event.currentTarget.ownerDocument.defaultView?.navigator?.mediaDevices;
+                void startScreenShare(mediaDevices);
+              }}
+              disabled={isScreenSharePending}
+              aria-pressed={isScreenSharing}
+              style={{
+                background: isScreenSharing ? '#2f9e44' : 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '50%',
+                width: '34px',
+                height: '34px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: isScreenSharePending ? 'wait' : 'pointer',
+                color: 'white',
+                opacity: isScreenSharePending ? 0.6 : 1,
+                transition: 'all 0.2s'
+              }}
+              title={isScreenSharing ? 'Dừng chia sẻ màn hình' : 'Chia sẻ màn hình'}
+            >
+              <FiMonitor size={16} />
             </button>
 
             {/* Close PiP button */}
