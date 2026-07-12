@@ -260,6 +260,60 @@
   display: none;
 }
 
+.video-element.screen-share-video {
+  object-fit: contain;
+  background: #080a10;
+}
+
+.partner-video.share-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  width: 100vw;
+  height: 100dvh;
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  background: #080a10;
+  contain: strict;
+}
+
+.partner-video.share-fullscreen .video-element {
+  border-radius: 0;
+  object-fit: contain;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+.share-fullscreen-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 50;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 6px;
+  background: rgba(8, 10, 16, 0.78);
+  color: #fff;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.share-fullscreen-btn:hover {
+  background: rgba(47, 158, 68, 0.92);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.share-fullscreen-btn:focus-visible {
+  outline: 2px solid #69db7c;
+  outline-offset: 2px;
+}
+
 .video-offline {
   position: absolute;
   inset: 0;
@@ -356,6 +410,11 @@
   font-size: 16px;
 }
 
+.screen-share-label {
+  color: #69db7c;
+  font-size: 12px;
+}
+
 /* Control Bar */
 .control-bar {
   display: flex;
@@ -399,6 +458,21 @@
 
 .control-btn.danger:hover {
   background: rgba(239, 68, 68, 0.3);
+}
+
+.control-btn.screen-sharing {
+  background: #2f9e44;
+  color: white;
+}
+
+.control-btn.screen-sharing:hover {
+  background: #2b8a3e;
+}
+
+.control-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+  transform: none;
 }
 
 .end-call-btn {

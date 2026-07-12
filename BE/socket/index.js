@@ -158,6 +158,26 @@ function getAuthorizedRoom(socket, roomId, requireJoined = false) {
   return room;
 }
 
+function normalizeScreenShareState(data) {
+  if (
+    !data ||
+    typeof data !== 'object' ||
+    Array.isArray(data) ||
+    typeof data.roomId !== 'string' ||
+    !data.roomId ||
+    data.type !== 'screen_share' ||
+    typeof data.isSharing !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return {
+    roomId: data.roomId,
+    type: 'screen_share',
+    isSharing: data.isSharing,
+  };
+}
+
 async function refundQuotaReservations(quotaService, reservations) {
   await Promise.allSettled(
     reservations
@@ -559,6 +579,11 @@ function setupSocket(io) {
         return;
       }
 
+      if (getAuthorizedRoom(socket, roomId, true)) {
+        socket.emit('room_data', room);
+        return;
+      }
+
       const reconnectResult = matchmaking.reconnectUser(roomId, userId, socket.id);
       if (!reconnectResult) {
         socket.emit('room_error', { message: 'Bạn không phải thành viên của phòng này' });
@@ -643,10 +668,13 @@ function setupSocket(io) {
     });
 
     socket.on('media_state_change', (data) => {
-      const { roomId } = data;
-      if (getAuthorizedRoom(socket, roomId, true)) {
-        console.log(`[Media] Relaying state change in room ${roomId} from ${socket.id}`);
-        socket.to(roomId).emit('media_state_change', data);
+      const state = normalizeScreenShareState(data);
+      if (state && getAuthorizedRoom(socket, state.roomId, true)) {
+        console.log(`[Media] Relaying state change in room ${state.roomId} from ${socket.id}`);
+        socket.to(state.roomId).emit('media_state_change', {
+          type: state.type,
+          isSharing: state.isSharing,
+        });
       }
     });
 
@@ -969,6 +997,7 @@ function setupSocket(io) {
 
 module.exports = setupSocket;
 module.exports.getAuthorizedRoom = getAuthorizedRoom;
+module.exports.normalizeScreenShareState = normalizeScreenShareState;
 module.exports.RoomInvitationStore = RoomInvitationStore;
 module.exports.RoomInvitationError = RoomInvitationError;
 module.exports.reserveMatchQuotas = reserveMatchQuotas;

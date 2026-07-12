@@ -24,6 +24,12 @@ class UserDto {
       ratingCount: user.ratingCount,
       totalStudyMinutes: user.totalStudyMinutes,
       streak: user.streak,
+      nickname: user.nickname || '',
+      bio: user.bio || '',
+      interests: user.interests || [],
+      themeColor: user.themeColor || '#7c3aed',
+      themeGradient: user.themeGradient || 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+      banner: user.banner || '',
       badges: user.badges,
     };
   }

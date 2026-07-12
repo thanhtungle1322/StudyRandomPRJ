@@ -5,6 +5,7 @@ import api from '../services/api';
 import { FiCheckCircle, FiAlertTriangle, FiSave, FiLock, FiStar, FiArrowLeft } from 'react-icons/fi';
 import { FiLoader } from 'react-icons/fi';
 import backgroundLogin from '../../background/backgroundLogin.webp';
+import { calculateCoverCrop } from '../utils/profileImage';
 import './LoginPage.css';
 import './ProfilePage.css';
 
@@ -93,14 +94,19 @@ export default function ProfilePage() {
 
   const handleCropSave = () => {
     const img = new Image();
-    img.src = cropModal.imageSrc;
     img.onload = () => {
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        setProfileMsg('Trình duyệt không thể xử lý ảnh này.');
+        return;
+      }
 
       // Target size
       const targetWidth = cropModal.type === 'avatar' ? 250 : 600;
       const targetHeight = cropModal.type === 'avatar' ? 250 : 200;
+      const previewWidth = cropModal.type === 'avatar' ? 160 : 300;
+      const previewHeight = cropModal.type === 'avatar' ? 160 : 100;
 
       canvas.width = targetWidth;
       canvas.height = targetHeight;
@@ -109,28 +115,19 @@ export default function ProfilePage() {
       ctx.fillStyle = '#14151f';
       ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-      // Image original dimensions
-      const iw = img.width;
-      const ih = img.height;
+      const crop = calculateCoverCrop({
+        sourceWidth: img.naturalWidth,
+        sourceHeight: img.naturalHeight,
+        targetWidth,
+        targetHeight,
+        previewWidth,
+        previewHeight,
+        scale: cropModal.scale,
+        offsetX: cropModal.offsetX,
+        offsetY: cropModal.offsetY,
+      });
 
-      // Draw image using scale and offsets
-      const aspect = iw / ih;
-      const targetAspect = targetWidth / targetHeight;
-
-      let drawWidth, drawHeight;
-      if (aspect > targetAspect) {
-        drawHeight = targetHeight * cropModal.scale;
-        drawWidth = drawHeight * aspect;
-      } else {
-        drawWidth = targetWidth * cropModal.scale;
-        drawHeight = drawWidth / aspect;
-      }
-
-      // Default centered coordinates plus slider offsets
-      const x = (targetWidth - drawWidth) / 2 + cropModal.offsetX;
-      const y = (targetHeight - drawHeight) / 2 + cropModal.offsetY;
-
-      ctx.drawImage(img, x, y, drawWidth, drawHeight);
+      ctx.drawImage(img, crop.x, crop.y, crop.width, crop.height);
 
       const croppedBase64 = canvas.toDataURL('image/jpeg', 0.85);
       
@@ -142,6 +139,11 @@ export default function ProfilePage() {
 
       setCropModal({ isOpen: false, imageSrc: '', type: 'avatar', scale: 1.0, offsetX: 0, offsetY: 0 });
     };
+    img.onerror = () => {
+      setProfileMsg('Định dạng ảnh không được trình duyệt hỗ trợ. Hãy chọn ảnh JPG, PNG hoặc WebP.');
+      setCropModal({ isOpen: false, imageSrc: '', type: 'avatar', scale: 1.0, offsetX: 0, offsetY: 0 });
+    };
+    img.src = cropModal.imageSrc;
   };
 
   const handleUpdateProfile = async (e) => {
@@ -173,6 +175,7 @@ export default function ProfilePage() {
 
       if (data.success) {
         setProfileMsg('Cập nhật thành công!');
+        setBanner(data.user.banner || '');
         login({
           ...user,
           displayName: data.user.displayName,
@@ -441,10 +444,11 @@ export default function ProfilePage() {
                 {/* Live Banner */}
                 <div
                   className="live-preview-banner"
-                  style={{
-                    backgroundImage: banner ? `url(${banner})` : 'none',
-                    background: !banner ? themeGradient : undefined
-                  }}
+                  style={banner
+                    ? { backgroundImage: `url("${banner}")` }
+                    : themeGradient.startsWith('#')
+                      ? { backgroundColor: themeGradient }
+                      : { backgroundImage: themeGradient }}
                 >
                   <div className="live-preview-avatar">
                     <img
@@ -633,7 +637,7 @@ export default function ProfilePage() {
                 </div>
                 <input 
                   type="range"
-                  min="0.5"
+                  min="1"
                   max="3"
                   step="0.05"
                   value={cropModal.scale}
