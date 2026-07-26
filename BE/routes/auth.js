@@ -64,6 +64,7 @@ router.post('/logout', authenticateToken, authController.logout);
 /**
  * GET /api/auth/user/:id
  * Lấy thông tin user (public)
+ * @param id User identifier
  * @returns {200} User profile retrieved
  * @returns {404} Not Found - User does not exist
  * @returns {500} Server Error
