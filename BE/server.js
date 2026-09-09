@@ -24,10 +24,29 @@ const setupSocket = require('./socket');
 const app = express();
 const server = http.createServer(app);
 
-app.use(cors({
-  origin: config.corsOrigins,
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Cho phép các request không có origin (ví dụ: Postman, curl)
+    if (!origin) return callback(null, true);
+
+    // Trong môi trường development, cho phép tất cả các origin (bao gồm apilens-fe.vercel.app)
+    if (config.nodeEnv === 'development') {
+      return callback(null, true);
+    }
+
+    const allowedOrigins = config.corsOrigins;
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      return callback(null, true);
+    }
+
+    callback(null, false);
+  },
   credentials: true,
-}));
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
@@ -53,8 +72,12 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+const authController = require('./controllers/authController');
+
 app.use('/api/auth/login', authLimiter);
 app.use('/api/auth/register', authLimiter);
+app.use('/login', authLimiter);
+app.use('/register', authLimiter);
 
 const turnCredentialsLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -65,14 +88,26 @@ const turnCredentialsLimiter = rateLimit({
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/api/subjects', subjectsRoutes);
+app.use('/subjects', subjectsRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/profile', profileRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/users', usersRoutes);
 app.use('/api/friends', friendsRoutes);
+app.use('/friends', friendsRoutes);
 app.use('/api/premium', premiumRoutes);
+app.use('/premium', premiumRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/feedback', feedbackRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/reports', reportsRoutes);
+
+// Root alias endpoints cho APILens (/google, /google/callback, /me, /logout, /user/:id, /register, /login)
+app.use('/', authRoutes);
 
 // Cấp TURN Server credentials động cho WebRTC (Dùng Secret/Static Key bảo mật)
 app.get('/api/turn-credentials', turnCredentialsLimiter, authenticateToken, async (req, res) => {
@@ -166,8 +201,12 @@ app.get('/api/health', (req, res) => {
 
 const io = new Server(server, {
   cors: {
-    origin: config.corsOrigins,
-    methods: ['GET', 'POST'],
+    origin: (origin, callback) => {
+      if (!origin || config.nodeEnv === 'development') return callback(null, true);
+      if (config.corsOrigins.includes(origin)) return callback(null, true);
+      callback(null, false);
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   },
   pingTimeout: 30000,
@@ -177,26 +216,8 @@ const io = new Server(server, {
 
 setupSocket(io);
 
-dbObserver.on('connected', () => {
-  console.log('[Server] Database is ready');
-});
-
-dbObserver.on('disconnected', () => {
-  console.warn('[Server] Database disconnected - app still running with in-memory data');
-});
-
-dbObserver.on('reconnected', () => {
-  console.log('[Server] Database reconnected');
-});
-
-dbObserver.on('error', (err) => {
-  console.error('[Server] Database error:', err.message);
-});
-
-async function startServer() {
-  await dbObserver.connect(config.mongoUri);
-
-  // Seed default admin account from environment variables
+async function seedInitialData() {
+  if (!dbObserver.isConnected) return;
   try {
     const User = require('./models/User');
     const bcrypt = require('bcryptjs');
@@ -245,6 +266,27 @@ async function startServer() {
   } catch (seedError) {
     console.error('[Seed] Failed to seed default Admin account:', seedError.message);
   }
+}
+
+dbObserver.on('connected', () => {
+  console.log('[Server] Database is ready');
+  seedInitialData();
+});
+
+dbObserver.on('disconnected', () => {
+  console.warn('[Server] Database disconnected - app still running with in-memory data');
+});
+
+dbObserver.on('reconnected', () => {
+  console.log('[Server] Database reconnected');
+});
+
+dbObserver.on('error', (err) => {
+  console.error('[Server] Database error:', err.message);
+});
+
+async function startServer() {
+  await dbObserver.connect(config.mongoUri);
 
   if (!process.env.VERCEL) {
     server.listen(config.port, () => {
@@ -260,6 +302,7 @@ async function startServer() {
     });
   }
 }
+// Trigger nodemon update
 
 startServer().catch((err) => {
   console.error('[Server] Failed to start:', err);

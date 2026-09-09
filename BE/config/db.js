@@ -1,5 +1,13 @@
 const mongoose = require('mongoose');
 const EventEmitter = require('events');
+const dns = require('dns');
+
+// Fallback DNS servers (Google / Cloudflare DNS) để tránh lỗi querySrv ECONNREFUSED trên một số DNS nhà mạng / Windows
+try {
+  dns.setServers(['8.8.8.8', '1.1.1.1', '8.8.4.4']);
+} catch (dnsErr) {
+  console.warn('[MongoDB] Custom DNS setServers failed:', dnsErr.message);
+}
 
 /**
  * DatabaseObserver - Observer Pattern cho MongoDB connection

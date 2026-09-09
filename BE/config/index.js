@@ -27,9 +27,12 @@ module.exports = {
 
   get corsOrigins() {
     const urls = this.clientUrl.split(',').map((u) => u.trim());
+    if (!urls.includes('https://apilens-fe.vercel.app')) {
+      urls.push('https://apilens-fe.vercel.app');
+    }
     // Trong development, luôn thêm các port localhost thông dụng để tránh lỗi CORS khi đổi port
     if (this.nodeEnv === 'development') {
-      const devPorts = ['5173', '5174', '5175', '5176'];
+      const devPorts = ['5173', '5174', '5175', '5176', '3000', '8080'];
       devPorts.forEach(port => {
         const origin = `http://localhost:${port}`;
         if (!urls.includes(origin)) {

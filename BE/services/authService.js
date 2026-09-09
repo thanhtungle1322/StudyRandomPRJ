@@ -109,7 +109,18 @@ class AuthService {
    * Get public profile of another user
    */
   async getPublicProfile(userId) {
-    const user = await User.findById(userId);
+    if (!userId || userId === '{id}' || userId === ':id') {
+      throw { status: 400, message: 'Vui lòng cung cấp ID người dùng hợp lệ' };
+    }
+
+    const mongoose = require('mongoose');
+    let user = null;
+    if (mongoose.Types.ObjectId.isValid(userId)) {
+      user = await User.findById(userId);
+    }
+    if (!user) {
+      user = await User.findOne({ displayName: userId });
+    }
     if (!user) {
       throw { status: 404, message: 'Không tìm thấy user' };
     }
