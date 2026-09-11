@@ -63,7 +63,7 @@ class AuthController {
   }
 
   /**
-   * Logout
+   * L
    */
   async logout(req, res) {
     try {
