@@ -86,6 +86,13 @@ StudyRandomPRJ/
 
 ## 🎯 Hướng dẫn test
 
+### ACVIS clean push probe
+
+Commit kiểm tra tiếp nhận push chỉ bổ sung ghi chú trong `BE/routes/subjects.js`
+và tài liệu này. Không thêm mẫu lỗ hổng hoặc thay đổi hành vi ứng dụng. Đối chiếu
+SHA commit với Scan Job trong ACVIS hoặc Check Run `ACVIS Security Merge Gate`
+trên GitHub trước khi tạo từng mẫu benchmark.
+
 1. Mở 2 terminal, chạy BE và FE
 2. Mở 2 tab trình duyệt
 3. Đăng nhập với 2 tên khác nhau
