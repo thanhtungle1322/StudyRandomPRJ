@@ -93,6 +93,10 @@ và tài liệu này. Không thêm mẫu lỗ hổng hoặc thay đổi hành vi
 SHA commit với Scan Job trong ACVIS hoặc Check Run `ACVIS Security Merge Gate`
 trên GitHub trước khi tạo từng mẫu benchmark.
 
+Lần thử tiếp theo dùng cú pháp `router.route('/').get(...)` cho cùng endpoint
+`GET /api/subjects`, giữ nguyên controller và response. Diff này có thay đổi
+câu lệnh JavaScript thực sự, không chỉ thay đổi ghi chú.
+
 1. Mở 2 terminal, chạy BE và FE
 2. Mở 2 tab trình duyệt
 3. Đăng nhập với 2 tên khác nhau

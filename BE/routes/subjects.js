@@ -7,6 +7,6 @@ const router = express.Router();
  * Lấy danh sách môn học
  * ACVIS clean push probe: keep the existing controller and route behavior.
  */
-router.get('/', subjectController.getSubjects);
+router.route('/').get(subjectController.getSubjects);
 
 module.exports = router;
